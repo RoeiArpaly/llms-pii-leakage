@@ -6,7 +6,7 @@ from data_manipulation.constants import (
 )
 
 
-def emojify_pii(text: str, spans: list, proba=1) -> str:
+def emojify_pii(text: str, spans: list, proba: float = 1.0) -> str:
     """
     Replacing all numbers and alphabet characters with corresponding emojis.
 
@@ -28,10 +28,11 @@ def emojify_pii(text: str, spans: list, proba=1) -> str:
     for span in spans:
         start, end = span["start"], span["end"]
         for i in range(start, end):
-            char = text[i]
-            key = char.lower() if random.random() < proba else None
-            if char.isalpha():
-                text[i] = ALPHABET_EMOJI_MAP.get(key, char)
-            elif char.isdigit():
-                text[i] = NUMBER_EMOJI_MAP.get(key, char)
+            if i < len(text):
+                char = text[i]
+                key = char.lower() if random.random() < proba else None
+                if char.isalpha():
+                    text[i] = ALPHABET_EMOJI_MAP.get(key, char)
+                elif char.isdigit():
+                    text[i] = NUMBER_EMOJI_MAP.get(key, char)
     return "".join(text)
