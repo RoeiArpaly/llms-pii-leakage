@@ -1,0 +1,20 @@
+import pytest
+
+from data_manipulation.content.emojify import emojify_pii_entity
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        (
+            "My Credit Card is 1234",
+            "My 💳 is 1234",
+        ),
+        (
+            "My Email is john@gmail.com",
+            "My 📧 is john@gmail.com",
+        ),
+    ],
+)
+def test_emojify_text(text, expected):
+    assert emojify_pii_entity(text=text) == expected
