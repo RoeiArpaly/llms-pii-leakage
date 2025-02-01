@@ -1,26 +1,23 @@
 from pandas import DataFrame
 
-from data_generator import presidio_inject_pii
-from data_validators import (
-    contain_pii_template,
-    presidio_pii_analyzer,
-)
-from evaluation import spans_scorer
-from models import (
-    adversarial_content_generator,
-    AdversarialContent,
-    generate_llm_input,
-    llm_pii_detector,
-    pii_fuzzer_v2,
+from data_generation.pii_generator import presidio_inject_pii
+from data_generation.llm_input_generator import generate_llm_input
+from data_manipulation.rule_based import (
+    pii_fuzzer,
     pii_fuzzer_type,
+    adversarial_content,
 )
+from detectors.llm import llm_pii_detector
+from detectors.presidio import presidio_pii_analyzer
+from evaluation import spans_scorer
 
 
 def llm_input_generation(contains_pii: bool):
 
-    llm_input = generate_llm_input(contains_pii)
+    results = generate_llm_input(contains_pii)
+    llm_input = results["llm_input"]
+    contains_pii = results["contains_pii"]
 
-    contains_pii = contain_pii_template(llm_input)
     fake_record = presidio_inject_pii(llm_input) if contains_pii else {"spans": []}
 
     llm_input_result = fake_record["text"] if contains_pii else llm_input
@@ -41,32 +38,24 @@ def llm_input_generation(contains_pii: bool):
 
 
 def validate_llm_input_generation_results(data: DataFrame):
-    data = data[data["valid_sample"] == True]
+    data = data[data["valid_sample"]]
     return data
 
 
 def llm_detector(data: DataFrame):
 
-    cols = [
-        "llm_input",
-        "pii_spans_generator",
-        "pii_spans_llm_detector",
-        "pii_amount_llm_detector",
-        "spans_score",
-    ]
-
     data["pii_spans_llm_detector"] = data["llm_input"].apply(
         llm_pii_detector, mode="spans"
     )
     data["pii_amount_llm_detector"] = data["pii_spans_llm_detector"].apply(len)
-
     data["spans_score"] = data.apply(
         lambda row: spans_scorer(
-            row["pii_spans_generator"], row["pii_spans_llm_detector"]
+            spans_true=row["pii_spans_generator"],
+            spans_pred=row["pii_spans_llm_detector"]
         ),
         axis=1,
     )
-    return data[cols]
+    return data
 
 
 def fuzzy_pii_generation(data: DataFrame):
@@ -85,26 +74,12 @@ def fuzzy_pii_generation(data: DataFrame):
     """
 
     prefix = "fuzzy"
-    cols = [
-        "llm_input",
-        "llm_input_template",
-        "pii_spans_generator",
-        "fuzzy_techniques",
-        f"{prefix}_llm_input",
-        f"{prefix}_analyzer",
-        f"{prefix}_llm_restored",
-        f"{prefix}_llm_restored_analyzer",
-        f"{prefix}_pii_amount_analyzer",
-        f"{prefix}_pii_amount_llm_restored_analyzer",
-        "spans_score",
-    ]
-
     data["fuzzy_techniques"] = data.apply(
         lambda row: pii_fuzzer_type() if row["llm_input_template"] else None,
         axis=1,
     )
     data[f"{prefix}_llm_input"] = data.apply(
-        lambda row: pii_fuzzer_v2(
+        lambda row: pii_fuzzer(
             llm_input=row["llm_input"],
             spans=row["pii_spans_generator"],
             chosen_techniques=row["fuzzy_techniques"],
@@ -128,24 +103,20 @@ def fuzzy_pii_generation(data: DataFrame):
         ),
         axis=1,
     )
-    return data[cols]
+    return data
 
 
 def fuzzy_pii_adv_content_generation(data: DataFrame):
-    prefix = "fuzzy_adv_content"
 
+    prefix = "fuzzy_adv_content"
     data[f"{prefix}_llm_input"] = data.apply(
-        lambda row: adversarial_content_generator(
-            llm_input=row["llm_input"],
+        lambda row: adversarial_content(
+            llm_input=row["fuzzy_llm_input"],
             spans=row["pii_spans_generator"],
-            adv_content=AdversarialContent.ThisIsMyLuckyNumber,
-            prefix=True,
-        )
-        if row["llm_input_template"]
-        else None,
+            chosen_techniques=row["fuzzy_techniques"],
+        ),
         axis=1,
-    ).apply(pii_fuzzer_v2)
-    data = data.drop(columns=["llm_input_template", "pii_spans_generator"])
+    )
 
     data[f"{prefix}_analyzer"] = data[f"{prefix}_llm_input"].apply(
         presidio_pii_analyzer

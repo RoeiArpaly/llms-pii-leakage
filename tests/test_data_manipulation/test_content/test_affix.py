@@ -1,6 +1,6 @@
 import pytest
 
-from models import adversarial_content_generator
+from data_manipulation.content.affix import adversarial_affix
 
 
 @pytest.fixture
@@ -30,7 +30,7 @@ def sample_data():
         (
             "llm_input",
             "spans",
-            "ADVERSARIAL_CONTENT ",
+            "ADVERSARIAL_CONTENT",
             True,
             "My phone number is ADVERSARIAL_CONTENT 180087335977780"
             " and my IBAN is ADVERSARIAL_CONTENT DE89370400440532013000",
@@ -38,14 +38,14 @@ def sample_data():
         (
             "llm_input",
             "spans",
-            " ADVERSARIAL_CONTENT",
+            "ADVERSARIAL_CONTENT",
             False,
             "My phone number is 180087335977780 ADVERSARIAL_CONTENT"
             " and my IBAN is DE89370400440532013000 ADVERSARIAL_CONTENT",
         ),
     ],
 )
-def test_adversarial_content_generator_parametrized(
+def test_adversarial_affix(
     sample_data,
     llm_input,
     spans,
@@ -54,7 +54,7 @@ def test_adversarial_content_generator_parametrized(
     expected,
 ):
     assert (
-        adversarial_content_generator(
+        adversarial_affix(
             llm_input=sample_data["llm_input"],
             spans=sample_data["spans"],
             adv_content=adv_content,

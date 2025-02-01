@@ -2,7 +2,7 @@ import json
 
 from presidio_evaluator.data_generator import PresidioDataGenerator
 
-from utils.validators import luhn_verify
+from data_generation.data_validators import luhn_verify
 
 
 def presidio_inject_pii(text: str):
@@ -19,8 +19,5 @@ def presidio_inject_pii(text: str):
     spans = sorted(spans, key=lambda x: x["start"])  # Align with Presidio Analyzer
     for span in spans:
         if span["type"] == "credit_card_number":
-            credit_card = span["value"]
-            if not luhn_verify(string=credit_card):
-                raise ValueError(f"Invalid credit card number: {span['value']}")
-
+            luhn_verify(string=span["value"])
     return {"text": fake_records["fake"], "spans": spans}

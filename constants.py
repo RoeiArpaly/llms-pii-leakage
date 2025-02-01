@@ -1,2 +1,6 @@
-PII_PROBABILITY = 0.5
-NUMBER_OF_SAMPLES = 5
+PII_ENTITIES = [
+    "credit_card_number",
+    "iban",
+    "ssn",
+    "phone_number",
+]
