@@ -1,0 +1,4 @@
+class Config:
+
+    PII_PROBABILITY = 0.5
+    NUMBER_OF_SAMPLES = 5
