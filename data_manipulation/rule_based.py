@@ -3,13 +3,17 @@ import random
 from data_manipulation.content.emojify import emojify_pii_entity
 from data_manipulation.content.affix import adversarial_affix
 from data_manipulation.pii.emojify import emojify_pii
+from data_manipulation.pii.number_to_word import number_to_word
+from data_manipulation.pii.separators import inject_separator
 
 
-def pii_fuzzer_type(n_techniques_upper=1):
+def technique_sampler(techniques: list, n_techniques_upper=1) -> list:
     """
 
     Parameters
     ----------
+    techniques : list
+        The list of PII fuzzing techniques.
     n_techniques_upper : int
         The maximum number of techniques to apply to the text.
 
@@ -18,14 +22,10 @@ def pii_fuzzer_type(n_techniques_upper=1):
     list
 
     """
-    techniques = [
-        "emojify",
-        # "number_to_word",
-        # "special_characters",
-    ]
     # randomly select 1 to n techniques
     chosen_techniques = random.sample(
-        techniques, k=random.randint(1, n_techniques_upper)
+        population=techniques,
+        k=random.randint(1, n_techniques_upper),
     )
     return chosen_techniques
 
@@ -56,9 +56,9 @@ def pii_fuzzer(llm_input, spans, chosen_techniques):
         if technique == "emojify":
             result = emojify_pii(text=result, spans=spans)
         elif technique == "number_to_word":
-            pass
-        elif technique == "special_characters":
-            pass
+            result = number_to_word(text=result, spans=spans)
+        elif technique == "separators":
+            result = inject_separator(text=result, spans=spans)
         elif technique == "chunk_password":
             pass
         elif technique == "gibberish":

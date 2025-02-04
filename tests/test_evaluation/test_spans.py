@@ -87,7 +87,7 @@ from evaluation import spans_scorer
         (
             None,
             None,
-            None,
+            {},
         ),
     ],
 )

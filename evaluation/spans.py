@@ -1,5 +1,13 @@
+import re
+
+
 def safe_divide(a, b):
     return a / b if b > 0 else 0
+
+
+def normalize_pii(value: str) -> str:
+    """Normalizes PII by removing non-alphanumeric characters and converting to lowercase."""
+    return re.sub(pattern=r"\W", repl="", string=value).lower()
 
 
 def spans_scorer(spans_true, spans_pred):
@@ -22,15 +30,15 @@ def spans_scorer(spans_true, spans_pred):
     """
 
     if not spans_true and not spans_pred:
-        return
+        return {}
 
-    if not spans_true:
+    if not isinstance(spans_true, list):
         spans_true = []
-    if not spans_pred:
+    if not isinstance(spans_pred, list):
         spans_pred = []
 
-    true_values = set([span["value"] for span in spans_true])
-    pred_values = set([span["value"] for span in spans_pred])
+    true_values = set([normalize_pii(span["value"]) for span in spans_true])
+    pred_values = set([normalize_pii(span["value"]) for span in spans_pred])
     exact_match = true_values == pred_values
 
     true_positive = len(true_values.intersection(pred_values))

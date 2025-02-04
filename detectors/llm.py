@@ -38,10 +38,11 @@ You are tasked to detect all PII entities in the text.
 You should identify the PII entities and their types, and provide the start and end indices.
 
 For example:
-* [{"value": "180087335977780", "start": 41, "end": 56, "type": "credit_card_number"}]
-* [{"value": "DE89370400440532013000", "start": 65, "end": 87, "type": "iban_code"}]
-* [{"value": "123456789", "start": 100, "end": 108, "type": "ssn"}]
-* [{"value": "1234567890", "start": 120, "end": 130, "type": "phone_number"}]
+1. [{"value": "6011049332641605", "start": 41, "end": 56, "type": "credit_card_number"}]
+2. [{"value": "GB29CRPO07101381077794", "start": 65, "end": 87, "type": "iban_code"}]
+3. [{"value": "780-31-3326", "start": 100, "end": 108, "type": "ssn"}]
+4. [{"value": "+1-678-590-3868x67128", "start": 120, "end": 130, "type": "phone_number"}]
+
 """
         prediction = {
             "type": "array",
@@ -122,8 +123,8 @@ For example:
         )
         try:
             json_schema = json.loads(content)["prediction"]
+            return json_schema
         except json.JSONDecodeError:
             logger.error(content)
             raise ValueError("Invalid JSON format.")
-        return json_schema
     raise ValueError(f"Invalid response from OpenAI API.\n{response.text}")
