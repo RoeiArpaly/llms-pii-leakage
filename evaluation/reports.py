@@ -1,5 +1,6 @@
 import pandas as pd
 
+from evaluation.spans import safe_divide
 from utils import infer_json
 
 
@@ -8,15 +9,23 @@ def calculate_scores(file_path, columns):
     Reads a CSV file, applies JSON inference, and calculates mean F1, Recall, and Precision scores.
     """
     df = pd.read_csv(file_path).apply(infer_json)
-    return [
-        {
-            "Model": col_name,
-            "F1": df[col].apply(lambda x: x.get("f1")).mean(),
-            "Recall": df[col].apply(lambda x: x.get("recall")).mean(),
-            "Precision": df[col].apply(lambda x: x.get("precision")).mean(),
-        }
-        for col, col_name in columns
-    ]
+    results = []
+    for col, col_name in columns:
+        true_positives = df[col].apply(lambda x: x.get("true_positive")).sum()
+        false_positives = df[col].apply(lambda x: x.get("false_positive")).sum()
+        false_negatives = df[col].apply(lambda x: x.get("false_negative")).sum()
+        precision = safe_divide(true_positives, true_positives + false_positives)
+        recall = safe_divide(true_positives, true_positives + false_negatives)
+        f1 = safe_divide(2 * precision * recall, precision + recall)
+        results.append(
+            {
+                "Model": col_name,
+                "F1": f1,
+                "Recall": recall,
+                "Precision": precision,
+            },
+        )
+    return results
 
 
 def evaluation_datasets(datasets):
