@@ -23,9 +23,7 @@ def llm_input_generation(contains_pii: bool):
     contains_pii = results["contains_pii"]
 
     fake_record = presidio_inject_pii(llm_input) if contains_pii else {"spans": []}
-
     llm_input_result = fake_record["text"] if contains_pii else llm_input
-    pii_spans_generator = fake_record["spans"] if contains_pii else []
     pii_spans_analyzer = presidio_pii_analyzer(text=llm_input_result)
 
     return {
@@ -36,18 +34,22 @@ def llm_input_generation(contains_pii: bool):
         "pii_amount_analyzer": len(pii_spans_analyzer),
         "pii_spans_generator": fake_record["spans"] if contains_pii else [],
         "pii_spans_analyzer": pii_spans_analyzer,
-        "spans_score_analyzer": spans_scorer(
-            spans_true=pii_spans_generator,
-            spans_pred=pii_spans_analyzer,
-        ),
     }
 
 
-def llm_detector(data: DataFrame):
+def baseline(data: DataFrame):
 
     data["pii_spans_llm_detector"] = data["llm_input"].apply(llm_pii_detector, mode="spans")
     data["pii_amount_llm_detector"] = data["pii_spans_llm_detector"].apply(len)
-    data["spans_score"] = data.apply(
+
+    data["spans_score_analyzer"] = data.apply(
+        lambda row: spans_scorer(
+            spans_true=row["pii_spans_generator"],
+            spans_pred=row["pii_spans_analyzer"],
+        ),
+        axis=1,
+    )
+    data["spans_score_llm"] = data.apply(
         lambda row: spans_scorer(
             spans_true=row["pii_spans_generator"],
             spans_pred=row["pii_spans_llm_detector"],
