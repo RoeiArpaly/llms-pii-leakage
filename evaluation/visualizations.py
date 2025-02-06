@@ -40,8 +40,8 @@ def plot_model_performance(
                     continue
                 score = score_series.iloc[0]
                 ax.bar(
-                    x_pos,
-                    score,
+                    x=x_pos,
+                    height=score,
                     width=bar_width,
                     color=dataset_colors[i],
                     alpha=alpha_value,
