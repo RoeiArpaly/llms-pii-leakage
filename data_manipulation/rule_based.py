@@ -1,10 +1,15 @@
 import random
 
-from data_manipulation.content.emojify import emojify_pii_entity
-from data_manipulation.content.affix import adversarial_affix
-from data_manipulation.pii.emojify import emojify_pii
-from data_manipulation.pii.number_to_word import number_to_word
-from data_manipulation.pii.separators import inject_separator
+from data_manipulation.content import (
+    adversarial_affix,
+    emojify_pii_entity,
+)
+from data_manipulation.pii import (
+    emojify_pii,
+    number_to_roman,
+    number_to_word,
+    inject_separator,
+)
 
 
 def technique_sampler(techniques: list, n_techniques_upper=1) -> list:
@@ -59,6 +64,8 @@ def pii_fuzzer(llm_input, spans, chosen_techniques):
             result = number_to_word(text=result, spans=spans)
         elif technique == "separators":
             result = inject_separator(text=result, spans=spans)
+        elif technique == "number_to_roman":
+            result = number_to_roman(text=result, spans=spans)
         elif technique == "chunk_password":
             pass
         elif technique == "gibberish":
