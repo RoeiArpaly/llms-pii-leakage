@@ -32,5 +32,5 @@ from data_manipulation.pii.number_to_word import number_to_word
         ),
     ],
 )
-def test_emojify_pii(text, spans, lang, expected):
+def test_number_to_word(text, spans, lang, expected):
     assert number_to_word(text=text, spans=spans, lang=lang) == expected

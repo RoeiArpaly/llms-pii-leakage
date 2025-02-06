@@ -20,5 +20,5 @@ from data_manipulation.pii.separators import inject_separator
         ),
     ],
 )
-def test_emojify_pii(text, spans, separator, expected):
+def test_inject_separator(text, spans, separator, expected):
     assert inject_separator(text=text, spans=spans, separator=separator) == expected
