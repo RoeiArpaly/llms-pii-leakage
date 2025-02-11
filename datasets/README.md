@@ -107,13 +107,18 @@ Each prediction file contains the following columns:
 ## Evaluation
 
 There are three evaluations which are based on different aggregation levels:
-1. **Dataset Level Evaluation**: Aggregates the evaluation metrics for each dataset.
-2. **Fuzzy Techniques Level Evaluation**: Aggregates the evaluation metrics for each dataset and fuzzy technique.
-3. **Adversarial Content Techniques Level Evaluation**: Aggregates the evaluation metrics for each dataset,
+1. **Dataset Level**:
+Aggregates the evaluation metrics for each dataset.
+2. **Fuzzy Techniques Level**:
+Aggregates the evaluation metrics for each dataset and fuzzy technique.
+3. **Adversarial Content Techniques Level**:
+Aggregates the evaluation metrics for each dataset and adversarial content technique.
+4. **Fuzzy and Adversarial Content Techniques Level**:
+Aggregates the evaluation metrics for each dataset,
 fuzzy technique and adversarial content technique.
 
 ---
-### 1. Dataset Level Evaluation
+### 1. Dataset Level
 | Column Name | Description                          | Type           |
 |-------------|--------------------------------------|----------------|
 | `dataset`   | Dataset name                         | String         |
@@ -123,7 +128,7 @@ fuzzy technique and adversarial content technique.
 | `precision` | Precision score                      | Float          |
 
 
-### 2. Fuzzy Techniques Level Evaluation
+### 2. Fuzzy Techniques Level
 | Column Name       | Description                          | Type           |
 |-------------------|--------------------------------------|----------------|
 | `dataset`         | Dataset name                         | String         |
@@ -134,7 +139,17 @@ fuzzy technique and adversarial content technique.
 | `precision`       | Precision score                      | Float          |
 
 
-### 3. Adversarial Content Techniques Level Evaluation
+### 3. Adversarial Content Techniques Level
+| Column Name             | Description                        | Type   |
+|-------------------------|------------------------------------|--------|
+| `dataset`               | Dataset name                       | String |
+| `model`                 | Model name                         | String |
+| `adv_content_technique` | Adversarial content technique name | String |
+| `f1`                    | F1 score                           | Float  |
+| `recall`                | Recall score                       | Float  |
+| `precision`             | Precision score                    | Float  |
+
+### 4. Fuzzy and Adversarial Content Techniques Level
 | Column Name             | Description                        | Type   |
 |-------------------------|------------------------------------|--------|
 | `dataset`               | Dataset name                       | String |
@@ -146,4 +161,5 @@ fuzzy technique and adversarial content technique.
 | `precision`             | Precision score                    | Float  |
 
 
+---
 ### [Back to Top](#datasets)
