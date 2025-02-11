@@ -1,157 +1,139 @@
-from pandas import DataFrame
+import random
+
+from pandas import (
+    concat,
+    DataFrame,
+    read_csv,
+)
 
 from constants import (
-    CONTENT_TECHNIQUES,
+    ADV_CONTENT_TECHNIQUES,
     FUZZY_TECHNIQUES,
+    FUZZY_DATASET_COLS,
+    FUZZY_ADV_DATASET_COLS,
+    PREDICTION_DATASET_COLS,
 )
 from data_generation.pii_generator import presidio_inject_pii
 from data_generation.llm_input_generator import generate_llm_input
 from data_manipulation.rule_based import (
     adversarial_content,
     pii_fuzzer,
-    technique_sampler,
 )
 from detectors.llm import llm_pii_detector
 from detectors.presidio import presidio_pii_analyzer
 from evaluation import spans_scorer
+from logger import logger
+from utils import (
+    cast_to_json,
+    infer_json,
+)
 
 
-def llm_input_generation(contains_pii: bool):
+def generate_baseline_dataset(n_samples: int, pii_proba: float, save_every_n: int = 100):
+    results = []
+    for i in range(n_samples):
+        logger.info(f"Generating LLM input sample {i + 1}/{n_samples}")
+        contains_pii = random.random() < pii_proba
+        llm_input = generate_llm_input(contains_pii=contains_pii)
+        fake_record = presidio_inject_pii(text=llm_input) if contains_pii else {"spans": []}
 
-    results = generate_llm_input(contains_pii)
-    llm_input = results["llm_input"]
-    contains_pii = results["contains_pii"]
-
-    fake_record = presidio_inject_pii(llm_input) if contains_pii else {"spans": []}
-    llm_input_result = fake_record["text"] if contains_pii else llm_input
-    pii_spans_analyzer = presidio_pii_analyzer(text=llm_input_result)
-
-    return {
-        "llm_input": llm_input_result,
-        "llm_input_template": llm_input if contains_pii else "",
-        "contains_pii": contains_pii,
-        "pii_amount_generator": len(fake_record["spans"]),
-        "pii_amount_analyzer": len(pii_spans_analyzer),
-        "pii_spans_generator": fake_record["spans"] if contains_pii else [],
-        "pii_spans_analyzer": pii_spans_analyzer,
-    }
-
-
-def baseline(data: DataFrame):
-
-    data["pii_spans_llm_detector"] = data["llm_input"].apply(llm_pii_detector, mode="spans")
-    data["pii_amount_llm_detector"] = data["pii_spans_llm_detector"].apply(len)
-
-    data["spans_score_analyzer"] = data.apply(
-        lambda row: spans_scorer(
-            spans_true=row["pii_spans_generator"],
-            spans_pred=row["pii_spans_analyzer"],
-        ),
-        axis=1,
-    )
-    data["spans_score_llm"] = data.apply(
-        lambda row: spans_scorer(
-            spans_true=row["pii_spans_generator"],
-            spans_pred=row["pii_spans_llm_detector"],
-        ),
-        axis=1,
-    )
-    return data
+        results.append({
+            "llm_input": fake_record["text"] if contains_pii else llm_input,
+            "pii_spans": fake_record["spans"] if contains_pii else [],
+        })
+        if (i + 1) % save_every_n == 0 or i + 1 == n_samples:
+            data = DataFrame(results)
+            if i + 1 == n_samples:
+                data = data.sort_values(
+                    by="pii_spans",
+                    key=lambda spans: spans.str.len().astype(bool),
+                    ascending=False,
+                )
+                data = data.reset_index(drop=True)
+            data.index.name = "uid"
+            data.apply(cast_to_json).to_csv(path_or_buf="datasets/baseline_dataset.csv", index=True)
+            logger.info(f"LLM input generation results saved at sample {i + 1}")
+    logger.info("LLM input generation completed successfully")
 
 
-def fuzzy_pii_generation(data: DataFrame):
-    """
-
-    Parameters
-    ----------
-    data : DataFrame
-        dataset with the following columns:
-            - llm_input
-            - llm_input_template
-
-    Returns
-    -------
-    DataFrame
-    """
-
-    prefix = "fuzzy"
-    data["fuzzy_techniques"] = data.apply(
-        lambda row: technique_sampler(FUZZY_TECHNIQUES) if row["pii_spans_generator"] else [],
-        axis=1,
-    )
-    data[f"{prefix}_llm_input"] = data.apply(
-        lambda row: pii_fuzzer(
-            llm_input=row["llm_input"],
-            spans=row["pii_spans_generator"],
-            chosen_techniques=row["fuzzy_techniques"],
-        ) if row["pii_spans_generator"] else None,
-        axis=1,
-    )
-    data[f"pii_spans_{prefix}_analyzer"] = data[f"{prefix}_llm_input"].apply(presidio_pii_analyzer)
-    data[f"{prefix}_llm_restored"] = data[f"{prefix}_llm_input"].apply(llm_pii_detector)
-    data[f"pii_spans_{prefix}_llm_restored_analyzer"] = data[f"{prefix}_llm_restored"].apply(
-        presidio_pii_analyzer
-    )
-    data[f"{prefix}_pii_amount_analyzer"] = data[f"pii_spans_{prefix}_analyzer"].apply(len)
-    data[f"{prefix}_pii_amount_llm_restored_analyzer"] = data[
-        f"pii_spans_{prefix}_llm_restored_analyzer"
-    ].apply(len)
-    data["spans_score_analyzer"] = data.apply(
-        lambda row: spans_scorer(
-            spans_true=row["pii_spans_generator"],
-            spans_pred=row[f"pii_spans_{prefix}_analyzer"],
-        ),
-        axis=1,
-    )
-    data["spans_score_llm_restored_analyzer"] = data.apply(
-        lambda row: spans_scorer(
-            spans_true=row["pii_spans_generator"],
-            spans_pred=row[f"pii_spans_{prefix}_llm_restored_analyzer"],
-        ),
-        axis=1,
-    )
-    return data
+def generate_fuzzy_dataset():
+    data = read_csv("datasets/baseline_dataset.csv").apply(infer_json)
+    data = data[data["pii_spans"].apply(len) > 0].copy().reset_index(drop=True)
+    data = data.rename(columns={"uid": "input_id"})
+    datasets = []
+    for technique in FUZZY_TECHNIQUES:
+        logger.info(f"Generating fuzzy content for technique: {technique}")
+        _data = data.copy()
+        _data["fuzzy_techniques"] = _data.apply(lambda _: technique, axis=1)
+        _data["llm_input"] = _data.apply(
+            lambda row: pii_fuzzer(
+                llm_input=row["llm_input"],
+                spans=row["pii_spans"],
+                chosen_techniques=row["fuzzy_techniques"],
+            ) if row["pii_spans"] else None,
+            axis=1,
+        )
+        datasets.append(_data.copy())
+    data = concat(datasets, ignore_index=True)
+    data = data[FUZZY_DATASET_COLS]
+    data.index.name = "uid"
+    data.apply(cast_to_json).to_csv(path_or_buf="datasets/fuzzy_dataset.csv", index=True)
 
 
-def fuzzy_pii_adv_content_generation(data: DataFrame):
+def generate_fuzzy_adv_dataset():
+    data = read_csv("datasets/fuzzy_dataset.csv").apply(infer_json)
+    data = data.drop(columns=["uid"])
+    datasets = []
+    for technique in ADV_CONTENT_TECHNIQUES:
+        logger.info(f"Generating adversarial content for technique: {technique}")
+        _data = data.copy()
+        _data["adv_content_techniques"] = _data.apply(lambda _: technique, axis=1)
+        _data["llm_input"] = _data.apply(
+            lambda row: adversarial_content(
+                llm_input=row["llm_input"],
+                spans=row["pii_spans"],
+                chosen_techniques=row["adv_content_techniques"],
+            ) if row["pii_spans"] else None,
+            axis=1,
+        )
+        datasets.append(_data.copy())
+    data = concat(datasets, ignore_index=True)
+    data = data[FUZZY_ADV_DATASET_COLS]
+    data.index.name = "uid"
+    data.apply(cast_to_json).to_csv(path_or_buf="datasets/fuzzy_adv_dataset.csv", index=True)
 
-    prefix = "fuzzy_adv_content"
-    data[f"{prefix}_techniques"] = data.apply(
-        lambda row: technique_sampler(CONTENT_TECHNIQUES) if row["pii_spans_generator"] else [],
-        axis=1,
-    )
-    data[f"{prefix}_llm_input"] = data.apply(
-        lambda row: adversarial_content(
-            llm_input=row["fuzzy_llm_input"],
-            spans=row["pii_spans_generator"],
-            chosen_techniques=row[f"{prefix}_techniques"],
-        ) if row["pii_spans_generator"] else None,
-        axis=1,
-    )
 
-    data[f"pii_spans_{prefix}_analyzer"] = data[f"{prefix}_llm_input"].apply(
-        presidio_pii_analyzer
-    )
-    data[f"{prefix}_llm_restored"] = data[f"{prefix}_llm_input"].apply(llm_pii_detector)
-    data[f"pii_spans_{prefix}_llm_restored_analyzer"] = data[f"{prefix}_llm_restored"].apply(
-        presidio_pii_analyzer
-    )
-    data[f"{prefix}_pii_amount_analyzer"] = data[f"pii_spans_{prefix}_analyzer"].apply(len)
-    data[f"{prefix}_pii_amount_llm_restored_analyzer"] = data[
-        f"pii_spans_{prefix}_llm_restored_analyzer"
-    ].apply(len)
-    data["spans_score_analyzer"] = data.apply(
-        lambda row: spans_scorer(
-            spans_true=row["pii_spans_generator"],
-            spans_pred=row[f"pii_spans_{prefix}_analyzer"],
-        ),
-        axis=1,
-    )
-    data["spans_score_llm_restored_analyzer"] = data.apply(
-        lambda row: spans_scorer(
-            spans_true=row["pii_spans_generator"],
-            spans_pred=row[f"pii_spans_{prefix}_llm_restored_analyzer"],
-        ),
-        axis=1,
-    )
-    return data
+def pii_detector_presidio():
+    for dataset in ["baseline", "fuzzy", "fuzzy_adv"]:
+        logger.info(f"Detecting PII with Presidio for {dataset} dataset")
+        data = read_csv(f"datasets/{dataset}_dataset.csv").apply(infer_json)
+        data["prediction"] = data["llm_input"].apply(presidio_pii_analyzer)
+        data["spans_score"] = data.apply(
+            lambda row: spans_scorer(
+                spans_true=row["pii_spans"],
+                spans_pred=row["prediction"],
+            ),
+            axis=1,
+        )
+        data = data[PREDICTION_DATASET_COLS].apply(cast_to_json)
+        data.to_csv(path_or_buf=f"datasets/{dataset}_presidio_prediction.csv", index=False)
+
+
+def pii_detector_llm():
+    for dataset in ["baseline", "fuzzy", "fuzzy_adv"]:
+        logger.info(f"Detecting PII with LLM for {dataset} dataset")
+        data = read_csv(f"datasets/{dataset}_dataset.csv").apply(infer_json)
+        if dataset == "baseline":
+            prediction = data["llm_input"].apply(llm_pii_detector, mode="spans")
+        else:
+            prediction = data["llm_input"].apply(llm_pii_detector).apply(presidio_pii_analyzer)
+        data["prediction"] = prediction
+        data["spans_score"] = data.apply(
+            lambda row: spans_scorer(
+                spans_true=row["pii_spans"],
+                spans_pred=row["prediction"],
+            ),
+            axis=1,
+        )
+        data = data[PREDICTION_DATASET_COLS].apply(cast_to_json)
+        data.to_csv(path_or_buf=f"datasets/{dataset}_gpt-4o-mini_prediction.csv", index=False)

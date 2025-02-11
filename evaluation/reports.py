@@ -4,64 +4,35 @@ from evaluation.spans import safe_divide
 from utils import infer_json
 
 
-def calculate_scores(file_path, columns):
+def calculate_scores(file_path: str):
     """
     Reads a CSV file, applies JSON inference, and calculates mean F1, Recall, and Precision scores.
     """
-    df = pd.read_csv(file_path).apply(infer_json)
-    results = []
-    for col, col_name in columns:
-        true_positives = df[col].apply(lambda x: x.get("true_positive")).sum()
-        false_positives = df[col].apply(lambda x: x.get("false_positive")).sum()
-        false_negatives = df[col].apply(lambda x: x.get("false_negative")).sum()
-        precision = safe_divide(true_positives, true_positives + false_positives)
-        recall = safe_divide(true_positives, true_positives + false_negatives)
-        f1 = safe_divide(2 * precision * recall, precision + recall)
-        results.append(
-            {
-                "Model": col_name,
-                "F1": f1,
-                "Recall": recall,
-                "Precision": precision,
-            },
-        )
-    return results
+    data = pd.read_csv(file_path).apply(infer_json)
+    true_positives = data["spans_score"].apply(lambda x: x.get("true_positive")).sum()
+    false_positives = data["spans_score"].apply(lambda x: x.get("false_positive")).sum()
+    false_negatives = data["spans_score"].apply(lambda x: x.get("false_negative")).sum()
+    precision = safe_divide(true_positives, true_positives + false_positives)
+    recall = safe_divide(true_positives, true_positives + false_negatives)
+    f1 = safe_divide(2 * precision * recall, precision + recall)
+    return {
+        "F1": f1,
+        "Recall": recall,
+        "Precision": precision,
+    }
 
 
-def evaluation_datasets(datasets):
+def evaluation_datasets():
     results = []
-    for dataset, (file_path, columns) in datasets.items():
-        scores = calculate_scores(file_path, columns)
-        for score in scores:
-            score["Dataset"] = dataset
-            results.append(score)
+    for dataset in ["baseline", "fuzzy", "fuzzy_adv"]:
+        for model in ["Presidio", "gpt-4o-mini"]:
+            file_path = f"../datasets/{dataset}_{model}_prediction.csv"
+            scores = calculate_scores(file_path=file_path)
+            scores["Dataset"] = dataset
+            scores["Model"] = model
+            results.append(scores)
     return pd.DataFrame(results).set_index(keys=["Dataset", "Model"])
 
 
-df_results = evaluation_datasets(
-    datasets={
-        "Baseline": (
-            "../datasets/llm_detection_results_02.csv",
-            [
-                ("spans_score_analyzer", "Presidio"),
-                ("spans_score_llm", "gpt-4o-mini"),
-            ],
-        ),
-        "Fuzzy PII": (
-            "../datasets/fuzzy_pii_generation_results_03.csv",
-            [
-                ("spans_score_analyzer", "Presidio"),
-                ("spans_score_llm_restored_analyzer", "gpt-4o-mini"),
-            ],
-        ),
-        "Fuzzy PII + Adv Content": (
-            "../datasets/fuzzy_pii_adv_content_generation_results_04.csv",
-            [
-                ("spans_score_analyzer", "Presidio"),
-                ("spans_score_llm_restored_analyzer", "gpt-4o-mini"),
-            ]
-        ),
-    },
-)
-
-df_results.to_csv("../datasets/score_results.csv")
+df_results = evaluation_datasets()
+df_results.to_csv("../datasets/score_results_001.csv")
