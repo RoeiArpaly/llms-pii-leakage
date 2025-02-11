@@ -4,6 +4,8 @@ import re
 
 def int_to_roman(num: int) -> str:
     """Convert an integer to a Roman numeral."""
+    if not 0 < num < 4000:  # The Romans didn't have a symbol for 0 or numbers >= 4000
+        return str(num)
     val_map = [
         (1000, "M"), (900, "CM"), (500, "D"), (400, "CD"),
         (100, "C"), (90, "XC"), (50, "L"), (40, "XL"),
@@ -31,17 +33,3 @@ def number_to_roman(text: str, spans: list, proba: float = 1.0) -> str:
             )
             text_list[start:end] = list(roman_num)
     return "".join(text_list)
-
-
-# Example usage
-print(number_to_roman(
-    text="The number 2021 is the current year 3.",
-    spans=[{"start": 11, "end": 15}, {"start": 36, "end": 37}],
-))
-
-print(
-    number_to_roman(
-        text="is 1990 and 2021 and 2025",
-        spans=[{"start": 3, "end": 7}, {"start": 21, "end": 25}],
-    )
-)

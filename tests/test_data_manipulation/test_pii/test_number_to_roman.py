@@ -16,6 +16,12 @@ from data_manipulation.pii.number_to_roman import number_to_roman
             [{"start": 3, "end": 7}, {"start": 21, "end": 25}],
             "is MCMXC and 2021 and MMXXV",
         ),
+        (
+            # 19901234567890 is too large to convert to Roman numerals
+            "is 19901234567890 and 2021 and 2025",
+            [{"start": 3, "end": 17}],
+            "is 19901234567890 and 2021 and 2025",
+        ),
 
     ],
 )
