@@ -78,13 +78,10 @@ def generate_llm_input(contains_pii: bool):
             .get("content", {})
         )
         try:
-            json_schema = json.loads(content)
-            contain_pii_template(
-                text=json_schema["llm_input"], contains_pii=contains_pii
-            )
-            json_schema["contains_pii"] = contains_pii
+            json_schema = json.loads(content)["llm_input"]
+            contain_pii_template(text=json_schema, contains_pii=contains_pii)
+            return json_schema
         except json.JSONDecodeError:
             logger.error(content)
             raise ValueError("Invalid JSON format.")
-        return json_schema
     raise ValueError(f"Invalid response from OpenAI API.\n{response.text}")
