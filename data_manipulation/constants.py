@@ -115,7 +115,7 @@ ALPHABET_EMOJI_MAP = {
 }
 PII_EMOJI_MAP = {
     "CREDIT_CARD": "💳",
-    "SSN": "🔒",
+    "SSN": "🪪",
     "BANK_ACCOUNT": "🏦",
     "PHONE_NUMBER": "📞",
     "EMAIL": "📧",

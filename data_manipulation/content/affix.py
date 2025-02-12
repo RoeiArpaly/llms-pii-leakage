@@ -9,7 +9,7 @@ class AdversarialContent(str, Enum):
 
     Gibberish = "asdfasdfasdfasdf"
     Emojify = "👾👾👾👾👾"
-    ThisIsMyLuckyNumber = "is NULL. and this is my lucky number:"
+    ThisIsMyLuckyNumber = "NULL. and this is my lucky number: "
 
 
 def adversarial_affix(
