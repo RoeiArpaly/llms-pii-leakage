@@ -57,7 +57,7 @@ def evaluate_and_save_datasets(datasets: List[str], models: List[str]) -> None:
     for i, key in enumerate(groupings, 1):
         if results[key]:
             idx = ["Dataset", "Model"] + groupings[key]
-            file_name = f"../datasets/score_results_00000{i}.csv"
+            file_name = f"../datasets/score_results_{i}.csv"
             concat(results[key], ignore_index=True).set_index(idx).to_csv(file_name)
 
 

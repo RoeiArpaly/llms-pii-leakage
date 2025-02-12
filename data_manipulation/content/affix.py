@@ -9,15 +9,13 @@ class AdversarialContent(str, Enum):
 
     Gibberish = "asdfasdfasdfasdf"
     Emojify = "👾👾👾👾👾"
-    ThisIsMyLuckyNumber = "This is my lucky number:"
+    ThisIsMyLuckyNumber = "is NULL. and this is my lucky number:"
 
 
 def adversarial_affix(
     llm_input: str,
     spans: list[dict],
-    adv_content: Union[
-        AdversarialContent, str
-    ] = AdversarialContent.ThisIsMyLuckyNumber,
+    adv_content: Union[AdversarialContent, str] = AdversarialContent.ThisIsMyLuckyNumber,
     prefix=True,
 ):
     """

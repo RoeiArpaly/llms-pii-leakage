@@ -4,7 +4,7 @@ import pandas as pd
 from matplotlib.patches import Patch
 
 
-DATA_PATH = "../datasets/score_results.csv"
+DATA_PATH = "../datasets/score_results_1.csv"
 df = pd.read_csv(DATA_PATH)
 
 
