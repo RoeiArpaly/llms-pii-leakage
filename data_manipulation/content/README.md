@@ -8,11 +8,9 @@ An affix attack is a type of adversarial attack that adds an adversarial content
 or after PIIs.
 
 #### Example
-* **Original content**:<br>
-Hello, my credit card number is 4373024900209025.
-<br><br>
-* **Adversarial content**:<br>
-Hello, my credit card number is `NULL. This is my lucky number` 4373024900209025.
+| Original Content                                  | Adversarial Content                                                               |
+|---------------------------------------------------|-----------------------------------------------------------------------------------|
+| Hello, my credit card number is 4373024900209025. | Hello, my credit card number is `NULL. This is my lucky number` 4373024900209025. |
 
 ---
 
@@ -25,10 +23,8 @@ This attack is particularly effective against Named Entity Recognition (NER) mod
 that are used to increase the confidence of the detector.
 
 #### Example
-* **Original content**:<br>
-Hello, my credit card number is 4373024900209025.
-<br><br>
-* **Adversarial content**:<br>
-Hello, my `💳` number is 4373024900209025.
+| Original Content                                  | Adversarial Content                        |
+|---------------------------------------------------|--------------------------------------------|
+| Hello, my credit card number is 4373024900209025. | Hello, my `💳` number is 4373024900209025. |
 
 ---
