@@ -12,8 +12,8 @@ from utils import infer_json
 
 def load_and_preprocess_data(dataset: str, model: str) -> DataFrame:
     """Load, merge, and process prediction and dataset CSVs."""
-    data = read_csv(f"../datasets/{dataset}_dataset.csv").apply(infer_json)
-    data_pred = read_csv(f"../datasets/{dataset}_{model}_prediction.csv").apply(infer_json)
+    data = read_csv(f"datasets/{dataset}_dataset.csv").apply(infer_json)
+    data_pred = read_csv(f"datasets/{dataset}_{model}_prediction.csv").apply(infer_json)
     data = data_pred.merge(data, on="uid", how="left")
     for col in ["fuzzy_techniques", "adv_content_techniques"]:
         data[col] = data[col].apply(lambda x: x[0] if x else None) if col in data.columns else None
@@ -57,11 +57,5 @@ def evaluate_and_save_datasets(datasets: List[str], models: List[str]) -> None:
     for i, key in enumerate(groupings, 1):
         if results[key]:
             idx = ["Dataset", "Model"] + groupings[key]
-            file_name = f"../datasets/score_results_{i}.csv"
+            file_name = f"datasets/score_results_{i}.csv"
             concat(results[key], ignore_index=True).set_index(idx).to_csv(file_name)
-
-
-evaluate_and_save_datasets(
-    datasets=["baseline", "fuzzy", "fuzzy_adv"],
-    models=["Presidio", "gpt-4o-mini"],
-)

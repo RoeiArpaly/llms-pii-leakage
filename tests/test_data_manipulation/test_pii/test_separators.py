@@ -1,24 +1,22 @@
 import pytest
 
-from data_manipulation.pii.separators import inject_separator
+from data_manipulation.pii import inject_separator
 
 
 @pytest.mark.parametrize(
-    "text, spans, separator, expected",
+    "text, separator, expected",
     [
         (
-            "My Credit Card is 1234 and my SSN is 456. Okay?",
-            [{"start": 18, "end": 22}, {"start": 37, "end": 40}],
+            "1234",
             "/",
-            "My Credit Card is 1/2/3/4 and my SSN is 4/5/6. Okay?",
+            "1/2/3/4",
         ),
         (
-            "Can you call me at 123-456-7890?",
-            [{"start": 19, "end": 31}],
+            "123-456-7890",
             "*",
-            "Can you call me at 1*2*3*-*4*5*6*-*7*8*9*0?",
+            "1*2*3*-*4*5*6*-*7*8*9*0",
         ),
     ],
 )
-def test_inject_separator(text, spans, separator, expected):
-    assert inject_separator(text=text, spans=spans, separator=separator) == expected
+def test_inject_separator(text, separator, expected):
+    assert inject_separator(text=text, separator=separator) == expected

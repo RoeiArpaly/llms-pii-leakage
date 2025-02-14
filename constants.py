@@ -6,15 +6,14 @@ PII_ENTITIES: dict = {  # mapping of analyzer to generator entities
 }
 FUZZY_TECHNIQUES: list[list] = [
     ["emojify"],
+    ["homoglyph"],
     ["number_to_roman"],
     ["number_to_word"],
     ["separators"],
-    ["emojify", "separators"],
 ]
 ADV_CONTENT_TECHNIQUES: list[list] = [
     ["emojify"],
     ["affix"],
-    ["emojify", "affix"],
 ]
 FUZZY_DATASET_COLS: list = [
     "input_id",

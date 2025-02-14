@@ -1,5 +1,3 @@
-import random
-
 from data_manipulation.content import (
     adversarial_affix,
     emojify_pii_entity,
@@ -10,32 +8,10 @@ from data_manipulation.pii import (
     number_to_word,
     inject_separator,
 )
+from data_manipulation.pii.utils import fuzzy_pii_injection
 
 
-def technique_sampler(techniques: list, n_techniques_upper=1) -> list:
-    """
-
-    Parameters
-    ----------
-    techniques : list
-        The list of PII fuzzing techniques.
-    n_techniques_upper : int
-        The maximum number of techniques to apply to the text.
-
-    Returns
-    -------
-    list
-
-    """
-    # randomly select 1 to n techniques
-    chosen_techniques = random.sample(
-        population=techniques,
-        k=random.randint(1, n_techniques_upper),
-    )
-    return chosen_techniques
-
-
-def pii_fuzzer(llm_input, spans, chosen_techniques):
+def pii_fuzzer(llm_input, spans, chosen_techniques) -> tuple:
     """
 
     Parameters
@@ -54,27 +30,31 @@ def pii_fuzzer(llm_input, spans, chosen_techniques):
     """
 
     if not chosen_techniques:
-        return
+        return llm_input, spans
+
+    mapping = {
+        "emojify": emojify_pii,
+        "number_to_roman": number_to_roman,
+        "number_to_word": number_to_word,
+        "separators": inject_separator,
+        "chunk_password": None,
+        "gibberish": None,
+        "random_case": None,
+    }
 
     result = llm_input
+    new_spans = spans
     for technique in chosen_techniques:
-        if technique == "emojify":
-            result = emojify_pii(text=result, spans=spans)
-        elif technique == "number_to_word":
-            result = number_to_word(text=result, spans=spans)
-        elif technique == "separators":
-            result = inject_separator(text=result, spans=spans)
-        elif technique == "number_to_roman":
-            result = number_to_roman(text=result, spans=spans)
-        elif technique == "chunk_password":
-            pass
-        elif technique == "gibberish":
-            pass
-        elif technique == "random_case":
-            pass
+        if technique in mapping:
+            result, new_spans = fuzzy_pii_injection(
+                text=result,
+                spans=new_spans,
+                fuzzy_func=mapping[technique],
+            )
         else:
             raise ValueError(f"Invalid technique: {technique}")
-    return result
+
+    return result, new_spans
 
 
 def adversarial_content(llm_input, spans, chosen_techniques):

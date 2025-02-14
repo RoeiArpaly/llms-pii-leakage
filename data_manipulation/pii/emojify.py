@@ -6,33 +6,13 @@ from data_manipulation.constants import (
 )
 
 
-def emojify_pii(text: str, spans: list, proba: float = 1.0) -> str:
-    """
-    Replacing all numbers and alphabet characters with corresponding emojis.
-
-    Parameters
-    ----------
-    text : str
-        The text to replace the PII entities.
-    spans : dict
-        A dictionary containing the start and end indices of the PII entities.
-    proba : float
-        The probability of replacing the characters with
-
-    Returns
-    -------
-    str
-
-    """
+def emojify_pii(text: str, proba: float = 1.0) -> str:
+    """Replacing all numbers and alphabet characters with corresponding emojis."""
     text = list(text)
-    for span in spans:
-        start, end = span["start"], span["end"]
-        for i in range(start, end):
-            if i < len(text):
-                char = text[i]
-                key = char.lower() if random.random() < proba else None
-                if char.isalpha():
-                    text[i] = ALPHABET_EMOJI_MAP.get(key, char)
-                elif char.isdigit():
-                    text[i] = NUMBER_EMOJI_MAP.get(key, char)
+    for i, l in enumerate(text):
+        key = l.lower() if random.random() < proba else None
+        if l.isalpha():
+            text[i] = ALPHABET_EMOJI_MAP.get(key, l)
+        elif l.isdigit():
+            text[i] = NUMBER_EMOJI_MAP.get(key, l)
     return "".join(text)

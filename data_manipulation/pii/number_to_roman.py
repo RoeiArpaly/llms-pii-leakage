@@ -1,4 +1,3 @@
-import random
 import re
 
 
@@ -19,17 +18,6 @@ def int_to_roman(num: int) -> str:
     return roman
 
 
-def number_to_roman(text: str, spans: list, proba: float = 1.0) -> str:
-    """Replace numbers in a string with their Roman numeral equivalent."""
-
-    text_list = list(text)
-    for span in spans[::-1]:
-        start, end = span["start"], span["end"]
-        if random.random() < proba:
-            roman_num = re.sub(
-                pattern=r"\b\d+\b",
-                repl=lambda match: int_to_roman(int(match.group())),
-                string=text[start:end],
-            )
-            text_list[start:end] = list(roman_num)
-    return "".join(text_list)
+def number_to_roman(text: str) -> str:
+    """Replace all numbers in a string with their Roman numeral equivalent."""
+    return re.sub(pattern=r"(\d+)", repl=lambda m: int_to_roman(int(m.group())), string=text)

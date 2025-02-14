@@ -1,22 +1,25 @@
 import pytest
 
-from data_manipulation.pii.emojify import emojify_pii
+from data_manipulation.pii import emojify_pii
 
 
 @pytest.mark.parametrize(
-    "text, spans, expected",
+    "text, expected",
     [
         (
-            "My Credit Card is 1234",
-            [{"start": 18, "end": 22}],
-            "My Credit Card is 1️⃣2️⃣3️⃣4️⃣",
+            "1234",
+            "1️⃣2️⃣3️⃣4️⃣",
         ),
         (
-            "My Email is john@gmail.com",
-            [{"start": 11, "end": 26}],
-            "My Email is 🅹🅾🅷🅽@🅶🅼🅰🅸🅻.🅲🅾🅼",
+            "john34@gmail.com",
+            "🅹🅾🅷🅽3️⃣4️⃣@🅶🅼🅰🅸🅻.🅲🅾🅼",
         ),
+        (
+            "JOHN34@gmail.com",
+            "🅹🅾🅷🅽3️⃣4️⃣@🅶🅼🅰🅸🅻.🅲🅾🅼",
+        ),
+
     ],
 )
-def test_emojify_pii(text, spans, expected):
-    assert emojify_pii(text=text, spans=spans) == expected
+def test_emojify_pii(text, expected):
+    assert emojify_pii(text=text) == expected

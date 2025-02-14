@@ -7,6 +7,7 @@ from pipelines import (
     pii_detector_presidio,
     pii_detector_llm,
 )
+from evaluation.reports import evaluate_and_save_datasets
 
 
 if __name__ == "__main__":
@@ -15,6 +16,12 @@ if __name__ == "__main__":
     generate_fuzzy_adv_dataset()
 
     pii_detector_presidio()
+    pii_detector_presidio(nlp=True)
     pii_detector_llm()
+
+    evaluate_and_save_datasets(
+        datasets=["baseline", "fuzzy", "fuzzy_adv"],
+        models=["presidio", "presidio_nlp", "gpt-4o-mini"],
+    )
 
     logger.info("SUCCESS")
