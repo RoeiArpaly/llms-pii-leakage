@@ -6,6 +6,7 @@ from pandas import (
     read_csv,
 )
 
+from constants import DATASETS
 from evaluation.constants import SPANS_METRICS
 from utils import infer_json
 
@@ -34,7 +35,7 @@ def compute_aggregated_scores(data: DataFrame, groupby_cols: List[str] = None) -
     return data.drop(columns=SPANS_METRICS).fillna(0)
 
 
-def evaluate_and_save_datasets(datasets: List[str], models: List[str]) -> None:
+def evaluate_and_save_datasets(models: List[str]) -> None:
     """Evaluate and save aggregated scores for all dataset-model pairs."""
     groupings = {
         "dataset_level": [],
@@ -44,7 +45,7 @@ def evaluate_and_save_datasets(datasets: List[str], models: List[str]) -> None:
     }
 
     results = {key: [] for key in groupings}
-    for dataset in datasets:
+    for dataset in DATASETS:
         for model in models:
             data = load_and_preprocess_data(dataset=dataset, model=model)
             for key, cols in groupings.items():
