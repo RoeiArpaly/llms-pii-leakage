@@ -3,6 +3,8 @@ import pandas as pd
 
 from matplotlib.patches import Patch
 
+from config import Config
+
 
 DATA_PATH = "../datasets/score_results_1.csv"
 df = pd.read_csv(DATA_PATH)
@@ -106,9 +108,9 @@ plot_model_performance(
     data=df,
     metrics=list(df.columns[2:]),
     datasets=list(df["Dataset"].unique()),
-    models=["gpt-4o-mini", "Presidio"],
+    models=Config.MODELS,
     dataset_colors=["#1f77b4", "#ff7f0e", "#2ca02c"],
-    model_hatches={"gpt-4o-mini": "///", "Presidio": ""},
+    model_hatches=dict(zip(Config.MODELS, ["///", "xxx", ""])),
     bar_width=0.8,
     dataset_gap=0.2,
     group_gap=1.0,
