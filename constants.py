@@ -1,3 +1,4 @@
+DATASETS: list = ["baseline", "fuzzy", "fuzzy_adv"]
 PII_ENTITIES: dict = {  # mapping of analyzer to generator entities
     "CREDIT_CARD": "credit_card_number",
     "IBAN_CODE": "iban",
