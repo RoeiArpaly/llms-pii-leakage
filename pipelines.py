@@ -19,6 +19,7 @@ from data_manipulation.rule_based import (
     adversarial_content,
     pii_fuzzer,
 )
+from detectors.gliner_detector import gliner_pii_detector
 from detectors.llm import llm_pii_detector
 from detectors.presidio import presidio_pii_analyzer
 from evaluation import spans_scorer
@@ -104,31 +105,25 @@ def generate_fuzzy_adv_dataset():
     data.apply(cast_to_json).to_csv(path_or_buf="datasets/fuzzy_adv_dataset.csv", index=True)
 
 
-def pii_detector_presidio(nlp: bool = False):
+def pii_detection_pipeline(model):
     for dataset in ["baseline", "fuzzy", "fuzzy_adv"]:
-        logger.info(f"Detecting PII with Presidio {'(NLP) ' if nlp else ''}for {dataset} dataset")
+        logger.info(f"Detecting PII with {model} for {dataset} dataset")
         data = read_csv(f"datasets/{dataset}_dataset.csv").apply(infer_json)
-        data["prediction"] = data["llm_input"].apply(presidio_pii_analyzer, nlp=nlp)
-        data["spans_score"] = data.apply(
-            lambda row: spans_scorer(
-                spans_true=row["pii_spans"],
-                spans_pred=row["prediction"],
-            ),
-            axis=1,
-        )
-        data = data[PREDICTION_DATASET_COLS].apply(cast_to_json)
-        is_nlp = "nlp_" if nlp else ""
-        data.to_csv(path_or_buf=f"datasets/{dataset}_presidio_{is_nlp}prediction.csv", index=False)
 
-
-def pii_detector_llm():
-    for dataset in ["baseline", "fuzzy", "fuzzy_adv"]:
-        logger.info(f"Detecting PII with LLM for {dataset} dataset")
-        data = read_csv(f"datasets/{dataset}_dataset.csv").apply(infer_json)
-        if dataset == "baseline":
-            prediction = data["llm_input"].apply(llm_pii_detector, mode="spans")
+        if model == "presidio":
+            prediction = data["llm_input"].apply(presidio_pii_analyzer)
+        elif model == "presidio_nlp":
+            prediction = data["llm_input"].apply(presidio_pii_analyzer, nlp=True)
+        elif model == "gliner":
+            prediction = data["llm_input"].apply(gliner_pii_detector)
+        elif model == "gpt-4o-mini":
+            if dataset == "baseline":
+                prediction = data["llm_input"].apply(llm_pii_detector, mode="spans")
+            else:
+                prediction = data["llm_input"].apply(llm_pii_detector).apply(presidio_pii_analyzer)
         else:
-            prediction = data["llm_input"].apply(llm_pii_detector).apply(presidio_pii_analyzer)
+            raise ValueError(f"Model {model} is not supported")
+
         data["prediction"] = prediction
         data["spans_score"] = data.apply(
             lambda row: spans_scorer(
@@ -138,4 +133,4 @@ def pii_detector_llm():
             axis=1,
         )
         data = data[PREDICTION_DATASET_COLS].apply(cast_to_json)
-        data.to_csv(path_or_buf=f"datasets/{dataset}_gpt-4o-mini_prediction.csv", index=False)
+        data.to_csv(path_or_buf=f"datasets/{dataset}_{model}_prediction.csv", index=False)

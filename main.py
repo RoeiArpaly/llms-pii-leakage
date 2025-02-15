@@ -1,11 +1,11 @@
 from config import Config
+from constants import DATASETS
 from logger import logger
 from pipelines import (
     generate_baseline_dataset,
     generate_fuzzy_dataset,
     generate_fuzzy_adv_dataset,
-    pii_detector_presidio,
-    pii_detector_llm,
+    pii_detection_pipeline,
 )
 from evaluation.reports import evaluate_and_save_datasets
 
@@ -15,13 +15,9 @@ if __name__ == "__main__":
     generate_fuzzy_dataset()
     generate_fuzzy_adv_dataset()
 
-    pii_detector_presidio()
-    pii_detector_presidio(nlp=True)
-    pii_detector_llm()
+    for model in Config.MODELS:
+        pii_detection_pipeline(model=model)
 
-    evaluate_and_save_datasets(
-        datasets=["baseline", "fuzzy", "fuzzy_adv"],
-        models=["presidio", "presidio_nlp", "gpt-4o-mini"],
-    )
+    evaluate_and_save_datasets(datasets=DATASETS, models=Config.MODELS)
 
     logger.info("SUCCESS")
