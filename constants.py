@@ -9,10 +9,11 @@ FUZZY_TECHNIQUES: list[list] = [
     ["homoglyph"],
     ["number_to_roman"],
     ["number_to_word"],
+    ["reverse"],
     ["separators"],
 ]
 ADV_CONTENT_TECHNIQUES: list[list] = [
-    ["emojify"],
+    ["supportive_context"],
     ["affix"],
 ]
 FUZZY_DATASET_COLS: list = [

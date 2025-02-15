@@ -70,7 +70,7 @@ def generate_fuzzy_dataset():
                 llm_input=row["llm_input"],
                 spans=row["pii_spans"],
                 chosen_techniques=row["fuzzy_techniques"],
-            ) if row["pii_spans"] else None,
+            ),
             axis=1,
             result_type="expand",
         )

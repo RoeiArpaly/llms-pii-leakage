@@ -1,6 +1,6 @@
 import pytest
 
-from data_manipulation.content.emojify import emojify_pii_entity
+from data_manipulation.content.supportive_context import supportive_context
 
 
 @pytest.mark.parametrize(
@@ -17,4 +17,4 @@ from data_manipulation.content.emojify import emojify_pii_entity
     ],
 )
 def test_emojify_text(text, expected):
-    assert emojify_pii_entity(text=text) == expected
+    assert supportive_context(text=text) == expected

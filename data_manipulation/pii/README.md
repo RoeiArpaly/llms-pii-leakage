@@ -54,7 +54,19 @@ Replaces numbers in PIIs with their English word equivalents.
 
 ---
 
-### 5. Separators Attack
+### 5. Reverse Attack
+
+#### Description
+Reverses the order of characters in PIIs.
+
+#### Example
+| Original Content                                  | Adversarial Content                                 |
+|---------------------------------------------------|-----------------------------------------------------|
+| Hello, my credit card number is 4373024900209025. | Hello, my credit card number is `5029200204903734`. |
+
+---
+
+### 6. Separators Attack
 
 #### Description
 Adds random separators to PIIs to make them harder to detect.

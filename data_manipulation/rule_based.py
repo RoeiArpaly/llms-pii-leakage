@@ -1,17 +1,19 @@
 from data_manipulation.content import (
     adversarial_affix,
-    emojify_pii_entity,
+    supportive_context,
 )
 from data_manipulation.pii import (
     emojify_pii,
+    homoglyph,
     number_to_roman,
     number_to_word,
     inject_separator,
+    reverse_pii,
 )
 from data_manipulation.pii.utils import fuzzy_pii_injection
 
 
-def pii_fuzzer(llm_input, spans, chosen_techniques) -> tuple:
+def pii_fuzzer(llm_input: str, spans: list[dict], chosen_techniques: list) -> tuple:
     """
 
     Parameters
@@ -29,17 +31,16 @@ def pii_fuzzer(llm_input, spans, chosen_techniques) -> tuple:
 
     """
 
-    if not chosen_techniques:
+    if not chosen_techniques or not spans:
         return llm_input, spans
 
     mapping = {
         "emojify": emojify_pii,
+        "homoglyph": homoglyph,
         "number_to_roman": number_to_roman,
         "number_to_word": number_to_word,
         "separators": inject_separator,
-        "chunk_password": None,
-        "gibberish": None,
-        "random_case": None,
+        "reverse": reverse_pii,
     }
 
     result = llm_input
@@ -57,18 +58,18 @@ def pii_fuzzer(llm_input, spans, chosen_techniques) -> tuple:
     return result, new_spans
 
 
-def adversarial_content(llm_input, spans, chosen_techniques):
+def adversarial_content(llm_input: str, spans: list[dict], chosen_techniques: list) -> str:
 
-    if not chosen_techniques:
-        return
+    if not chosen_techniques or not spans:
+        return llm_input
 
     result = llm_input
     for technique in chosen_techniques:
-        if technique == "emojify":
-            result = emojify_pii_entity(text=result)
+        if technique == "supportive_context":
+            result = supportive_context(text=result)
         elif technique == "affix":
-            adversarial_affix(llm_input=llm_input, spans=spans)
-        elif technique == "gibberish":
+            result = adversarial_affix(llm_input=llm_input, spans=spans)
+        elif technique == "rewrite":
             ...
         else:
             raise ValueError(f"Invalid technique: {technique}")

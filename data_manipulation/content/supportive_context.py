@@ -9,34 +9,37 @@ from data_manipulation.constants import (
 from data_manipulation.content.utils import replacer
 
 
-def emojify_pii_entity(text: str) -> str:
-    """
-    Emojify PII names with emojis.
-    """
+def supportive_context(text: str, replace_with: str = "emoji") -> str:
+
+    if replace_with == "emoji":
+        replace_value_map = PII_EMOJI_MAP
+    else:
+        raise ValueError(f"Unsupported replacement value: {replace_with}")
+
     configs = [
         {
             "pii_entity": "CREDIT_CARD",
-            "replace_value": PII_EMOJI_MAP["CREDIT_CARD"],
+            "replace_value": replace_value_map["CREDIT_CARD"],
             "variations": CREDIT_CARD_VARIATIONS,
         },
         {
             "pii_entity": "SSN",
-            "replace_value": PII_EMOJI_MAP["SSN"],
+            "replace_value": replace_value_map["SSN"],
             "variations": SSN_VARIATIONS,
         },
         {
             "pii_entity": "BANK_ACCOUNT",
-            "replace_value": PII_EMOJI_MAP["BANK_ACCOUNT"],
+            "replace_value": replace_value_map["BANK_ACCOUNT"],
             "variations": IBAN_VARIATIONS,
         },
         {
             "pii_entity": "PHONE_NUMBER",
-            "replace_value": PII_EMOJI_MAP["PHONE_NUMBER"],
+            "replace_value": replace_value_map["PHONE_NUMBER"],
             "variations": PHONE_VARIATIONS,
         },
         {
             "pii_entity": "EMAIL",
-            "replace_value": PII_EMOJI_MAP["EMAIL"],
+            "replace_value": replace_value_map["EMAIL"],
             "variations": EMAIL_VARIATIONS,
         },
     ]
