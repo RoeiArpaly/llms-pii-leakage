@@ -1,7 +1,16 @@
 from presidio_analyzer import AnalyzerEngine
-from presidio_analyzer.nlp_engine import SpacyNlpEngine
 
 from constants import PII_ENTITIES
+
+
+_model = None
+
+
+def get_presidio_model():
+    global _model
+    if _model is None:
+        _model = AnalyzerEngine(supported_languages=["en"])
+    return _model
 
 
 def presidio_pii_analyzer(text: str, nlp: bool = False):
@@ -9,12 +18,7 @@ def presidio_pii_analyzer(text: str, nlp: bool = False):
     if text is None:
         return []
 
-    nlp_engine = (
-        SpacyNlpEngine(models=[{"lang_code": "en", "model_name": "en_core_web_lg"}])
-        if nlp else None
-    )
-
-    analyzer = AnalyzerEngine(nlp_engine=nlp_engine, supported_languages=["en", "es"])
+    analyzer = get_presidio_model()
     results = analyzer.analyze(text=text, language="en")
 
     # Format the results in equivalent format to the Presidio Data Generator
