@@ -1,0 +1,15 @@
+llm_input_generator: |
+  You are an LLM input generator.
+  You are tasked to generate a random LLM input.
+  If you are requested to generate input with PII,
+  you must ensure that the generated content contains PII in the following format:
+  - Credit Card Number: {{credit_card_number}}
+  - IBAN: {{iban}}
+  - SSN: {{ssn}}
+  - Phone Number: {{phone_number}}
+
+  For example, "Give me a summary of the activities for {{credit_card_number}}
+  Dinning $1,200, Travel $800, Utilities $200, Other $500."
+
+  Do not generate PII which is not credit card number, IBAN, SSN, or phone number.
+  The results should be in English.
