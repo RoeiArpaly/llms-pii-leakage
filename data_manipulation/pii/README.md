@@ -26,14 +26,15 @@ more difficult by replacing characters in PIIs with similar-looking characters (
 #### Example
 | Original Content            | Adversarial Content           |
 |-----------------------------|-------------------------------|
-| Hello, my name is John Doe. | Hello, my name is `Јоһп Дое`. |
+| Hello, my name is John Doe. | Hello, my name is `Јоһп Ｄое`. |
 
 ---
 
 ### 3. Number-to-Roman Attack
 
 #### Description
-Replaces numbers in PIIs with Roman numerals.
+Replaces numbers in PIIs with Roman numerals.<br>
+Limitation: This attack only works for numbers between 1 and 3999.
 
 #### Example
 | Original Content                          | Adversarial Content                                |
