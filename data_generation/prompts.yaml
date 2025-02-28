@@ -13,3 +13,9 @@ llm_input_generator: |
 
   Do not generate PII which is not credit card number, IBAN, SSN, or phone number.
   The results should be in English.
+
+additional_instructions: |
+  The subjects of the generated content should be related to the following topics: {topics}
+
+  Generate input with PII: {contains_pii}
+  Make sure the following PIIs exist in the generated content at least once: {required_pii}
