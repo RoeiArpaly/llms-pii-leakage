@@ -5,6 +5,24 @@ PII_ENTITIES: dict = {  # mapping of analyzer to generator entities
     "US_SSN": "ssn",
     "PHONE_NUMBER": "phone_number",
 }
+TOPICS: list = [
+    "finance",
+    "human resources",
+    "daily usage",
+    "engineering",
+    "healthcare",
+    "academia",
+    "government",
+    "entertainment",
+    "sports",
+    "technology",
+    "business",
+    "gaming",
+    "advertisement",
+    "social media",
+    "marketing",
+    "executive",
+]
 FUZZY_TECHNIQUES: list[list] = [
     ["emojify"],
     ["homoglyph"],
