@@ -170,4 +170,5 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-/datasets/
+/datasets/*.csv
+/datasets/archive/
