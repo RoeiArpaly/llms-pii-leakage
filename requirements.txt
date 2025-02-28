@@ -3,6 +3,7 @@ matplotlib==3.9.4
 pandas==2.2.3
 presidio-analyzer==2.2.357
 presidio-evaluator==0.1.2
+PyYAML==6.0.2
 requests==2.32.3
 torch==2.6.0
 transformers==4.48.3
