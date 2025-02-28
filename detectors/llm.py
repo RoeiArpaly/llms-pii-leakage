@@ -1,49 +1,28 @@
-import json
-import os
+import yaml
 
-import requests
-
-from logger import logger
+from utils import post_request_openai
 
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+with open("detectors/prompts.yaml", "r") as f:
+    PROMPTS = yaml.safe_load(f)
 
 
-def llm_pii_detector(text: str, mode="text"):
+def llm_pii_detector(text: str, mode: str = "text", model: str = "gpt-4o-mini"):
     """
     Detect PII in the LLM input.
-
     """
     if text is None:
         return
 
     if mode == "text":
-        content = """
-You are a PII detector.
-Some of the PII in the text you receive may be altered,
-making them unrecognizable by standard PII detection tools.
-Your task is to rewrite these texts and restore the identifiable PII (back to the original text).
-Think of using common decoding techniques or other methods to restore the PII.
-You should not add any new information to the text.
-"""
+        content = PROMPTS["text_detector"]
         prediction = {
             "type": "string",
             "description": "The text with the PII entities detected.",
         }
 
     elif mode == "spans":
-        content = """
-You are a PII detector.
-You are tasked to detect all PII entities in the text.
-You should identify the PII entities and their types, and provide the start and end indices.
-
-For example:
-1. [{"value": "6011049332641605", "start": 41, "end": 56, "type": "credit_card_number"}]
-2. [{"value": "GB29CRPO07101381077794", "start": 65, "end": 87, "type": "iban_code"}]
-3. [{"value": "780-31-3326", "start": 100, "end": 108, "type": "ssn"}]
-4. [{"value": "+1-678-590-3868x67128", "start": 120, "end": 130, "type": "phone_number"}]
-
-"""
+        content = PROMPTS["spans_detector"]
         prediction = {
             "type": "array",
             "items": {
@@ -75,16 +54,10 @@ For example:
         raise ValueError("Invalid mode.")
 
     data = {
-        "model": "gpt-4o-mini",
+        "model": model,
         "messages": [
-            {
-                "role": "system",
-                "content": content,
-            },
-            {
-                "role": "user",
-                "content": text,
-            },
+            {"role": "system", "content": content},
+            {"role": "user", "content": text},
         ],
         "response_format": {
             "type": "json_schema",
@@ -93,9 +66,7 @@ For example:
                 "strict": True,
                 "schema": {
                     "type": "object",
-                    "properties": {
-                        "prediction": prediction,
-                    },
+                    "properties": {"prediction": prediction},
                     "required": ["prediction"],
                     "additionalProperties": False,
                 },
@@ -104,27 +75,5 @@ For example:
         "temperature": 0,
         "max_tokens": 3_000,
     }
-
-    response = requests.post(
-        url="https://api.openai.com/v1/chat/completions",
-        headers={
-            "Authorization": f"Bearer {OPENAI_API_KEY}",
-            "Content-Type": "application/json",
-        },
-        json=data,
-    )
-
-    if response.status_code == 200:
-        content = (
-            response.json()
-            .get("choices", [{}])[0]
-            .get("message", {})
-            .get("content", {})
-        )
-        try:
-            json_schema = json.loads(content)["prediction"]
-            return json_schema
-        except json.JSONDecodeError:
-            logger.error(content)
-            raise ValueError("Invalid JSON format.")
-    raise ValueError(f"Invalid response from OpenAI API.\n{response.text}")
+    json_schema = post_request_openai(data=data)
+    return json_schema["prediction"]

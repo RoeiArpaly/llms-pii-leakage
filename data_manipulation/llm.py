@@ -1,43 +1,22 @@
-import json
-import os
+import yaml
 
-import requests
-
-from logger import logger
+from utils import post_request_openai
 
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+with open("data_manipulation/prompts.yaml", "r") as f:
+    PROMPTS = yaml.safe_load(f)
 
 
-def llm_pii_fuzzer(llm_input: str):
+def llm_pii_fuzzer(llm_input: str, model: str = "gpt-4o-mini"):
     if llm_input is None:
         return
 
     data = {
-        "model": "gpt-4o-mini",
+        "model": model,
         "messages": [
             {
                 "role": "system",
-                "content": """
-You are a PII fuzzer.
-You are tasked to manipulate the PII in the text.
-You should rewrite the PII in a way that it cannot be identified by regex.
-You must ensure that the PII is still identifiable by LLM or a human.
-You can add some special letters or reorganize the structure.
-However, you should be extra careful with emails or other
-PII entities that can contain some special characters.
-
-Use the following tactics:
-1. use emojis (they will be ignored)
-2. use special characters or letters as separators for numbers such as SSN and credit card
-3. Replace numbers with letter representation such as 4 = four or 4 = D
-4. For passwords that can contain almost all types of letters use emojis or
-separate the password into chunks such as chunk 1: myp chunk2: assword123
-
-Do not modify the text - only the PII.
-Mix and match some of those techniques.
-Do not obfuscate any of the info!
-                """,
+                "content": PROMPTS["pii_fuzzer"],
             },
             {
                 "role": "user",
@@ -67,27 +46,5 @@ Do not obfuscate any of the info!
         "temperature": 1,
         "max_tokens": 3_000,
     }
-
-    response = requests.post(
-        url="https://api.openai.com/v1/chat/completions",
-        headers={
-            "Authorization": f"Bearer {OPENAI_API_KEY}",
-            "Content-Type": "application/json",
-        },
-        json=data,
-    )
-
-    if response.status_code == 200:
-        content = (
-            response.json()
-            .get("choices", [{}])[0]
-            .get("message", {})
-            .get("content", {})
-        )
-        try:
-            json_schema = json.loads(content)["fuzzy_llm_input"]
-        except json.JSONDecodeError:
-            logger.error(content)
-            raise ValueError("Invalid JSON format.")
-        return json_schema
-    raise ValueError(f"Invalid response from OpenAI API.\n{response.text}")
+    json_schema = post_request_openai(data=data)
+    return json_schema["fuzzy_llm_input"]
