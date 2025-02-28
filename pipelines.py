@@ -21,8 +21,8 @@ from data_manipulation.rule_based import (
     pii_fuzzer,
 )
 from detectors.gliner_detector import gliner_pii_detector
-from detectors.llm import llm_pii_detector
-from detectors.presidio import presidio_pii_analyzer
+from detectors.llm_detector import llm_pii_detector
+from detectors.presidio_detector import presidio_pii_analyzer
 from evaluation import spans_scorer
 from logger import logger
 from utils import (

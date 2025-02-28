@@ -1,9 +1,13 @@
 import yaml
 
+from importlib.resources import files
+
 from utils import post_request_openai
 
 
-with open("detectors/prompts.yaml", "r") as f:
+PROMPTS_PATH = files("detectors").joinpath("prompts.yaml")
+
+with PROMPTS_PATH.open("r") as f:
     PROMPTS = yaml.safe_load(f)
 
 
