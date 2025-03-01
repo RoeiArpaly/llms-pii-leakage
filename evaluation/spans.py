@@ -10,6 +10,13 @@ def normalize_pii(value: str) -> str:
     return re.sub(pattern=r"\W", repl="", string=value).lower()
 
 
+def spans_set(span_lists: list[list[dict]]) -> list[dict]:
+    """Converts a list of spans to a set of spans."""
+    spans = [item for sublist in span_lists for item in sublist]
+    frozen_spans = set([frozenset(span.items()) for span in spans])
+    return [dict(frozen_span) for frozen_span in frozen_spans]
+
+
 def spans_scorer(spans_true, spans_pred):
     """
 

@@ -4,6 +4,7 @@ from pandas import (
     concat,
     DataFrame,
     read_csv,
+    Series,
 )
 
 from constants import (
@@ -23,7 +24,10 @@ from data_manipulation.rule_based import (
 from detectors.gliner_detector import gliner_pii_detector
 from detectors.llm_detector import llm_pii_detector
 from detectors.presidio_detector import presidio_pii_analyzer
-from evaluation import spans_scorer
+from evaluation import (
+    spans_scorer,
+    spans_set,
+)
 from logger import logger
 from utils import (
     cast_to_json,
@@ -106,34 +110,59 @@ def generate_fuzzy_adv_dataset():
     data.apply(cast_to_json).to_csv(path_or_buf="datasets/fuzzy_adv_dataset.csv", index=True)
 
 
-def pii_detection_pipeline(models: list):
-    for model in models:
-        for dataset in DATASETS:
-            logger.info(f"Detecting PII with {model} for {dataset} dataset")
-            data = read_csv(f"datasets/{dataset}_dataset.csv").apply(infer_json)
+def process_predictions(data: DataFrame, model: str, dataset: str) -> Series:
+    """Apply the appropriate PII detection model to the dataset."""
+    logger.info(f"Detecting PII with {model} for {dataset} dataset")
 
-            if model == "presidio":
-                prediction = data["llm_input"].apply(presidio_pii_analyzer)
-            elif model == "presidio_nlp":
-                prediction = data["llm_input"].apply(presidio_pii_analyzer, nlp=True)
-            elif model == "gliner":
-                prediction = data["llm_input"].apply(gliner_pii_detector)
-            elif model == "gpt-4o-mini":
-                if dataset == "baseline":
-                    prediction = data["llm_input"].apply(llm_pii_detector, mode="spans")
-                else:
-                    prediction = data["llm_input"].apply(llm_pii_detector)
-                    prediction = prediction.apply(presidio_pii_analyzer)
-            else:
-                raise ValueError(f"Model {model} is not supported")
+    if model == "presidio":
+        prediction = data["llm_input"].apply(presidio_pii_analyzer)
+    elif model == "presidio_nlp":
+        prediction = data["llm_input"].apply(presidio_pii_analyzer, nlp=True)
+    elif model == "gliner":
+        prediction = data["llm_input"].apply(gliner_pii_detector)
+    elif model == "gpt-4o-mini":
+        if dataset == "baseline":
+            prediction = data["llm_input"].apply(llm_pii_detector, mode="spans")
+        else:
+            prediction = data["llm_input"].apply(llm_pii_detector)
+            prediction = prediction.apply(presidio_pii_analyzer)
+    else:
+        raise ValueError(f"Model {model} is not supported")
+    return prediction
 
-            data["prediction"] = prediction
-            data["spans_score"] = data.apply(
-                lambda row: spans_scorer(
-                    spans_true=row["pii_spans"],
-                    spans_pred=row["prediction"],
-                ),
-                axis=1,
-            )
-            data = data[PREDICTION_DATASET_COLS].apply(cast_to_json)
-            data.to_csv(path_or_buf=f"datasets/{dataset}_{model}_prediction.csv", index=False)
+
+def evaluate_predictions(data: DataFrame) -> DataFrame:
+    """Compute spans score for the given dataset."""
+    data["spans_score"] = data.apply(
+        lambda row: spans_scorer(
+            spans_true=row["pii_spans"],
+            spans_pred=row["prediction"],
+        ),
+        axis=1,
+    )
+    return data
+
+
+def save_predictions(data: DataFrame, dataset: str, model: str):
+    """Save the processed predictions to a CSV file."""
+    prediction_data = data[PREDICTION_DATASET_COLS].apply(cast_to_json)
+    prediction_data.to_csv(f"datasets/{dataset}_{model}_prediction.csv", index=False)
+
+
+def pii_detection_pipeline(models: list[str]):
+    """Runs PII detection using multiple models and aggregates results."""
+    for dataset in DATASETS:
+        data = read_csv(f"datasets/{dataset}_dataset.csv").apply(infer_json)
+        ensemble_predictions = DataFrame()
+        for model in models:
+            if model == "ensemble":
+                continue
+            data["prediction"] = process_predictions(data=data, model=model, dataset=dataset)
+            data = evaluate_predictions(data=data)
+            ensemble_predictions[model] = data["prediction"]
+            save_predictions(data=data, dataset=dataset, model=model)
+
+        ensemble_predictions = ensemble_predictions.apply(spans_set, axis=1)
+        data["prediction"] = ensemble_predictions
+        data = evaluate_predictions(data=data)
+        save_predictions(data=data, dataset=dataset, model="ensemble")

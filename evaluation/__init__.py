@@ -1,1 +1,4 @@
-from .spans import spans_scorer
+from .spans import (  # noqa: F401
+    spans_scorer,
+    spans_set,
+)

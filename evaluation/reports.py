@@ -46,7 +46,7 @@ def evaluate_and_save_datasets(models: List[str]) -> None:
 
     results = {key: [] for key in groupings}
     for dataset in DATASETS:
-        for model in models:
+        for model in models + ["ensemble"]:
             data = load_and_preprocess_data(dataset=dataset, model=model)
             for key, cols in groupings.items():
                 agg = compute_aggregated_scores(data=data, groupby_cols=cols)
