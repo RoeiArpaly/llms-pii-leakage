@@ -121,11 +121,7 @@ def process_predictions(data: DataFrame, model: str, dataset: str) -> Series:
     elif model == "gliner":
         prediction = data["llm_input"].apply(gliner_pii_detector)
     elif model == "gpt-4o-mini":
-        if dataset == "baseline":
-            prediction = data["llm_input"].apply(llm_pii_detector, mode="spans")
-        else:
-            prediction = data["llm_input"].apply(llm_pii_detector)
-            prediction = prediction.apply(presidio_pii_analyzer)
+        prediction = data["llm_input"].apply(llm_pii_detector, mode="spans")
     else:
         raise ValueError(f"Model {model} is not supported")
     return prediction
