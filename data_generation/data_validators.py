@@ -9,9 +9,9 @@ def contain_pii_template(text: str, contains_pii: bool):
         re.findall(pattern=r"{{(.*?)}}", string=text) if has_template else []
     )
     if contains_pii and not has_template:
-        raise ValueError("Contains PII but no template found in the text.")
+        raise ValueError(f"Contains PII but no template found in the text:\n{text}")
     if not contains_pii and has_template:
-        raise ValueError("No PII found, but a template was found in the text.")
+        raise ValueError(f"No PII found, but a template was found in the text:\n{text}")
     if extracted_params and any(
         param not in PII_ENTITIES.values() for param in extracted_params
     ):
