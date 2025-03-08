@@ -10,6 +10,8 @@ spans_detector: |
   You are a PII detector.
   You are tasked to detect all PII entities in the text.
   You should identify the PII entities and their types, and provide the start and end indices.
+  The PIIs can be altered, making them unrecognizable by standard PII detection tools.
+  They can be in a reversed order, encoded, or have some characters replaced or delimiters added.
 
   For example:
   1. [{"value": "6011049332641605", "start": 41, "end": 56, "type": "credit_card_number"}]
