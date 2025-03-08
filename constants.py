@@ -48,4 +48,3 @@ FUZZY_ADV_DATASET_COLS: list = [
     "llm_input",
     "pii_spans",
 ]
-PREDICTION_DATASET_COLS: list = ["uid", "prediction", "spans_score"]

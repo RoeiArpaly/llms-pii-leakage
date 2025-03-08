@@ -17,7 +17,7 @@ def spans_set(span_lists: list[list[dict]]) -> list[dict]:
     return [dict(frozen_span) for frozen_span in frozen_spans]
 
 
-def spans_scorer(spans_true, spans_pred, reverse_match=True):
+def spans_scorer(spans_true, spans_pred, match_level, reverse_match=True):
     """
 
     Parameters
@@ -26,6 +26,8 @@ def spans_scorer(spans_true, spans_pred, reverse_match=True):
         The true spans.
     spans_pred : list
         The predicted spans.
+    match_level : str
+        One of "value", "type", or "both".
     reverse_match : bool
         Whether to check for reverse match.
 
@@ -45,19 +47,34 @@ def spans_scorer(spans_true, spans_pred, reverse_match=True):
         spans_pred = []
 
     true_positives = 0
-    for span in spans_true:
-        true_value = normalize_pii(span["value"])
-        for pred_span in spans_pred:
+    matched_true = set()  # Tracks matched true spans
+    matched_pred = set()  # Tracks matched predicted spans
+    for i, true_span in enumerate(spans_true):
+        true_value = normalize_pii(true_span["value"])
+        true_type = true_span["type"]
+        for j, pred_span in enumerate(spans_pred):
             pred_value = normalize_pii(pred_span["value"])
-            if true_value == pred_value:
+            pred_type = pred_span["type"]
+            match_conditions = [
+                match_level == "both" and true_value == pred_value and true_type == pred_type,
+                match_level == "value" and true_value == pred_value,
+                match_level == "type" and true_type == pred_type,
+            ]
+            if reverse_match:
+                if match_level == "both":
+                    match_conditions.append(
+                        true_value == pred_value[::-1] and true_type == pred_type
+                    )
+                else:
+                    match_conditions.append(true_value == pred_value[::-1])
+            if any(match_conditions):
                 true_positives += 1
-                break
-            if reverse_match and true_value == pred_value[::-1]:
-                true_positives += 1
-                break
+                matched_true.add(i)
+                matched_pred.add(j)
+                break  # Stop checking once a match is found
 
-    false_negatives = len(spans_true) - true_positives
-    false_positives = len(spans_pred) - true_positives
+    false_positives = len(spans_pred) - len(matched_pred)  # Unmatched predictions
+    false_negatives = len(spans_true) - len(matched_true)  # Unmatched true spans
     exact_match = true_positives - false_positives - false_negatives == len(spans_true)
 
     precision = safe_divide(true_positives, true_positives + false_positives)

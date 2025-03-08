@@ -4,11 +4,12 @@ from evaluation import spans_scorer
 
 
 @pytest.mark.parametrize(
-    "spans_true, spans_pred, expected",
+    "spans_true, spans_pred, match_level, expected",
     [
         (
-            [{"value": "1111111111111111"}],
-            [{"value": "1111111111111111"}],
+            [{"value": "1111111111111111", "type": "credit_card_number"}],
+            [{"value": "1111111111111111", "type": "credit_card_number"}],
+            "value",
             {
                 "exact_match": True,
                 "true_positive": 1,
@@ -20,21 +21,68 @@ from evaluation import spans_scorer
             },
         ),
         (
-            [{"value": "1111111111111111"}],
-            [{"value": "2222222222222222"}],
+            [{"value": "1111111111111111", "type": "credit_card_number"}],
+            [{"value": "1111111111111111", "type": "credit_card_number"}],
+            "type",
+            {
+                "exact_match": True,
+                "true_positive": 1,
+                "false_positive": 0,
+                "false_negative": 0,
+                "precision": 1.0,
+                "recall": 1.0,
+                "f1": 1.0,
+            },
+        ),
+        (
+            [{"value": "1111111111111111", "type": "credit_card_number"}],
+            [{"value": "1111111111111111", "type": "credit_card_number"}],
+            "both",
+            {
+                "exact_match": True,
+                "true_positive": 1,
+                "false_positive": 0,
+                "false_negative": 0,
+                "precision": 1.0,
+                "recall": 1.0,
+                "f1": 1.0,
+            },
+        ),
+        (
+            [{"value": "1111111111111111", "type": "credit_card_number"}],
+            [{"value": "2222222222222222", "type": "credit_card_number"}],
+            "type",
+            {
+                "exact_match": True,
+                "true_positive": 1,
+                "false_positive": 0,
+                "false_negative": 0,
+                "precision": 1.0,
+                "recall": 1.0,
+                "f1": 1.0,
+            },
+        ),
+        (
+            [{"value": "1111111111111111", "type": "credit_card_number"}],
+            [{"value": "1111111111111111", "type": "ssn"}],
+            "both",
             {
                 "exact_match": False,
                 "true_positive": 0,
                 "false_positive": 1,
                 "false_negative": 1,
-                "precision": 0.0,
-                "recall": 0.0,
-                "f1": 0.0,
+                "precision": 0,
+                "recall": 0,
+                "f1": 0,
             },
         ),
         (
-            [{"value": "1111111111111111"}, {"value": "2222222222222222"}],
-            [{"value": "2222222222222222"}],
+            [
+                {"value": "1111111111111111", "type": "ssn"},
+                {"value": "1111111111111111", "type": "credit_card_number"}
+            ],
+            [{"value": "1111111111111111", "type": "ssn"}],
+            "both",
             {
                 "exact_match": False,
                 "true_positive": 1,
@@ -46,8 +94,57 @@ from evaluation import spans_scorer
             },
         ),
         (
-            [{"value": "1111111111111111"}],
-            [{"value": "1111111111111111"}, {"value": "2222222222222222"}],
+            [{"value": "1111111111111111", "type": "credit_card_number"}],
+            [{"value": "2222222222222222", "type": "credit_card_number"}],
+            "both",
+            {
+                "exact_match": False,
+                "true_positive": 0,
+                "false_positive": 1,
+                "false_negative": 1,
+                "precision": 0,
+                "recall": 0,
+                "f1": 0,
+            },
+        ),
+        (
+            [{"value": "1111111111111111", "type": "credit_card_number"}],
+            [{"value": "2222222222222222", "type": "credit_card_number"}],
+            "value",
+            {
+                "exact_match": False,
+                "true_positive": 0,
+                "false_positive": 1,
+                "false_negative": 1,
+                "precision": 0.0,
+                "recall": 0.0,
+                "f1": 0.0,
+            },
+        ),
+        (
+            [
+                {"value": "1111111111111111", "type": "credit_card_number"},
+                {"value": "2222222222222222", "type": "credit_card_number"},
+            ],
+            [{"value": "2222222222222222", "type": "credit_card_number"}],
+            "value",
+            {
+                "exact_match": False,
+                "true_positive": 1,
+                "false_positive": 0,
+                "false_negative": 1,
+                "precision": 1.0,
+                "recall": 0.5,
+                "f1": 0.6666666666666666,
+            },
+        ),
+        (
+            [{"value": "1111111111111111", "type": "credit_card_number"}],
+            [
+                {"value": "1111111111111111", "type": "credit_card_number"},
+                {"value": "2222222222222222", "type": "credit_card_number"},
+            ],
+            "value",
             {
                 "exact_match": False,
                 "true_positive": 1,
@@ -59,21 +156,23 @@ from evaluation import spans_scorer
             },
         ),
         (
-                [{"value": "12345"}],
-                [{"value": "54321"}],
-                {
-                    "exact_match": True,
-                    "true_positive": 1,
-                    "false_positive": 0,
-                    "false_negative": 0,
-                    "precision": 1.0,
-                    "recall": 1.0,
-                    "f1": 1.0,
-                },
+            [{"value": "12345", "type": "credit_card_number"}],
+            [{"value": "54321", "type": "credit_card_number"}],
+            "value",
+            {
+                "exact_match": True,
+                "true_positive": 1,
+                "false_positive": 0,
+                "false_negative": 0,
+                "precision": 1.0,
+                "recall": 1.0,
+                "f1": 1.0,
+            },
         ),
         (
-            [{"value": "1111111111111111"}],
+            [{"value": "1111111111111111", "type": "credit_card_number"}],
             None,
+            "value",
             {
                 "exact_match": False,
                 "true_positive": 0,
@@ -86,7 +185,8 @@ from evaluation import spans_scorer
         ),
         (
             None,
-            [{"value": "1111111111111111"}],
+            [{"value": "1111111111111111", "type": "credit_card_number"}],
+            "value",
             {
                 "exact_match": False,
                 "true_positive": 0,
@@ -100,10 +200,11 @@ from evaluation import spans_scorer
         (
             None,
             None,
+            "value",
             {},
         ),
     ],
 )
-def test_spans_scorer(spans_true, spans_pred, expected):
-    result = spans_scorer(spans_true, spans_pred)
+def test_spans_scorer(spans_true, spans_pred, match_level, expected):
+    result = spans_scorer(spans_true, spans_pred, match_level)
     assert result == expected

@@ -7,14 +7,40 @@ from pandas import (
 )
 
 from constants import DATASETS
+from evaluation import spans_scorer
 from evaluation.constants import SPANS_METRICS
-from utils import infer_json
+from utils import (
+    cast_to_json,
+    infer_json,
+)
+
+
+def evaluate_predictions(data: DataFrame, match_level: str) -> DataFrame:
+    """Compute spans score for the given dataset."""
+    data["spans_score"] = data.apply(
+        lambda row: spans_scorer(
+            spans_true=row["pii_spans"],
+            spans_pred=row["prediction"],
+            match_level=match_level,
+        ),
+        axis=1,
+    )
+    return data
+
+
+def row_wise_spans_scorer(models, match_level: str):
+    for dataset in DATASETS:
+        for model in models + ["ensemble"]:
+            data = read_csv(f"datasets/{dataset}_{model}_prediction.csv").apply(infer_json)
+            data = evaluate_predictions(data=data, match_level=match_level)
+            data = data[["uid", "prediction", "spans_score"]].apply(cast_to_json)
+            data.to_csv(f"datasets/{dataset}_{model}_evaluation.csv", index=False)
 
 
 def load_and_preprocess_data(dataset: str, model: str) -> DataFrame:
     """Load, merge, and process prediction and dataset CSVs."""
     data = read_csv(f"datasets/{dataset}_dataset.csv").apply(infer_json)
-    data_pred = read_csv(f"datasets/{dataset}_{model}_prediction.csv").apply(infer_json)
+    data_pred = read_csv(f"datasets/{dataset}_{model}_evaluation.csv").apply(infer_json)
     data = data_pred.merge(data, on="uid", how="left")
     for col in ["fuzzy_techniques", "adv_content_techniques"]:
         data[col] = data[col].apply(lambda x: x[0] if x else None) if col in data.columns else None
@@ -35,8 +61,11 @@ def compute_aggregated_scores(data: DataFrame, groupby_cols: List[str] = None) -
     return data.drop(columns=SPANS_METRICS).fillna(0)
 
 
-def evaluate_and_save_datasets(models: List[str]) -> None:
+def evaluate_and_save_datasets(models: List[str], match_level: str) -> None:
     """Evaluate and save aggregated scores for all dataset-model pairs."""
+
+    row_wise_spans_scorer(models=models, match_level=match_level)
+
     groupings = {
         "dataset_level": [],
         "fuzzy": ["fuzzy_techniques"],

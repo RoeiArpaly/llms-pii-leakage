@@ -46,7 +46,8 @@ def infer_json(column: Series) -> Series:
 
 
 def parse_json(value, column_name):
-    if "span" in column_name or "techniques" in column_name:  # TODO: improve
+    # TODO: improve
+    if "span" in column_name or "prediction" in column_name or "techniques" in column_name:
         try:
             return json.loads(value)
         except (json.JSONDecodeError, TypeError):

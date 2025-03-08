@@ -13,7 +13,6 @@ from constants import (
     FUZZY_TECHNIQUES,
     FUZZY_DATASET_COLS,
     FUZZY_ADV_DATASET_COLS,
-    PREDICTION_DATASET_COLS,
 )
 from data_generation.pii_generator import presidio_inject_pii
 from data_generation.llm_input_generator import generate_llm_input
@@ -24,10 +23,7 @@ from data_manipulation.rule_based import (
 from detectors.gliner_detector import gliner_pii_detector
 from detectors.llm_detector import llm_pii_detector
 from detectors.presidio_detector import presidio_pii_analyzer
-from evaluation import (
-    spans_scorer,
-    spans_set,
-)
+from evaluation import spans_set
 from logger import logger
 from utils import (
     cast_to_json,
@@ -127,24 +123,6 @@ def process_predictions(data: DataFrame, model: str, dataset: str) -> Series:
     return prediction
 
 
-def evaluate_predictions(data: DataFrame) -> DataFrame:
-    """Compute spans score for the given dataset."""
-    data["spans_score"] = data.apply(
-        lambda row: spans_scorer(
-            spans_true=row["pii_spans"],
-            spans_pred=row["prediction"],
-        ),
-        axis=1,
-    )
-    return data
-
-
-def save_predictions(data: DataFrame, dataset: str, model: str):
-    """Save the processed predictions to a CSV file."""
-    prediction_data = data[PREDICTION_DATASET_COLS].apply(cast_to_json)
-    prediction_data.to_csv(f"datasets/{dataset}_{model}_prediction.csv", index=False)
-
-
 def pii_detection_pipeline(models: list[str]):
     """Runs PII detection using multiple models and aggregates results."""
     for dataset in DATASETS:
@@ -154,11 +132,11 @@ def pii_detection_pipeline(models: list[str]):
             if model == "ensemble":
                 continue
             data["prediction"] = process_predictions(data=data, model=model, dataset=dataset)
-            data = evaluate_predictions(data=data)
             ensemble_predictions[model] = data["prediction"]
-            save_predictions(data=data, dataset=dataset, model=model)
+            path = f"datasets/{dataset}_{model}_prediction.csv"
+            data.apply(cast_to_json).to_csv(path, index=False)
 
         ensemble_predictions = ensemble_predictions.apply(spans_set, axis=1)
         data["prediction"] = ensemble_predictions
-        data = evaluate_predictions(data=data)
-        save_predictions(data=data, dataset=dataset, model="ensemble")
+        path = f"datasets/{dataset}_ensemble_prediction.csv"
+        data.apply(cast_to_json).to_csv(path, index=False)
