@@ -59,6 +59,19 @@ from evaluation import spans_scorer
             },
         ),
         (
+                [{"value": "12345"}],
+                [{"value": "54321"}],
+                {
+                    "exact_match": True,
+                    "true_positive": 1,
+                    "false_positive": 0,
+                    "false_negative": 0,
+                    "precision": 1.0,
+                    "recall": 1.0,
+                    "f1": 1.0,
+                },
+        ),
+        (
             [{"value": "1111111111111111"}],
             None,
             {

@@ -17,7 +17,7 @@ def spans_set(span_lists: list[list[dict]]) -> list[dict]:
     return [dict(frozen_span) for frozen_span in frozen_spans]
 
 
-def spans_scorer(spans_true, spans_pred):
+def spans_scorer(spans_true, spans_pred, reverse_match=True):
     """
 
     Parameters
@@ -26,6 +26,8 @@ def spans_scorer(spans_true, spans_pred):
         The true spans.
     spans_pred : list
         The predicted spans.
+    reverse_match : bool
+        Whether to check for reverse match.
 
     Examples
     --------
@@ -35,31 +37,37 @@ def spans_scorer(spans_true, spans_pred):
     -------
 
     """
-
     if not spans_true and not spans_pred:
         return {}
-
     if not isinstance(spans_true, list):
         spans_true = []
     if not isinstance(spans_pred, list):
         spans_pred = []
 
-    true_values = set([normalize_pii(span["value"]) for span in spans_true])
-    pred_values = set([normalize_pii(span["value"]) for span in spans_pred])
-    exact_match = true_values == pred_values
+    true_positives = 0
+    for span in spans_true:
+        true_value = normalize_pii(span["value"])
+        for pred_span in spans_pred:
+            pred_value = normalize_pii(pred_span["value"])
+            if true_value == pred_value:
+                true_positives += 1
+                break
+            if reverse_match and true_value == pred_value[::-1]:
+                true_positives += 1
+                break
 
-    true_positive = len(true_values.intersection(pred_values))
-    false_positive = len(pred_values - true_values)
-    false_negative = len(true_values - pred_values)
+    false_negatives = len(spans_true) - true_positives
+    false_positives = len(spans_pred) - true_positives
+    exact_match = true_positives - false_positives - false_negatives == len(spans_true)
 
-    precision = safe_divide(true_positive, true_positive + false_positive)
-    recall = safe_divide(true_positive, true_positive + false_negative)
+    precision = safe_divide(true_positives, true_positives + false_positives)
+    recall = safe_divide(true_positives, true_positives + false_negatives)
     f1 = safe_divide(2 * precision * recall, precision + recall)
     return {
         "exact_match": exact_match,
-        "true_positive": true_positive,
-        "false_positive": false_positive,
-        "false_negative": false_negative,
+        "true_positive": true_positives,
+        "false_positive": false_positives,
+        "false_negative": false_negatives,
         "precision": precision,
         "recall": recall,
         "f1": f1,
