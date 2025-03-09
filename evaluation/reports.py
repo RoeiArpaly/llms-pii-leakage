@@ -15,24 +15,18 @@ from utils import (
 )
 
 
-def evaluate_predictions(data: DataFrame, match_level: str) -> DataFrame:
-    """Compute spans score for the given dataset."""
-    data["spans_score"] = data.apply(
-        lambda row: spans_scorer(
-            spans_true=row["pii_spans"],
-            spans_pred=row["prediction"],
-            match_level=match_level,
-        ),
-        axis=1,
-    )
-    return data
-
-
-def row_wise_spans_scorer(models, match_level: str):
+def evaluate_predictions(models, match_level: str):
     for dataset in DATASETS:
-        for model in models + ["ensemble"]:
+        for model in models:
             data = read_csv(f"datasets/{dataset}_{model}_prediction.csv").apply(infer_json)
-            data = evaluate_predictions(data=data, match_level=match_level)
+            data["spans_score"] = data.apply(
+                lambda row: spans_scorer(
+                    spans_true=row["pii_spans"],
+                    spans_pred=row["prediction"],
+                    match_level=match_level,
+                ),
+                axis=1,
+            )
             data = data[["uid", "prediction", "spans_score"]].apply(cast_to_json)
             data.to_csv(f"datasets/{dataset}_{model}_evaluation.csv", index=False)
 
@@ -64,7 +58,7 @@ def compute_aggregated_scores(data: DataFrame, groupby_cols: List[str] = None) -
 def evaluate_and_save_datasets(models: List[str], match_level: str) -> None:
     """Evaluate and save aggregated scores for all dataset-model pairs."""
 
-    row_wise_spans_scorer(models=models, match_level=match_level)
+    evaluate_predictions(models=models, match_level=match_level)
 
     groupings = {
         "dataset_level": [],
