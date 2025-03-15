@@ -18,7 +18,7 @@ from utils import (
 def evaluate_predictions(models, match_level: str):
     for dataset in DATASETS:
         for model in models:
-            data = read_csv(f"datasets/{dataset}_{model}_prediction.csv").apply(infer_json)
+            data = read_csv(f"datasets/predictions/{dataset}_{model}.csv").apply(infer_json)
             data["spans_score"] = data.apply(
                 lambda row: spans_scorer(
                     spans_true=row["pii_spans"],
@@ -28,13 +28,13 @@ def evaluate_predictions(models, match_level: str):
                 axis=1,
             )
             data = data[["uid", "prediction", "spans_score"]].apply(cast_to_json)
-            data.to_csv(f"datasets/{dataset}_{model}_evaluation.csv", index=False)
+            data.to_csv(f"datasets/evaluations/{dataset}_{model}.csv", index=False)
 
 
 def load_and_preprocess_data(dataset: str, model: str) -> DataFrame:
     """Load, merge, and process prediction and dataset CSVs."""
     data = read_csv(f"datasets/{dataset}_dataset.csv").apply(infer_json)
-    data_pred = read_csv(f"datasets/{dataset}_{model}_evaluation.csv").apply(infer_json)
+    data_pred = read_csv(f"datasets/evaluations/{dataset}_{model}.csv").apply(infer_json)
     data = data_pred.merge(data, on="uid", how="left")
     for col in ["fuzzy_techniques", "adv_content_techniques"]:
         data[col] = data[col].apply(lambda x: x[0] if x else None) if col in data.columns else None
@@ -58,6 +58,7 @@ def compute_aggregated_scores(data: DataFrame, groupby_cols: List[str] = None) -
 def evaluate_and_save_datasets(models: List[str], match_level: str) -> None:
     """Evaluate and save aggregated scores for all dataset-model pairs."""
 
+    models = models + ["ensemble"]
     evaluate_predictions(models=models, match_level=match_level)
 
     groupings = {
@@ -69,7 +70,7 @@ def evaluate_and_save_datasets(models: List[str], match_level: str) -> None:
 
     results = {key: [] for key in groupings}
     for dataset in DATASETS:
-        for model in models + ["ensemble"]:
+        for model in models:
             data = load_and_preprocess_data(dataset=dataset, model=model)
             for key, cols in groupings.items():
                 agg = compute_aggregated_scores(data=data, groupby_cols=cols)
@@ -81,5 +82,5 @@ def evaluate_and_save_datasets(models: List[str], match_level: str) -> None:
     for i, key in enumerate(groupings, 1):
         if results[key]:
             idx = ["Dataset", "Model"] + groupings[key]
-            file_name = f"datasets/score_results_{i}.csv"
+            file_name = f"datasets/evaluations/{i}_{key}.csv"
             concat(results[key], ignore_index=True).set_index(idx).to_csv(file_name)

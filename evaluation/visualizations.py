@@ -222,27 +222,28 @@ def plot_performance(
     plt.show()
 
 
+PREFIX = "../datasets/evaluations"
 datasets = [
     {
-        "file": "../datasets/score_results_1.csv",
+        "file": f"{PREFIX}/1_dataset_level.csv",
         "metric": None,  # Will be determined dynamically
         "group_cols": ["Dataset"],
         "group_colors": ["#1f77b4", "#ff7f0e", "#2ca02c"],
     },
     {
-        "file": "../datasets/score_results_2.csv",
+        "file": f"{PREFIX}/2_fuzzy.csv",
         "metric": "F1",
         "group_cols": ["fuzzy_techniques"],
         "group_colors": ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b"],
     },
     {
-        "file": "../datasets/score_results_3.csv",
+        "file": f"{PREFIX}/3_adv.csv",
         "metric": "F1",
         "group_cols": ["adv_content_techniques"],
         "group_colors": ["#1f77b4", "#ff7f0e", "#2ca02c"],
     },
     {
-        "file": "../datasets/score_results_4.csv",
+        "file": f"{PREFIX}/4_both.csv",
         "metric": "F1",
         "group_cols": ["fuzzy_techniques", "adv_content_techniques"],
         "group_colors": {"affix": "#1f77b4", "emojify": "#ff7f0e"},
