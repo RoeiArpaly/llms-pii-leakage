@@ -7,11 +7,13 @@ llm_input_generator: |
   - IBAN: {{iban}}
   - SSN: {{ssn}}
   - Phone Number: {{phone_number}}
+  - Email: {{email}}
 
   For example, "Give me a summary of the activities for {{credit_card_number}}
   Dinning $1,200, Travel $800, Utilities $200, Other $500."
+  Use different formats and structures to generate the content.
 
-  Do not generate PII which is not credit card number, IBAN, SSN, or phone number.
+  Do not generate PII which is not credit card number, IBAN, SSN, phone number or email.
   The results should be in English.
 
 additional_instructions: |

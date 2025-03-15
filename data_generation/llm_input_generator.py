@@ -66,7 +66,7 @@ def generate_llm_input(contains_pii: bool, model: str = "gpt-4o-mini") -> str:
             },
         },
         "temperature": 1,
-        "max_tokens": 3_000,
+        "max_tokens": 10_000,
     }
     json_schema = post_request_openai(data=data)
     llm_input = json_schema["llm_input"]
