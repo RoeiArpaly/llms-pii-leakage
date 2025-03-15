@@ -91,13 +91,14 @@ def generate_fuzzy_adv_dataset():
         logger.info(f"Generating adversarial content for technique: {technique}")
         _data = data.copy()
         _data["adv_content_techniques"] = _data.apply(lambda _: technique, axis=1)
-        _data["llm_input"] = _data.apply(
+        _data[["llm_input", "pii_spans"]] = _data.apply(
             lambda row: adversarial_content(
                 llm_input=row["llm_input"],
                 spans=row["pii_spans"],
                 chosen_techniques=row["adv_content_techniques"],
-            ) if row["pii_spans"] else None,
+            ),
             axis=1,
+            result_type="expand",
         )
         datasets.append(_data.copy())
     data = concat(datasets, ignore_index=True)
@@ -117,7 +118,7 @@ def process_predictions(data: DataFrame, model: str, dataset: str) -> Series:
     elif model == "gliner":
         prediction = data["llm_input"].apply(gliner_pii_detector)
     elif model == "gpt-4o-mini":
-        prediction = data["llm_input"].apply(llm_pii_detector, mode="spans")
+        prediction = data["llm_input"].apply(llm_pii_detector)
     else:
         raise ValueError(f"Model {model} is not supported")
     return prediction
@@ -133,10 +134,10 @@ def pii_detection_pipeline(models: list[str]):
                 continue
             data["prediction"] = process_predictions(data=data, model=model, dataset=dataset)
             ensemble_predictions[model] = data["prediction"]
-            path = f"datasets/{dataset}_{model}_prediction.csv"
+            path = f"datasets/predictions/{dataset}_{model}.csv"
             data.apply(cast_to_json).to_csv(path, index=False)
 
         ensemble_predictions = ensemble_predictions.apply(spans_set, axis=1)
         data["prediction"] = ensemble_predictions
-        path = f"datasets/{dataset}_ensemble_prediction.csv"
+        path = f"datasets/predictions/{dataset}_ensemble.csv"
         data.apply(cast_to_json).to_csv(path, index=False)

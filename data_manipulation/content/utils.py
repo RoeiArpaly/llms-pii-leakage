@@ -7,7 +7,7 @@ from presidio_anonymizer import AnonymizerEngine
 from presidio_anonymizer.entities import OperatorConfig
 
 
-def replacer(text, configs):
+def replacer(text: str, configs: list[dict]) -> str:
     """
     Replace the PII entity names with a replace_value.
 
@@ -15,7 +15,7 @@ def replacer(text, configs):
     ----------
     text : str
         The text to replace the PII entities.
-    configs : list
+    configs : list[dict]
         A list of dictionaries containing the PII entity name, replace_value, and variations.
 
     Returns
@@ -23,7 +23,6 @@ def replacer(text, configs):
     str
 
     """
-
     patterns_recognizers = {}
     operators = {}
     for config in configs:
@@ -46,9 +45,7 @@ def replacer(text, configs):
     analyzer = AnalyzerEngine()
     for recognizer in patterns_recognizers:
         patterns = patterns_recognizers[recognizer]
-        pattern_recognizer = PatternRecognizer(
-            supported_entity=recognizer, patterns=[patterns]
-        )
+        pattern_recognizer = PatternRecognizer(supported_entity=recognizer, patterns=[patterns])
         analyzer.registry.add_recognizer(pattern_recognizer)
     results = analyzer.analyze(
         text=text, entities=list(patterns_recognizers.keys()), language="en"

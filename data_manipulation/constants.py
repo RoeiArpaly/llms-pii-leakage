@@ -120,6 +120,13 @@ PII_EMOJI_MAP = {
     "PHONE_NUMBER": "📞",
     "EMAIL": "📧",
 }
+PII_HOMOGLYPH_MAP = {
+    "CREDIT_CARD": "𝓬𝓻𝓮𝓭𝓲𝓽 𝓬𝓪𝓻𝓭",
+    "SSN": "𝓼𝓸𝓬𝓲𝓪𝓵 𝓼𝓮𝓬𝓾𝓻𝓲𝓽𝔂 𝓷𝓾𝓶𝓫𝓮𝓻",
+    "BANK_ACCOUNT": "𝓫𝓪𝓷𝓴 𝓪𝓬𝓬𝓸𝓾𝓷𝓽",
+    "PHONE_NUMBER": "𝓹𝓱𝓸𝓷𝓮 𝓷𝓾𝓶𝓫𝓮𝓻",
+    "EMAIL": "𝓮𝓶𝓪𝓲𝓵",
+}
 NUMBER_WORD_MAP = {
     "english": {
         "0": "zero",

@@ -2,6 +2,7 @@ import yaml
 
 from importlib.resources import files
 
+from constants import PII_ENTITIES
 from utils import post_request_openai
 
 
@@ -11,51 +12,42 @@ with PROMPTS_PATH.open("r") as f:
     PROMPTS = yaml.safe_load(f)
 
 
-def llm_pii_detector(text: str, mode: str = "text", model: str = "gpt-4o-mini"):
+def llm_pii_detector(text: str, model: str = "gpt-4o-mini"):
     """
     Detect PII in the LLM input.
     """
     if text is None:
         return
 
-    if mode == "text":
-        content = PROMPTS["text_detector"]
-        prediction = {
-            "type": "string",
-            "description": "The text with the PII entities detected.",
-        }
-
-    elif mode == "spans":
-        content = PROMPTS["spans_detector"]
-        prediction = {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "value": {
-                        "type": "string",
-                        "description": "The PII entity in a standard Presidio format.",
-                    },
-                    "start": {
-                        "type": "integer",
-                        "description": "The start index of the PII entity.",
-                    },
-                    "end": {
-                        "type": "integer",
-                        "description": "The end index of the PII entity.",
-                    },
-                    "type": {
-                        "type": "string",
-                        "description": "The type of the PII entity.",
-                    },
+    content = PROMPTS["spans_detector"]
+    prediction = {
+        "type": "array",
+        "description": "A list of dictionaries representing PII entities.",
+        "items": {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "type": "string",
+                    "description": "The PII entity in a standard Presidio format.",
                 },
-                "required": ["value", "start", "end", "type"],
-                "additionalProperties": False,
+                "start": {
+                    "type": "integer",
+                    "description": "The start index of the PII entity.",
+                },
+                "end": {
+                    "type": "integer",
+                    "description": "The end index of the PII entity.",
+                },
+                "type": {
+                    "type": "string",
+                    "description": "The type of the PII entity.",
+                    "enum": list(PII_ENTITIES.values()),
+                },
             },
-        }
-
-    else:
-        raise ValueError("Invalid mode.")
+            "required": ["value", "start", "end", "type"],
+            "additionalProperties": False,
+        },
+    }
 
     data = {
         "model": model,

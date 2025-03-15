@@ -4,6 +4,7 @@ PII_ENTITIES: dict = {  # mapping of analyzer to generator entities
     "IBAN_CODE": "iban",
     "US_SSN": "ssn",
     "PHONE_NUMBER": "phone_number",
+    "EMAIL_ADDRESS": "email",
 }
 TOPICS: list = [
     "finance",

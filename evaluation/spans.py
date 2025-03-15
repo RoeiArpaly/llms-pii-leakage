@@ -17,14 +17,18 @@ def spans_set(span_lists: list[list[dict]]) -> list[dict]:
     return [dict(frozen_span) for frozen_span in frozen_spans]
 
 
-def spans_scorer(spans_true, spans_pred, match_level, reverse_match=True):
+def spans_scorer(
+        spans_true: list[dict],
+        spans_pred: list[dict],
+        match_level: str,
+        reverse_match: bool = True,
+) -> dict:
     """
-
     Parameters
     ----------
-    spans_true : list
+    spans_true : list[dict]
         The true spans.
-    spans_pred : list
+    spans_pred : list[dict]
         The predicted spans.
     match_level : str
         One of "value", "type", or "both".
@@ -37,7 +41,7 @@ def spans_scorer(spans_true, spans_pred, match_level, reverse_match=True):
 
     Returns
     -------
-
+    dict
     """
     if not spans_true and not spans_pred:
         return {}

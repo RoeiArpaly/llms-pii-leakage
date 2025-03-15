@@ -58,19 +58,20 @@ def pii_fuzzer(llm_input: str, spans: list[dict], chosen_techniques: list) -> tu
     return result, new_spans
 
 
-def adversarial_content(llm_input: str, spans: list[dict], chosen_techniques: list) -> str:
+def adversarial_content(llm_input: str, spans: list[dict], chosen_techniques: list) -> tuple:
 
     if not chosen_techniques or not spans:
-        return llm_input
+        return llm_input, spans
 
     result = llm_input
+    new_spans = spans
     for technique in chosen_techniques:
         if technique == "supportive_context":
-            result = supportive_context(text=result)
+            result, new_spans = supportive_context(text=result, spans=spans)
         elif technique == "affix":
-            result = adversarial_affix(llm_input=llm_input, spans=spans)
+            result, new_spans = adversarial_affix(llm_input=llm_input, spans=spans)
         elif technique == "rewrite":
             ...
         else:
             raise ValueError(f"Invalid technique: {technique}")
-    return result
+    return result, new_spans
