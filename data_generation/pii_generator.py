@@ -5,10 +5,16 @@ from presidio_evaluator.data_generator import PresidioDataGenerator
 from data_generation.data_validators import luhn_verify
 
 
+_data_generator = None
+
+
 def presidio_inject_pii(text: str):
 
-    data_generator = PresidioDataGenerator()
-    fake_records = data_generator.generate_fake_data(
+    global _data_generator
+    if not _data_generator:
+        _data_generator = PresidioDataGenerator()
+
+    fake_records = _data_generator.generate_fake_data(
         templates=[text],
         n_samples=1,
     )
