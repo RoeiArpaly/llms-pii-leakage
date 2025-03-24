@@ -1,5 +1,5 @@
 import random
-import re
+import regex as re
 import string
 
 import emoji
@@ -93,7 +93,21 @@ def transform_homoglyphs_to_alphabets(text: str, delimiter=":") -> dict:
     }
 
 
-def defensive_preprocess(text: str, remove_separators: bool = True) -> dict:
+def remove_separators(text: str) -> str:
+    """
+    Transform all unsupported separators to '-'.
+    Replace consecutive identical separators with a single separator.
+    """
+    # Define supported separators. (Note: '-' is already escaped below)
+    allowed_separators = "()\-@. "  # noqa: W605
+    # Replace unsupported separators with '-'
+    text = re.sub(pattern=f"[^\w{allowed_separators}]", repl="-", string=text)  # noqa: W605
+    # Collapse consecutive *identical* separators.
+    text = re.sub(pattern=r"([" + re.escape(allowed_separators) + r"])\1+", repl=r"\1", string=text)
+    return text
+
+
+def defensive_preprocess(text: str) -> str:
     """
     Defensive preprocessing to convert homoglyphs and emojis to alphabets.
     """
@@ -109,9 +123,5 @@ def defensive_preprocess(text: str, remove_separators: bool = True) -> dict:
         string=result["text"],
     )
     new_text = "".join(formatted_text.split(delimiter))
-
-    # TODO: implement remove separators
-    return {
-        "text": new_text,
-        "homoglyph_detected": result["homoglyph_detected"],
-    }
+    new_text = remove_separators(new_text)
+    return new_text

@@ -3,6 +3,7 @@ import pytest
 from data_manipulation.defenses.preprocess import (
     defensive_preprocess,
     mappings,
+    remove_separators,
     transform_homoglyphs_to_alphabets,
 )
 
@@ -72,5 +73,17 @@ def test_transform_emoji_to_text(input_text, expected_output):
 ])
 def test_defensive_preprocess(input_text, expected_output):
     result = defensive_preprocess(input_text)
-    assert result["text"] == expected_output
-    assert result["homoglyph_detected"]
+    assert result == expected_output
+
+
+@pytest.mark.parametrize("input_text, expected_output", [
+    ("My Credit Card is 4567---8901---2345---6789", "My Credit Card is 4567-8901-2345-6789"),
+    ("My email is user@@domain..com", "My email is user@domain.com"),
+    ("My phone number is 123   456   7890", "My phone number is 123 456 7890"),
+    ("My SSN is 123$$45$$6789", "My SSN is 123-45-6789"),
+    ("My SSN is (123) 45 6789", "My SSN is (123) 45 6789"),
+    ],
+)
+def test_remove_separators(input_text, expected_output):
+    result = remove_separators(input_text)
+    assert result == expected_output
