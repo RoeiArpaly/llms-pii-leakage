@@ -9,6 +9,7 @@ from pandas import (
 
 from constants import (
     ADV_CONTENT_TECHNIQUES,
+    BASELINE_DATASET_COLS,
     DATASETS,
     FUZZY_TECHNIQUES,
     FUZZY_DATASET_COLS,
@@ -20,6 +21,11 @@ from data_manipulation.rule_based import (
     adversarial_content,
     pii_fuzzer,
 )
+from data_manipulation.defenses.fuzzy_match import (
+    fuzzy_pii_analyzer,
+    fuzzy_recognizers_setup,
+)
+from data_manipulation.defenses.preprocess import defensive_preprocess
 from detectors.gliner_detector import gliner_pii_detector
 from detectors.llm_detector import llm_pii_detector
 from detectors.presidio_detector import presidio_pii_analyzer
@@ -51,6 +57,8 @@ def generate_baseline_dataset(n_samples: int, pii_proba: float, save_every_n: in
                     key=lambda spans: spans.str.len().astype(bool),
                     ascending=False,
                 )
+                data["llm_input_defend"] = data["llm_input"].apply(defensive_preprocess)
+                data = data[BASELINE_DATASET_COLS]
                 data = data.reset_index(drop=True)
             data.index.name = "uid"
             data.apply(cast_to_json).to_csv(path_or_buf="datasets/baseline_dataset.csv", index=True)
@@ -78,6 +86,7 @@ def generate_fuzzy_dataset():
         )
         datasets.append(_data.copy())
     data = concat(datasets, ignore_index=True)
+    data["llm_input_defend"] = data["llm_input"].apply(defensive_preprocess)
     data = data[FUZZY_DATASET_COLS]
     data.index.name = "uid"
     data.apply(cast_to_json).to_csv(path_or_buf="datasets/fuzzy_dataset.csv", index=True)
@@ -102,6 +111,7 @@ def generate_fuzzy_adv_dataset():
         )
         datasets.append(_data.copy())
     data = concat(datasets, ignore_index=True)
+    data["llm_input_defend"] = data["llm_input"].apply(defensive_preprocess)
     data = data[FUZZY_ADV_DATASET_COLS]
     data.index.name = "uid"
     data.apply(cast_to_json).to_csv(path_or_buf="datasets/fuzzy_adv_dataset.csv", index=True)
@@ -113,12 +123,22 @@ def process_predictions(data: DataFrame, model: str, dataset: str) -> Series:
 
     if model == "presidio":
         prediction = data["llm_input"].apply(presidio_pii_analyzer)
-    elif model == "presidio_nlp":
-        prediction = data["llm_input"].apply(presidio_pii_analyzer, nlp=True)
+    elif model == "presidio-defend":
+        prediction = data["llm_input_defend"].apply(presidio_pii_analyzer)
+    elif model == "presidio-fuzzy":
+        recognizers = fuzzy_recognizers_setup()
+        prediction = data["llm_input"].apply(fuzzy_pii_analyzer, recognizers=recognizers)
+    elif model == "presidio-fuzzy-defend":
+        recognizers = fuzzy_recognizers_setup()
+        prediction = data["llm_input_defend"].apply(fuzzy_pii_analyzer, recognizers=recognizers)
     elif model == "gliner":
         prediction = data["llm_input"].apply(gliner_pii_detector)
+    elif model == "gliner-defend":
+        prediction = data["llm_input_defend"].apply(gliner_pii_detector)
     elif model == "gpt-4o-mini":
         prediction = data["llm_input"].apply(llm_pii_detector)
+    elif model == "gpt-4o-mini-defend":
+        prediction = data["llm_input_defend"].apply(llm_pii_detector)
     else:
         raise ValueError(f"Model {model} is not supported")
     return prediction

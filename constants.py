@@ -36,10 +36,16 @@ ADV_CONTENT_TECHNIQUES: list[list] = [
     ["supportive_context"],
     ["affix"],
 ]
+BASELINE_DATASET_COLS: list = [
+    "llm_input",
+    "llm_input_defend",
+    "pii_spans",
+]
 FUZZY_DATASET_COLS: list = [
     "input_id",
     "fuzzy_techniques",
     "llm_input",
+    "llm_input_defend",
     "pii_spans",
 ]
 FUZZY_ADV_DATASET_COLS: list = [
@@ -47,5 +53,6 @@ FUZZY_ADV_DATASET_COLS: list = [
     "fuzzy_techniques",
     "adv_content_techniques",
     "llm_input",
+    "llm_input_defend",
     "pii_spans",
 ]
