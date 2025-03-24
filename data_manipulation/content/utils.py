@@ -7,6 +7,34 @@ from presidio_anonymizer import AnonymizerEngine
 from presidio_anonymizer.entities import OperatorConfig
 
 
+_engine = None
+
+
+def _build_engines(configs: list[dict]) -> tuple:
+    """
+    Build and cache the analyzer, anonymizer, and associated recognizers/operators.
+    """
+    patterns_recognizers = {}
+    operators = {}
+    for config in configs:
+        pii_entity = config["pii_entity"]
+        variations = config["variations"]
+        replace_value = config["replace_value"]
+
+        regex = r"|".join(r"\b" + term.replace(" ", r"[\s_-]*") + r"\b" for term in variations)
+        pattern = Pattern(name=pii_entity, regex=regex, score=1.0)
+        operator = OperatorConfig(operator_name="replace", params={"new_value": replace_value})
+        patterns_recognizers[pii_entity] = pattern
+        operators[pii_entity] = operator
+
+    analyzer = AnalyzerEngine()
+    for pii_entity, pattern in patterns_recognizers.items():
+        pattern_recognizer = PatternRecognizer(supported_entity=pii_entity, patterns=[pattern])
+        analyzer.registry.add_recognizer(pattern_recognizer)
+    anonymizer = AnonymizerEngine()
+    return analyzer, anonymizer, operators
+
+
 def replacer(text: str, configs: list[dict]) -> str:
     """
     Replace the PII entity names with a replace_value.
@@ -21,41 +49,13 @@ def replacer(text: str, configs: list[dict]) -> str:
     Returns
     -------
     str
-
     """
-    patterns_recognizers = {}
-    operators = {}
-    for config in configs:
+    global _engine
+    if not _engine:
+        _engine = _build_engines(configs=configs)
+    _analyzer, _anonymizer, _operators = _engine
 
-        pii_entity = config["pii_entity"]
-        variations = config["variations"]
-        replace_value = config["replace_value"]
-
-        regex = r"|".join(
-            r"\b" + term.replace(" ", r"[\s_-]*") + r"\b" for term in variations
-        )
-
-        pattern = Pattern(name=pii_entity, regex=regex, score=1.0)
-        patterns_recognizers[pii_entity] = pattern
-        operators[pii_entity] = OperatorConfig(
-            operator_name="replace", params={"new_value": replace_value}
-        )
-
-    # Analyzer
-    analyzer = AnalyzerEngine()
-    for recognizer in patterns_recognizers:
-        patterns = patterns_recognizers[recognizer]
-        pattern_recognizer = PatternRecognizer(supported_entity=recognizer, patterns=[patterns])
-        analyzer.registry.add_recognizer(pattern_recognizer)
-    results = analyzer.analyze(
-        text=text, entities=list(patterns_recognizers.keys()), language="en"
-    )
-
-    # Anonymizer
-    anonymizer = AnonymizerEngine()
-    result = anonymizer.anonymize(
-        text=text,
-        analyzer_results=results,
-        operators=operators,
-    )
+    entities = [config["pii_entity"] for config in configs]
+    results = _analyzer.analyze(text=text, entities=entities, language="en")
+    result = _anonymizer.anonymize(text=text, analyzer_results=results, operators=_operators)
     return result.text
