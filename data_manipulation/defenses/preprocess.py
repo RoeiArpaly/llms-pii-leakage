@@ -5,8 +5,9 @@ import string
 import emoji
 
 from data_manipulation.constants import (
-    NUMBER_EMOJI_MAP,
     ALPHABET_EMOJI_MAP,
+    NUMBER_EMOJI_MAP,
+    NUMBER_WORD_MAP,
 )
 
 
@@ -107,6 +108,20 @@ def remove_separators(text: str) -> str:
     return text
 
 
+def textual_number_to_numeric(text: str) -> str:
+    """
+    Convert textual numbers to numeric representation.
+    Example: "Hello one-two-three" -> "Hello 1-2-3"
+    """
+    # Define mapping of textual numbers to numeric representation
+    for language in NUMBER_WORD_MAP:
+        mapping = {v: k for k, v in NUMBER_WORD_MAP[language].items()}
+        # Replace textual numbers with numeric representation
+        for word, number in mapping.items():
+            text = re.sub(pattern=r"\b" + word + r"\b", repl=number, string=text)
+    return text
+
+
 def defensive_preprocess(text: str) -> str:
     """
     Defensive preprocessing to convert homoglyphs and emojis to alphabets.
@@ -123,5 +138,6 @@ def defensive_preprocess(text: str) -> str:
         string=result["text"],
     )
     new_text = "".join(formatted_text.split(delimiter))
+    new_text = textual_number_to_numeric(new_text)
     new_text = remove_separators(new_text)
     return new_text

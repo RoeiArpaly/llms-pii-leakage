@@ -4,6 +4,7 @@ from data_manipulation.defenses.preprocess import (
     defensive_preprocess,
     mappings,
     remove_separators,
+    textual_number_to_numeric,
     transform_homoglyphs_to_alphabets,
 )
 
@@ -63,12 +64,12 @@ def test_transform_emoji_to_text(input_text, expected_output):
 
 @pytest.mark.parametrize("input_text, expected_output", [
     (
-            "My 💳 is 4️⃣5️⃣6️⃣7️⃣-8️⃣9️⃣0️⃣1️⃣-2️⃣3️⃣4️⃣5️⃣-6️⃣7️⃣8️⃣9️⃣.",
-            "My Credit Card is 4567-8901-2345-6789.",
+        "My 💳 is 4️⃣5️⃣6️⃣7️⃣-8️⃣9️⃣0️⃣1️⃣-2️⃣3️⃣4️⃣5️⃣-6️⃣7️⃣8️⃣9️⃣.",
+        "My Credit Card is 4567-8901-2345-6789.",
     ),
     (
-            "The 🏦 IBAN is 🄳🄴①②③④⑤⑥⑦⑧⑨⓪.",
-            "The Bank IBAN is DE1234567890.",
+        "The 🏦 IBAN is 🄳🄴①②③④⑤⑥⑦⑧⑨⓪.",
+        "The Bank IBAN is DE1234567890.",
     ),
 ])
 def test_defensive_preprocess(input_text, expected_output):
@@ -82,8 +83,20 @@ def test_defensive_preprocess(input_text, expected_output):
     ("My phone number is 123   456   7890", "My phone number is 123 456 7890"),
     ("My SSN is 123$$45$$6789", "My SSN is 123-45-6789"),
     ("My SSN is (123) 45 6789", "My SSN is (123) 45 6789"),
-    ],
-)
+])
 def test_remove_separators(input_text, expected_output):
     result = remove_separators(input_text)
+    assert result == expected_output
+
+
+@pytest.mark.parametrize("input_text, expected_output", [
+    ("Hello one-two-three", "Hello 1-2-3"),
+    ("Hello one two three", "Hello 1 2 3"),
+    ("Hello uno dos three", "Hello 1 2 3"),
+    ("Hello onetwothree", "Hello onetwothree"),
+    ("Hello this is sixtytwo and one", "Hello this is sixtytwo and 1"),
+    ("Hello this is sixty two and one", "Hello this is sixty 2 and 1"),
+])
+def test_text_to_numeric(input_text, expected_output):
+    result = textual_number_to_numeric(input_text)
     assert result == expected_output
