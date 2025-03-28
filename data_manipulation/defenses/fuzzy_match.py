@@ -11,10 +11,11 @@ from presidio_analyzer.predefined_recognizers import (
     UsSsnRecognizer,
 )
 
-from detectors.presidio_detector import presidio_pii_analyzer
+
+_fuzzy_recognizers = None
 
 
-def fuzzy_pii_recognizer(recognizers: list):
+def fuzzy_pii_recognizer(recognizers: list) -> list:
     """
     fuzzy_counts is (n_substitutions, n_insertions, n_deletes)
 
@@ -64,41 +65,38 @@ def fuzzy_pii_recognizer(recognizers: list):
     return fuzzy_recognizers
 
 
-def fuzzy_pii_analyzer(text: str, recognizers: list[tuple]) -> list[dict]:
-    fuzzy_recognizers = fuzzy_pii_recognizer(recognizers=recognizers)
-    spans = presidio_pii_analyzer(text=text, custom_recognizers=fuzzy_recognizers)
-    return spans
-
-
-def fuzzy_recognizers_setup() -> list[tuple]:
-    recognizers = [
-        (
-            IbanRecognizer(), [
-                dict(deletions=1)
-            ],
-        ),
-        (
-            UsSsnRecognizer(), [
-                dict(deletions=1),
-                dict(deletions=2),
-                dict(substitutions=1),
-                dict(substitutions=1, deletions=1),
-            ],
-        ),
-        (
-            EmailRecognizer(), [
-                dict(deletions=1),
-                dict(substitutions=1),
-            ],
-        ),
-        (
-            CreditCardRecognizer(), [
-                dict(deletions=1),
-                dict(deletions=3),
-                dict(substitutions=3),
-                dict(substitutions=4),
-                dict(deletions=2, substitutions=2),
-            ],
-        ),
-    ]
-    return recognizers
+def get_fuzzy_recognizers() -> list:
+    global _fuzzy_recognizers
+    if _fuzzy_recognizers is None:
+        recognizers = [
+            (
+                IbanRecognizer(), [
+                    dict(deletions=1)
+                ],
+            ),
+            (
+                UsSsnRecognizer(), [
+                    dict(deletions=1),
+                    dict(deletions=2),
+                    dict(substitutions=1),
+                    dict(substitutions=1, deletions=1),
+                ],
+            ),
+            (
+                EmailRecognizer(), [
+                    dict(deletions=1),
+                    dict(substitutions=1),
+                ],
+            ),
+            (
+                CreditCardRecognizer(), [
+                    dict(deletions=1),
+                    dict(deletions=3),
+                    dict(substitutions=3),
+                    dict(substitutions=4),
+                    dict(deletions=2, substitutions=2),
+                ],
+            ),
+        ]
+        _fuzzy_recognizers = fuzzy_pii_recognizer(recognizers=recognizers)
+    return _fuzzy_recognizers

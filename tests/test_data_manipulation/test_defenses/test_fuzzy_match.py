@@ -6,8 +6,11 @@ from presidio_analyzer.predefined_recognizers import (
     UsSsnRecognizer,
 )
 
-from data_manipulation.defenses.fuzzy_match import fuzzy_pii_analyzer
+from data_manipulation.defenses.fuzzy_match import fuzzy_pii_recognizer
+from detectors.presidio_detector import presidio_pii_analyzer
 
+
+# TODO: Smart cache...
 
 @pytest.mark.parametrize(
     "text, expected_count",
@@ -26,7 +29,8 @@ from data_manipulation.defenses.fuzzy_match import fuzzy_pii_analyzer
 def test_fuzzy_iban_detection(text, expected_count):
     """Test IBAN detection with fuzzy matching."""
     recognizers = [(IbanRecognizer(), [dict(deletions=1)])]
-    detected = fuzzy_pii_analyzer(text=text, recognizers=recognizers)
+    fuzzy_recognizers = fuzzy_pii_recognizer(recognizers=recognizers)
+    detected = presidio_pii_analyzer(text=text, recognizers=fuzzy_recognizers, use_cache=False)
 
     print(f"Input: {text}\nDetected Entities: {detected}")
     assert len(detected) == expected_count
@@ -58,7 +62,8 @@ def test_fuzzy_ssn_detection(text, expected_count):
         dict(substitutions=1),
         dict(substitutions=1, deletions=1),
     ])]
-    detected = fuzzy_pii_analyzer(text=text, recognizers=recognizers)
+    fuzzy_recognizers = fuzzy_pii_recognizer(recognizers=recognizers)
+    detected = presidio_pii_analyzer(text=text, recognizers=fuzzy_recognizers, use_cache=False)
 
     print(f"Input: {text}\nDetected Entities: {detected}")
     assert len(detected) == expected_count
@@ -89,7 +94,8 @@ def test_fuzzy_email_detection(text, expected_count):
         dict(deletions=1),
         dict(substitutions=1),
     ])]
-    detected = fuzzy_pii_analyzer(text=text, recognizers=recognizers)
+    fuzzy_recognizers = fuzzy_pii_recognizer(recognizers=recognizers)
+    detected = presidio_pii_analyzer(text=text, recognizers=fuzzy_recognizers, use_cache=False)
 
     print(f"Input: {text}\nDetected Entities: {detected}")
     assert len(detected) == expected_count
@@ -124,7 +130,8 @@ def test_fuzzy_credit_card_detection(text, expected_count):
         dict(substitutions=4),
         dict(deletions=2, substitutions=2),
     ])]
-    detected = fuzzy_pii_analyzer(text=text, recognizers=recognizers)
+    fuzzy_recognizers = fuzzy_pii_recognizer(recognizers=recognizers)
+    detected = presidio_pii_analyzer(text=text, recognizers=fuzzy_recognizers, use_cache=False)
 
     print(f"Input: {text}\nDetected Entities: {detected}")
     assert len(detected) == expected_count

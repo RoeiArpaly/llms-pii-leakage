@@ -1,4 +1,5 @@
 import random
+import time
 
 from pandas import (
     concat,
@@ -21,10 +22,7 @@ from data_manipulation.rule_based import (
     adversarial_content,
     pii_fuzzer,
 )
-from data_manipulation.defenses.fuzzy_match import (
-    fuzzy_pii_analyzer,
-    fuzzy_recognizers_setup,
-)
+from data_manipulation.defenses.fuzzy_match import get_fuzzy_recognizers
 from data_manipulation.defenses.preprocess import defensive_preprocess
 from detectors.gliner_detector import gliner_pii_detector
 from detectors.llm_detector import llm_pii_detector
@@ -121,17 +119,16 @@ def generate_fuzzy_adv_dataset():
 def process_predictions(data: DataFrame, model: str, dataset: str) -> Series:
     """Apply the appropriate PII detection model to the dataset."""
     logger.info(f"Detecting PII with {model} for {dataset} dataset")
-
     if model == "presidio":
         prediction = data["llm_input"].apply(presidio_pii_analyzer)
     elif model == "presidio-defend":
         prediction = data["llm_input_defend"].apply(presidio_pii_analyzer)
     elif model == "presidio-fuzzy":
-        recognizers = fuzzy_recognizers_setup()
-        prediction = data["llm_input"].apply(fuzzy_pii_analyzer, recognizers=recognizers)
+        recognizers = get_fuzzy_recognizers()
+        prediction = data["llm_input"].apply(presidio_pii_analyzer, recognizers=recognizers)
     elif model == "presidio-fuzzy-defend":
-        recognizers = fuzzy_recognizers_setup()
-        prediction = data["llm_input_defend"].apply(fuzzy_pii_analyzer, recognizers=recognizers)
+        recognizers = get_fuzzy_recognizers()
+        prediction = data["llm_input_defend"].apply(presidio_pii_analyzer, recognizers=recognizers)
     elif model == "gliner":
         prediction = data["llm_input"].apply(gliner_pii_detector)
     elif model == "gliner-defend":
@@ -148,12 +145,16 @@ def process_predictions(data: DataFrame, model: str, dataset: str) -> Series:
 def pii_detection_pipeline(models: list[str]):
     """Runs PII detection using multiple models and aggregates results."""
     for dataset in DATASETS:
+        logger.info(f"[DATASET]: {dataset} ...")
         data = read_csv(f"datasets/{dataset}_dataset.csv").apply(infer_json)
         ensemble_predictions = DataFrame()
         for model in models:
             if model == "ensemble":
                 continue
+            start_time = time.time()
             data["prediction"] = process_predictions(data=data, model=model, dataset=dataset)
+            loop_runtime = round(time.time() - start_time, 1)
+            logger.info(f"Time taken for {model} is {loop_runtime} seconds")
             ensemble_predictions[model] = data["prediction"]
             path = f"datasets/predictions/{dataset}_{model}.csv"
             data.apply(cast_to_json).to_csv(path, index=False)

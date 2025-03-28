@@ -6,6 +6,7 @@ import time
 import requests
 
 from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 
 from pandas import Series
 
@@ -60,9 +61,10 @@ def post_request_openai(data: dict) -> dict:
     raise ValueError(f"Invalid response from OpenAI API.\n{response.text}")
 
 
-def parallel_apply(func, series, max_workers=8):
+def parallel_apply(func: callable, series: Series, max_workers: int = 8, **kwargs) -> list:
+    func_with_kwargs = partial(func, **kwargs)
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        results = list(executor.map(func, series))
+        results = list(executor.map(func_with_kwargs, series))
     return results
 
 

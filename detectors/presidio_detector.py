@@ -3,14 +3,22 @@ from presidio_analyzer import AnalyzerEngine
 from constants import PII_ENTITIES
 
 
-_model = None
+_models = {
+    "presidio": None,
+    "presidio-defend": None,
+}
 
 
-def get_presidio_model():
-    global _model
-    if _model is None:
-        _model = AnalyzerEngine(supported_languages=["en"])
-    return _model
+def get_presidio_model(recognizers: list = None, use_cache: bool = True) -> AnalyzerEngine:
+    model = "presidio"
+    if recognizers:
+        model = "presidio-defend"
+    if _models[model] is None or not use_cache:
+        _models[model] = AnalyzerEngine(supported_languages=["en"])
+        if recognizers:
+            for recognizer in recognizers:
+                _models[model].registry.add_recognizer(recognizer)
+    return _models[model]
 
 
 def filter_results(results):
@@ -33,15 +41,15 @@ def filter_results(results):
     return filtered
 
 
-def presidio_pii_analyzer(text: str, custom_recognizers: list = None):
+def presidio_pii_analyzer(
+        text: str,
+        recognizers: list = None,
+        use_cache: bool = True,
+) -> list:
     if text is None:
         return []
 
-    analyzer = get_presidio_model()
-    if custom_recognizers:
-        for recognizer in custom_recognizers:
-            analyzer.registry.add_recognizer(recognizer)
-
+    analyzer = get_presidio_model(recognizers=recognizers, use_cache=use_cache)
     results = analyzer.analyze(text=text, language="en")
     # Format the results in equivalent format to the Presidio Data Generator
     relevant_results = [
@@ -55,6 +63,6 @@ def presidio_pii_analyzer(text: str, custom_recognizers: list = None):
         }
         for result in results if result.entity_type in PII_ENTITIES
     ]
-    if custom_recognizers:
+    if recognizers:
         relevant_results = filter_results(results=relevant_results)
     return relevant_results
