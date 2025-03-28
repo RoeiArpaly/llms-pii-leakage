@@ -34,6 +34,7 @@ from logger import logger
 from utils import (
     cast_to_json,
     infer_json,
+    parallel_apply,
 )
 
 
@@ -136,9 +137,9 @@ def process_predictions(data: DataFrame, model: str, dataset: str) -> Series:
     elif model == "gliner-defend":
         prediction = data["llm_input_defend"].apply(gliner_pii_detector)
     elif model == "gpt-4o-mini":
-        prediction = data["llm_input"].apply(llm_pii_detector)
+        prediction = parallel_apply(func=llm_pii_detector, series=data["llm_input"])
     elif model == "gpt-4o-mini-defend":
-        prediction = data["llm_input_defend"].apply(llm_pii_detector)
+        prediction = parallel_apply(func=llm_pii_detector, series=data["llm_input_defend"])
     else:
         raise ValueError(f"Model {model} is not supported")
     return prediction
