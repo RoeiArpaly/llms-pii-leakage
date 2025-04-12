@@ -31,6 +31,24 @@ from data_manipulation.rule_based import adversarial_content
                 ]
             ),
         ),
+        (
+            "While making a purchase, I used my 3533434814041068. Costing $499.99",
+            [
+                {"value": "3533434814041068", "start": 35, "end": 50, "type": "CREDIT_CARD"},
+            ],
+            ["supportive_context", "affix_1"],
+            (
+                "While making a purchase, I used my REDACTED. 3533434814041068. Costing $499.99",
+                [
+                    {
+                        "value": "3533434814041068",
+                        "start": 45,
+                        "end": 60,
+                        "type": "CREDIT_CARD",
+                    },
+                ]
+            ),
+        )
     ],
 )
 def test_adversarial_content(llm_input, spans, chosen_techniques, expected):
