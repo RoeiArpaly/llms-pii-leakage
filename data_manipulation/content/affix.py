@@ -55,15 +55,15 @@ def adversarial_affix(
     adv_text = adv_affix + " " if prefix else " " + adv_affix
     # Sort the spans in reverse order to avoid index conflicts
     spans = sorted(spans, key=lambda s: s.get("start"), reverse=True)
-    new_spans = deepcopy(spans[::-1])  # Ascending order
-    idx_offset = 0
     for span in spans:
         idx = span.get("start") if prefix else span.get("end")
         if idx is None:
             raise ValueError("Span is missing required 'start' or 'end' key.")
         llm_input = llm_input[:idx] + adv_text + llm_input[idx:]
 
+    new_spans = deepcopy(spans[::-1])  # Ascending order
     if update_spans:
+        idx_offset = 0
         for new_span in new_spans:
             if prefix:
                 idx_offset += len(adv_text)
