@@ -18,7 +18,6 @@ from data_manipulation.pii import homoglyph
             "JOHN34@gmail.com",
             "ЈОНＮ３４@ɡмаіӏ.сом",
         ),
-
     ],
 )
 def test_homoglyph(text, expected):

@@ -20,8 +20,9 @@ more difficult by replacing characters in PIIs with emojis.
 ### 2. Homoglyph Attack
 
 #### Description
-A homoglyph attack is a type of adversarial attack that aims to make the detection of PIIs
-more difficult by replacing characters in PIIs with similar-looking characters (usually Cyrillic letters).
+A homoglyph attack is a type of adversarial attack that aims to degrade PIIs detection performance.<br>
+This is done by replacing characters in PIIs with similar-looking characters (homoglyphs).<br>
+e.g. using Cyrillic characters that look like Latin characters.
 
 #### Example
 | Original Content            | Adversarial Content           |

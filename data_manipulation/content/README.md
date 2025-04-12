@@ -1,7 +1,7 @@
 ## Content based Adversarial Attacks
 
 ---
-### 1. Affix Attack
+### 1. Adversarial Affix Attack
 
 #### Description
 An affix attack is a type of adversarial attack that adds an adversarial content before
@@ -18,7 +18,8 @@ or after PIIs.
 
 #### Description
 An supportive context attack is a type of adversarial attack that aims to reduce the context awareness
-of detectors by replacing *supportive context words* with other values, such as emojis, slang or code words.
+of detectors.<br>
+Thus, by replacing *supportive context words* with other values, such as emojis, slang or code words.<br>
 This attack is particularly effective against Named Entity Recognition (NER) models,
 that are used to increase the confidence of the detector.
 

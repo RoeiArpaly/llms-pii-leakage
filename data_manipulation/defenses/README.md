@@ -9,7 +9,7 @@ The data processing defense is a technique that processes the content to remove 
 #### 1) Homoglyph Detection and Transformation
 
 ##### Description
-A homoglyph is a character that is visually identical or nearly identical to another character.
+A homoglyph is a character that is visually identical or nearly identical to another character.<br>
 The homoglyph detection and transformation defense is a technique that detects and replaces homoglyphs and emojis in the content.
 
 ##### Example
@@ -22,7 +22,7 @@ The homoglyph detection and transformation defense is a technique that detects a
 #### 2) Separator Removal
 
 ##### Description
-The separator removal defense is a technique that removes separators from the content.
+The separator removal defense is a technique that removes separators from the content.<br>
 Unsupported separators are replaced with '-' and consecutive separators are replaced with a single separator.
 
 ##### Example
@@ -30,8 +30,8 @@ Unsupported separators are replaced with '-' and consecutive separators are repl
 |-----------------------------------------|----------------------------------|
 | My Email is john.doe@@example.com       | My Email is john.doe@example.com |
 | My Phone Number is 123-----456-----7890 | My Phone Number is 123-456-7890  |
-| My SSN is 123$45$6789                   | My SSN is 123-45-6789            |
-| My SSN is 123$$$$$45$$$$$6789           | My SSN is 123-45-6789            |
+| My SSN is 123&45&6789                   | My SSN is 123-45-6789            |
+| My SSN is 123&&&&&&45&&&&&&6789         | My SSN is 123-45-6789            |
 
 ---
 ### 2. Fuzzy Matching
@@ -41,7 +41,7 @@ The fuzzy PII matching defense is a technique that detects PII in relaxed condit
 ---
 #### 1) Regex Fuzzy Matching
 ##### Description
-for Regex based approaches, each PII type pattern can be relaxed to allow substitutions and deletions.
+for Regex based approaches, each PII type pattern can be relaxed to allow substitutions and deletions.<br>
 Hence, detecting PII in a more relaxed manner based on Levenshtein distance (without insertions).
 
 #### Example

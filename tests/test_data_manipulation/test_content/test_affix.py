@@ -1,6 +1,6 @@
 import pytest
 
-from data_manipulation.content.affix import adversarial_affix
+from data_manipulation.content import adversarial_affix
 
 
 @pytest.fixture
@@ -89,7 +89,7 @@ def test_adversarial_affix(
         adversarial_affix(
             llm_input=sample_data["llm_input"],
             spans=sample_data["spans"],
-            adv_content=adv_content,
+            adv_affix=adv_content,
             prefix=prefix,
         )
         == expected
