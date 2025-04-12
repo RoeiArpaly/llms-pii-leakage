@@ -25,16 +25,21 @@ TOPICS: list = [
     "executive",
 ]
 FUZZY_TECHNIQUES: list[list] = [
+    ["chunking"],
     ["emojify"],
     ["homoglyph"],
     ["number_to_roman"],
     ["number_to_word"],
     ["reverse"],
     ["separators"],
+    ["word_symbols"],
 ]
 ADV_CONTENT_TECHNIQUES: list[list] = [
     ["supportive_context"],
-    ["affix"],
+    ["supportive_context", "affix_1"],
+    ["supportive_context", "affix_2"],
+    ["supportive_context", "affix_3"],
+    ["supportive_context", "affix_4"],
 ]
 BASELINE_DATASET_COLS: list = [
     "llm_input",

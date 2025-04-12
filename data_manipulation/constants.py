@@ -189,6 +189,39 @@ NUMBER_WORD_MAP = {
         "9": "תשע",
     },
 }
+WORD_SYMBOLS_MAP = {
+    ".": "dot",
+    ",": "comma",
+    "-": "dash",
+    "—": "long dash",
+    "_": "underscore",
+    "/": "slash",
+    "@": "at",
+    ":": "colon",
+    ";": "semicolon",
+    "\"": "quote",
+    "'": "apostrophe",
+    "(": "left parenthesis",
+    ")": "right parenthesis",
+    "[": "left bracket",
+    "]": "right bracket",
+    "{": "left brace",
+    "}": "right brace",
+    "<": "less than",
+    ">": "greater than",
+    "=": "equals",
+    "+": "plus",
+    "×": "multiply",
+    "÷": "divide",
+    "^": "caret",
+    "!": "exclamation",
+    "?": "question",
+    "#": "hash",
+    "$": "dollar",
+    "%": "percent",
+    "&": "and",
+    "*": "asterisk",
+}
 HOMOGLYPH_MAP = {
     # Lowercase letters
     "a": "а",  # Cyrillic a (U+0430)
@@ -257,6 +290,34 @@ HOMOGLYPH_MAP = {
     "7": "７",  # Fullwidth 7 (U+FF17)
     "8": "８",  # Fullwidth 8 (U+FF18)
     "9": "９",  # Fullwidth 9 (U+FF19)
+
+    # Symbols
+    "@": "＠",  # Fullwidth at sign (U+FF20)
+    "#": "＃",  # Fullwidth number sign (U+FF03)
+    "$": "＄",  # Fullwidth dollar sign (U+FF04)
+    "%": "％",  # Fullwidth percent sign (U+FF05)
+    "&": "＆",  # Fullwidth ampersand (U+FF06)
+    "*": "＊",  # Fullwidth asterisk (U+FF0A)
+    "-": "－",  # Fullwidth hyphen-minus (U+FF0D)
+    "=": "＝",  # Fullwidth equals sign (U+FF1D)
+    "+": "＋",  # Fullwidth plus sign (U+FF0B)
+    "/": "／",  # Fullwidth solidus (U+FF0F)
+    ":": "：",  # Fullwidth colon (U+FF1A)
+    ";": "；",  # Fullwidth semicolon (U+FF1B)
+    "<": "＜",  # Fullwidth less-than sign (U+FF1C)
+    ">": "＞",  # Fullwidth greater-than sign (U+FF1E)
+    "?": "？",  # Fullwidth question mark (U+FF1F)
+    "!": "！",  # Fullwidth exclamation mark (U+FF01)
+    ".": "．",  # Fullwidth full stop (U+FF0E)
+    ",": "，",  # Fullwidth comma (U+FF0C)
+    "'": "＇",  # Fullwidth apostrophe (U+FF07)
+    '"': "＂",  # Fullwidth quotation mark (U+FF02)
+    "(": "（",  # Fullwidth left parenthesis (U+FF08)
+    ")": "）",  # Fullwidth right parenthesis (U+FF09)
+    "[": "［",  # Fullwidth left square bracket (U+FF3B)
+    "]": "］",  # Fullwidth right square bracket (U+FF3D)
+    "{": "｛",  # Fullwidth left curly bracket (U+FF5B)
+    "}": "｝",  # Fullwidth right curly bracket (U+FF5D)
 }
 SEPARATORS = ["-", "_", ".", " ", "/", ":", ";", ","]
 PARENTHESES = ["(", ")", "[", "]", "{", "}"]

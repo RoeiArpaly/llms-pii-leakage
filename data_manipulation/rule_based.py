@@ -2,13 +2,16 @@ from data_manipulation.content import (
     adversarial_affix,
     supportive_context,
 )
+from data_manipulation.content.affix import AdversarialAffix
 from data_manipulation.pii import (
+    chunking,
     emojify_pii,
     homoglyph,
     number_to_roman,
     number_to_word,
     inject_separator,
     reverse_pii,
+    word_symbols,
 )
 from data_manipulation.pii.utils import fuzzy_pii_injection
 
@@ -35,12 +38,14 @@ def pii_fuzzer(llm_input: str, spans: list[dict], chosen_techniques: list) -> tu
         return llm_input, spans
 
     mapping = {
+        "chunking": chunking,
         "emojify": emojify_pii,
         "homoglyph": homoglyph,
         "number_to_roman": number_to_roman,
         "number_to_word": number_to_word,
         "separators": inject_separator,
         "reverse": reverse_pii,
+        "word_symbols": word_symbols,
     }
 
     result = llm_input
@@ -68,9 +73,14 @@ def adversarial_content(llm_input: str, spans: list[dict], chosen_techniques: li
     for technique in chosen_techniques:
         if technique == "supportive_context":
             result, new_spans = supportive_context(text=result, spans=spans)
-        elif technique == "affix":
-            result, new_spans = adversarial_affix(llm_input=llm_input, spans=spans)
-        elif technique == "rewrite":
+        elif "affix" in technique:
+            # Extract the affix number from the technique name
+            affix_number = int(technique.split("_")[-1])
+            adv_affix = AdversarialAffix.list_configs()[affix_number - 1]
+            result, new_spans = adversarial_affix(
+                llm_input=result, spans=spans, adv_affix=adv_affix.text, prefix=adv_affix.prefix
+            )
+        elif technique == "prompt_injection":
             ...
         else:
             raise ValueError(f"Invalid technique: {technique}")
