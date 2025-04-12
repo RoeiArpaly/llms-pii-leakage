@@ -13,20 +13,21 @@ representing the true label.
 The dataset was generated using OpenAI gpt-4o-mini, and the PIIs were generated with Presidio-research library.
 
 ### Data Schema
-| Column Name | Description                                             | Type           |
-|-------------|---------------------------------------------------------|----------------|
-| `uid`       | Unique Integer ID                                       | Integer        |
-| `llm_input` | An input to an LLM model, often including PII           | String         |
-| `pii_spans` | PII spans within the input, representing the true label | Stringify JSON |
+| Column Name        | Description                                             | Type           |
+|--------------------|---------------------------------------------------------|----------------|
+| `uid`              | Unique Integer ID                                       | Integer        |
+| `llm_input`        | An input to an LLM model, often including PII           | String         |
+| `llm_input_defend` | The `llm_input` after defensive preprocessing           | String         |
+| `pii_spans`        | PII spans within the input, representing the true label | Stringify JSON |
 
 
 ### Data Sample
-| uid | llm_input                                 | pii_spans                                                                             |
-|-----|-------------------------------------------|---------------------------------------------------------------------------------------|
-| 1   | Hello, my credit card is 4373024900209025 | [{"value": "4373024900209025", "start": 24, "end": 43, "type": "credit_card_number"}] |
-| 2   | My SSN is 248-03-5546                     | [{"value": "248-03-5546", "start": 10, "end": 21, "type": "ssn"}]                     |
-| 3   | Hello World                               | []                                                                                    |
-| ... | ...                                       | ...                                                                                   |
+| uid | llm_input                                 | llm_input_defend                          | pii_spans                                                                             |
+|-----|-------------------------------------------|-------------------------------------------|---------------------------------------------------------------------------------------|
+| 1   | Hello, my credit card is 4373024900209025 | Hello, my credit card is 4373024900209025 | [{"value": "4373024900209025", "start": 24, "end": 43, "type": "credit_card_number"}] |
+| 2   | My SSN is 248-03-5546                     | My SSN is 248-03-5546                     | [{"value": "248-03-5546", "start": 10, "end": 21, "type": "ssn"}]                     |
+| 3   | Hello World                               | Hello World                               | []                                                                                    |
+| ... | ...                                       | ...                                       | ...                                                                                   |
 
 
 ---
@@ -43,16 +44,17 @@ Input IDs with PIIs appears multiple times, each with a different technique used
 | `input_id`         | UID of the original input                                               | Integer        |
 | `fuzzy_techniques` | Techniques for generating Fuzzy PII, some of which can be used together | Stringify JSON |
 | `llm_input`        | An input to an LLM model, often including modified PII (Fuzzy PII)      | String         |
+| `llm_input_defend` | The `llm_input` after defensive preprocessing                           | String         |
 | `pii_spans`        | PII spans within the input, representing the true label                 | Stringify JSON |
 
 ### Data Sample
-| uid | input_id | fuzzy_techniques   | llm_input                                                                                           | pii_spans                                                                             |
-|-----|----------|--------------------|-----------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
-| 1   | 1        | ["emojify"]        | Hello, my credit card is 4️⃣3️⃣7️⃣3️⃣0️⃣2️⃣4️⃣9️⃣0️⃣0️⃣2️⃣0️⃣9️⃣0️⃣2️⃣5️⃣                           | [{"value": "4373024900209025", "start": 24, "end": 43, "type": "credit_card_number"}] |
-| 2   | 2        | ["emojify"]        | My SSN is 2️⃣4️⃣8️⃣-0️⃣3️⃣-5️⃣5️⃣4️⃣6️⃣                                                             | [{"value": "248-03-5546", "start": 10, "end": 21, "type": "ssn"}]                     |
-| 3   | 1        | ["number_to_word"] | Hello, my credit card is four-three-seven-three-zero-two-four-nine-zero-two-zero-nine-zero-two-five | [{"value": "4373024900209025", "start": 24, "end": 82, "type": "credit_card_number"}] |
-| 4   | 2        | ["number_to_word"] | My SSN is two-four-eight-zero-three-five-five-four-six                                              | [{"value": "248-03-5546", "start": 10, "end": 52, "type": "ssn"}]                     |
-| ... | ...      | ...                | ...                                                                                                 |
+| uid | input_id | fuzzy_techniques   | llm_input                                                                                           | llm_input_defend                          | pii_spans                                                                             |
+|-----|----------|--------------------|-----------------------------------------------------------------------------------------------------|-------------------------------------------|---------------------------------------------------------------------------------------|
+| 1   | 1        | ["emojify"]        | Hello, my credit card is 4️⃣3️⃣7️⃣3️⃣0️⃣2️⃣4️⃣9️⃣0️⃣0️⃣2️⃣0️⃣9️⃣0️⃣2️⃣5️⃣                           | Hello, my credit card is 4373024900209025 | [{"value": "4373024900209025", "start": 24, "end": 43, "type": "credit_card_number"}] |
+| 2   | 2        | ["emojify"]        | My SSN is 2️⃣4️⃣8️⃣-0️⃣3️⃣-5️⃣5️⃣4️⃣6️⃣                                                             | My SSN is 248-03-5546                     | [{"value": "248-03-5546", "start": 10, "end": 21, "type": "ssn"}]                     |
+| 3   | 1        | ["number_to_word"] | Hello, my credit card is four-three-seven-three-zero-two-four-nine-zero-two-zero-nine-zero-two-five | Hello, my credit card is 4373024900209025 | [{"value": "4373024900209025", "start": 24, "end": 43, "type": "credit_card_number"}] |
+| 4   | 2        | ["number_to_word"] | My SSN is two-four-eight-zero-three-five-five-four-six                                              | My SSN is 248-03-5546                     | [{"value": "248-03-5546", "start": 10, "end": 21, "type": "ssn"}]                     |
+| ... | ...      | ...                | ...                                                                                                 | ...                                       | ...                                                                                   |
 
 
 ---
@@ -69,20 +71,21 @@ A replicated dataset of the Fuzzy PII dataset, with adversarial content added to
 | `fuzzy_techniques`       | Techniques for generating Fuzzy PII, some of which can be used together                   | Stringify JSON |
 | `adv_content_techniques` | Techniques used to modify the content surrounding PII, some of which can be used together | Stringify JSON |
 | `llm_input`              | An input to an LLM model, often including modified PII (Fuzzy PII)                        | String         |
+| `llm_input_defend`       | The `llm_input` after defensive preprocessing                                             | String         |
 | `pii_spans`              | PII spans within the input, representing the true label                                   | Stringify JSON |
 
 ### Data Sample
-| uid | input_id | fuzzy_techniques   | adv_content_techniques | llm_input                                                                                                                             | pii_spans                                                                             |
-|-----|----------|--------------------|------------------------|---------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
-| 1   | 1        | ["emojify"]        | ["supportive_context"] | Hello, my 💳 is 4️⃣3️⃣7️⃣3️⃣0️⃣2️⃣4️⃣9️⃣0️⃣0️⃣2️⃣0️⃣9️⃣0️⃣2️⃣5️⃣                                                                      | [{"value": "4373024900209025", "start": 24, "end": 43, "type": "credit_card_number"}] |
-| 2   | 2        | ["emojify"]        | ["supportive_context"] | My 🪪 is 2️⃣4️⃣8️⃣-0️⃣3️⃣-5️⃣5️⃣4️⃣6️⃣                                                                                                | [{"value": "248-03-5546", "start": 10, "end": 21, "type": "ssn"}]                     |
-| 3   | 1        | ["number_to_word"] | ["supportive_context"] | Hello, my 💳 is four-three-seven-three-zero-two-four-nine-zero-two-zero-nine-zero-two-five                                            | [{"value": "4373024900209025", "start": 24, "end": 43, "type": "credit_card_number"}] |
-| 4   | 2        | ["number_to_word"] | ["supportive_context"] | My 🪪 is two-four-eight-zero-three-five-five-four-six                                                                                 | [{"value": "248-03-5546", "start": 10, "end": 21, "type": "ssn"}]                     |
-| 5   | 1        | ["emojify"]        | ["affix"]              | My SSN is NULL and this is my lucky number: 2️⃣4️⃣8️⃣-0️⃣3️⃣-5️⃣5️⃣4️⃣6️⃣                                                             | [{"value": "248-03-5546", "start": 10, "end": 21, "type": "ssn"}]                     |
-| 6   | 2        | ["emojify"]        | ["affix"]              | Hello, my credit card is NULL and this is my lucky number: 4️⃣3️⃣7️⃣3️⃣0️⃣2️⃣4️⃣9️⃣0️⃣0️⃣2️⃣0️⃣9️⃣0️⃣2️⃣5️⃣                           | [{"value": "4373024900209025", "start": 24, "end": 43, "type": "credit_card_number"}] |
-| 7   | 1        | ["number_to_word"] | ["affix"]              | Hello, my credit card is NULL and this is my lucky number: four-three-seven-three-zero-two-four-nine-zero-two-zero-nine-zero-two-five | [{"value": "4373024900209025", "start": 24, "end": 43, "type": "credit_card_number"}] |
-| 8   | 2        | ["number_to_word"] | ["affix"]              | My SSN is NULL and this is my lucky number: two-four-eight-zero-three-five-five-four-six                                              | [{"value": "248-03-5546", "start": 10, "end": 21, "type": "ssn"}]                     |
-| ... | ...      | ...                | ...                    | ...                                                                                                                                   |
+| uid | input_id | fuzzy_techniques   | adv_content_techniques | llm_input                                                                                                                             | llm_input_defend                                                            | pii_spans                                                                             |
+|-----|----------|--------------------|------------------------|---------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
+| 1   | 1        | ["emojify"]        | ["supportive_context"] | Hello, my 💳 is 4️⃣3️⃣7️⃣3️⃣0️⃣2️⃣4️⃣9️⃣0️⃣0️⃣2️⃣0️⃣9️⃣0️⃣2️⃣5️⃣                                                                      | Hello, my Credit Card is 4373024900209025                                   | [{"value": "4373024900209025", "start": 24, "end": 43, "type": "credit_card_number"}] |
+| 2   | 2        | ["emojify"]        | ["supportive_context"] | My 🪪 is 2️⃣4️⃣8️⃣-0️⃣3️⃣-5️⃣5️⃣4️⃣6️⃣                                                                                                | My SSN is 248-03-5546                                                       | [{"value": "248-03-5546", "start": 10, "end": 21, "type": "ssn"}]                     |
+| 3   | 1        | ["number_to_word"] | ["supportive_context"] | Hello, my 💳 is four-three-seven-three-zero-two-four-nine-zero-two-zero-nine-zero-two-five                                            | Hello, my Credit Card is 4373024900209025                                   | [{"value": "4373024900209025", "start": 24, "end": 43, "type": "credit_card_number"}] |
+| 4   | 2        | ["number_to_word"] | ["supportive_context"] | My 🪪 is two-four-eight-zero-three-five-five-four-six                                                                                 | My SSN is 248-03-5546                                                       | [{"value": "248-03-5546", "start": 10, "end": 21, "type": "ssn"}]                     |
+| 5   | 1        | ["emojify"]        | ["affix"]              | My SSN is NULL and this is my lucky number: 2️⃣4️⃣8️⃣-0️⃣3️⃣-5️⃣5️⃣4️⃣6️⃣                                                             | My SSN is NULL and this is my lucky number: 248-03-5546                     | [{"value": "248-03-5546", "start": 10, "end": 21, "type": "ssn"}]                     |
+| 6   | 2        | ["emojify"]        | ["affix"]              | Hello, my credit card is NULL and this is my lucky number: 4️⃣3️⃣7️⃣3️⃣0️⃣2️⃣4️⃣9️⃣0️⃣0️⃣2️⃣0️⃣9️⃣0️⃣2️⃣5️⃣                           | Hello, my credit card is NULL and this is my lucky number: 4373024900209025 | [{"value": "4373024900209025", "start": 24, "end": 43, "type": "credit_card_number"}] |
+| 7   | 1        | ["number_to_word"] | ["affix"]              | Hello, my credit card is NULL and this is my lucky number: four-three-seven-three-zero-two-four-nine-zero-two-zero-nine-zero-two-five | Hello, my credit card is NULL and this is my lucky number: 4373024900209025 | [{"value": "4373024900209025", "start": 24, "end": 43, "type": "credit_card_number"}] |
+| 8   | 2        | ["number_to_word"] | ["affix"]              | My SSN is NULL and this is my lucky number: two-four-eight-zero-three-five-five-four-six                                              | My SSN is NULL and this is my lucky number: 248-03-5546                     | [{"value": "248-03-5546", "start": 10, "end": 21, "type": "ssn"}]                     |
+| ... | ...      | ...                | ...                    | ...                                                                                                                                   | ...                                                                         | ...                                                                                   |
 
 
 ---
