@@ -12,11 +12,11 @@ from data_manipulation.pii import homoglyph
         ),
         (
             "john34@gmail.com",
-            "јоһп３４@ɡмаіӏ.сом",
+            "јоһп３４＠ɡмаіӏ．сом",
         ),
         (
             "JOHN34@gmail.com",
-            "ЈОНＮ３４@ɡмаіӏ.сом",
+            "ЈОНＮ３４＠ɡмаіӏ．сом",
         ),
     ],
 )
