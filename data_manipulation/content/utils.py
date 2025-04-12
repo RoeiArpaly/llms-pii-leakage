@@ -28,6 +28,7 @@ def _build_engines(configs: list[dict]) -> tuple:
         operators[pii_entity] = operator
 
     analyzer = AnalyzerEngine()
+    analyzer.registry.recognizers = []
     for pii_entity, pattern in patterns_recognizers.items():
         pattern_recognizer = PatternRecognizer(supported_entity=pii_entity, patterns=[pattern])
         analyzer.registry.add_recognizer(pattern_recognizer)
