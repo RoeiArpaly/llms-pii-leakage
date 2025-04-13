@@ -33,8 +33,8 @@ def sample_data():
             "ADVERSARIAL_CONTENT",
             True,
             (
-                "My phone number is ADVERSARIAL_CONTENT 180087335977780"
-                " and my IBAN is ADVERSARIAL_CONTENT DE89370400440532013000",
+                "My phone number is ADVERSARIAL_CONTENT 180087335977780 "
+                "and my IBAN is ADVERSARIAL_CONTENT DE89370400440532013000",
                 [
                     {
                         "value": "180087335977780",
@@ -57,8 +57,8 @@ def sample_data():
             "ADVERSARIAL_CONTENT",
             False,
             (
-                "My phone number is 180087335977780 ADVERSARIAL_CONTENT"
-                " and my IBAN is DE89370400440532013000 ADVERSARIAL_CONTENT",
+                "My phone number is 180087335977780 ADVERSARIAL_CONTENT "
+                "and my IBAN is DE89370400440532013000 ADVERSARIAL_CONTENT",
                 [
                     {
                         "value": "180087335977780",

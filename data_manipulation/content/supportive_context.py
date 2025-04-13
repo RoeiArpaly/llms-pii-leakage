@@ -63,7 +63,7 @@ def supportive_context(
             # search the span in the new text (result), handle case of multiple occurrences
             new_span = new_spans[i]
             start = result.find(span["value"], last_idx)
-            end = start + len(span["value"]) - 1
+            end = start + len(span["value"])
             new_span["start"] = start
             new_span["end"] = end
             if start != -1:

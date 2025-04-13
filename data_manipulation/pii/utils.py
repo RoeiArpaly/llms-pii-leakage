@@ -21,7 +21,7 @@ def fuzzy_pii_injection(
         start, end = span["start"], span["end"]
         result.append(text[input_idx:start])  # Add unchanged prefix
         output_idx += start - input_idx
-        pii = text[start:end + 1]
+        pii = text[start:end]
         if random.random() < proba:
             pii = fuzzy_func(pii, **fuzzy_func_kwargs)
         result.append(pii)
@@ -29,11 +29,11 @@ def fuzzy_pii_injection(
         if update_spans:
             new_span.update({
                 "start": output_idx,
-                "end": output_idx + len(pii) - 1,
+                "end": output_idx + len(pii),
                 "value_fuzzy": pii,
             })
         new_spans.append(new_span)
-        input_idx = end + 1
+        input_idx = end
         output_idx += len(pii)
     result.append(text[input_idx:])
     return "".join(result), new_spans

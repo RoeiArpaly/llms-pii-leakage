@@ -1,11 +1,11 @@
 import pytest
 
-from data_manipulation.pii.utils import fuzzy_pii_injection
 from data_manipulation.pii import (
     homoglyph,
     number_to_word,
     reverse_pii,
 )
+from data_manipulation.pii.utils import fuzzy_pii_injection
 
 
 @pytest.mark.parametrize(
@@ -14,8 +14,8 @@ from data_manipulation.pii import (
         (
             "My Credit Card is 1234 and my IBAN is DE89370400440532013000 ok?",
             [
-                {"value": "1234", "start": 18, "end": 21, "type": "CREDIT_CARD"},
-                {"value": "DE89370400440532013000", "start": 38, "end": 59, "type": "IBAN"},
+                {"value": "1234", "start": 18, "end": 22, "type": "CREDIT_CARD"},
+                {"value": "DE89370400440532013000", "start": 38, "end": 60, "type": "IBAN"},
             ],
             reverse_pii,
             None,
@@ -26,14 +26,14 @@ from data_manipulation.pii import (
                         "value": "1234",
                         "value_fuzzy": "4321",
                         "start": 18,
-                        "end": 21,
+                        "end": 22,
                         "type": "CREDIT_CARD",
                     },
                     {
                         "value": "DE89370400440532013000",
                         "value_fuzzy": "00031023504400407398ED",
                         "start": 38,
-                        "end": 59,
+                        "end": 60,
                         "type": "IBAN",
                     },
                 ]
@@ -42,7 +42,7 @@ from data_manipulation.pii import (
         (
             "My Credit Card is 1234",
             [
-                {"value": "1234", "start": 18, "end": 21, "type": "CREDIT_CARD"},
+                {"value": "1234", "start": 18, "end": 22, "type": "CREDIT_CARD"},
             ],
             homoglyph,
             None,
@@ -53,7 +53,7 @@ from data_manipulation.pii import (
                         "value": "1234",
                         "value_fuzzy": "１２３４",
                         "start": 18,
-                        "end": 21,
+                        "end": 22,
                         "type": "CREDIT_CARD",
                     },
                 ]
@@ -62,7 +62,7 @@ from data_manipulation.pii import (
         (
             "My Credit Card is 1234",
             [
-                {"value": "1234", "start": 18, "end": 21, "type": "CREDIT_CARD"},
+                {"value": "1234", "start": 18, "end": 22, "type": "CREDIT_CARD"},
             ],
             number_to_word,
             {"lang": "english"},
@@ -73,7 +73,7 @@ from data_manipulation.pii import (
                         "value": "1234",
                         "value_fuzzy": "one two three four",
                         "start": 18,
-                        "end": 35,
+                        "end": 36,
                         "type": "CREDIT_CARD",
                     },
                 ]
@@ -82,8 +82,8 @@ from data_manipulation.pii import (
         (
             "My Credit Card is 1234 and email is john.doe@gmail.com",
             [
-                {"value": "1234", "start": 18, "end": 21, "type": "CREDIT_CARD"},
-                {"value": "john.doe@gmail.com", "start": 36, "end": 53, "type": "EMAIL"},
+                {"value": "1234", "start": 18, "end": 22, "type": "CREDIT_CARD"},
+                {"value": "john.doe@gmail.com", "start": 36, "end": 54, "type": "EMAIL"},
             ],
             homoglyph,
             None,
@@ -94,14 +94,14 @@ from data_manipulation.pii import (
                         "value": "1234",
                         "value_fuzzy": "１２３４",
                         "start": 18,
-                        "end": 21,
+                        "end": 22,
                         "type": "CREDIT_CARD",
                     },
                     {
                         "value": "john.doe@gmail.com",
                         "value_fuzzy": "јоһп．ԁое＠ɡмаіӏ．сом",
                         "start": 36,
-                        "end": 53,
+                        "end": 54,
                         "type": "EMAIL"
                     },
                 ]
@@ -110,8 +110,8 @@ from data_manipulation.pii import (
         (
             "My Credit Card is 1234 and email is john.doe@gmail.com",
             [
-                {"value": "1234", "start": 18, "end": 21, "type": "CREDIT_CARD"},
-                {"value": "john.doe@gmail.com", "start": 36, "end": 53, "type": "EMAIL"},
+                {"value": "1234", "start": 18, "end": 22, "type": "CREDIT_CARD"},
+                {"value": "john.doe@gmail.com", "start": 36, "end": 54, "type": "EMAIL"},
             ],
             number_to_word,
             {"lang": "english"},
@@ -122,14 +122,14 @@ from data_manipulation.pii import (
                         "value": "1234",
                         "value_fuzzy": "one two three four",
                         "start": 18,
-                        "end": 35,
+                        "end": 36,
                         "type": "CREDIT_CARD",
                     },
                     {
                         "value": "john.doe@gmail.com",
                         "value_fuzzy": "john.doe@gmail.com",
                         "start": 50,
-                        "end": 67,
+                        "end": 68,
                         "type": "EMAIL"
                     },
                 ]
