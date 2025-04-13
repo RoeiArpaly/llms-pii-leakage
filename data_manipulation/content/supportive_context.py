@@ -10,6 +10,7 @@ from data_manipulation.constants import (
     SSN_VARIATIONS,
 )
 from data_manipulation.content.utils import replacer
+from logger import logger
 
 
 def supportive_context(
@@ -17,6 +18,7 @@ def supportive_context(
         spans: list[dict],
         replace_with: str = "emoji",
         update_spans: bool = True,
+        pii_value_key: str = "value_fuzzy",
 ) -> tuple:
 
     if replace_with == "emoji":
@@ -62,8 +64,11 @@ def supportive_context(
         for i, span in enumerate(spans):
             # search the span in the new text (result), handle case of multiple occurrences
             new_span = new_spans[i]
-            start = result.find(span["value"], last_idx)
-            end = start + len(span["value"])
+            start = result.find(span[pii_value_key], last_idx)
+            if start == -1:
+                logger.warning(f"Span {span[pii_value_key]} not found in the text.")
+                continue
+            end = start + len(span[pii_value_key])
             new_span["start"] = start
             new_span["end"] = end
             if start != -1:
