@@ -4,7 +4,19 @@ Fuzzy PII attacks are a type of adversarial attack that aims to make the detecti
 more difficult by adding noise to the PIIs, but still keeping them recognizable by humans.
 
 ---
-### 1. Emojify Attack
+### 1. Chunking Attack
+#### Description
+A chunking attack is a type of adversarial attacks that aims to degrade the performance of PII detection systems,<br>
+by splitting PIIs into chunks of information.
+
+#### Example
+| Original Content                                  | Adversarial Content                                        |
+|---------------------------------------------------|------------------------------------------------------------|
+| Hello, my credit card number is 4373024900209025. | Hello, my credit card number is `"43730249" + "00209025"`. |
+
+---
+
+### 2. Emojify Attack
 
 #### Description
 An emojify attack is a type of adversarial attack that aims to make the detection of PIIs
@@ -17,7 +29,7 @@ more difficult by replacing characters in PIIs with emojis.
 
 ---
 
-### 2. Homoglyph Attack
+### 3. Homoglyph Attack
 
 #### Description
 A homoglyph attack is a type of adversarial attack that aims to degrade PIIs detection performance.<br>
@@ -28,19 +40,6 @@ e.g. using Cyrillic characters that look like Latin characters.
 | Original Content            | Adversarial Content           |
 |-----------------------------|-------------------------------|
 | Hello, my name is John Doe. | Hello, my name is `Јоһп Ｄое`. |
-
----
-
-### 3. Number-to-Roman Attack
-
-#### Description
-Replaces numbers in PIIs with Roman numerals.<br>
-Limitation: This attack only works for numbers between 1 and 3999.
-
-#### Example
-| Original Content                          | Adversarial Content                                |
-|-------------------------------------------|----------------------------------------------------|
-| My social security number is 123-45-6789. | My social security number is `CXXIII-XLV-VIIVIII`. |
 
 ---
 
@@ -59,7 +58,8 @@ Replaces numbers in PIIs with their English word equivalents.
 ### 5. Reverse Attack
 
 #### Description
-Reverses the order of characters in PIIs.
+Reverses the order of characters in PIIs. This attack is effective for certain types of PIIs such as email,
+And less effective when human cannot recognize the reversed PII without knowing it is reversed.
 
 #### Example
 | Original Content                                  | Adversarial Content                                 |
@@ -77,5 +77,16 @@ Adds random separators to PIIs to make them harder to detect.
 | Original Content                                  | Adversarial Content                                          |
 |---------------------------------------------------|--------------------------------------------------------------|
 | Hello, my credit card number is 4373024900209025. | Hello, my credit card number is `4373;;;0249;;;0020;;;9025`. |
+
+---
+
+### 7. Word Symbols Attack
+#### Description
+Replaces symbols in PIIs with their word equivalents.
+
+#### Example
+| Original Content                      | Adversarial Content                                 |
+|---------------------------------------|-----------------------------------------------------|
+| Hello, my email is john.doe@gmail.com | Hello, my email is `john(dot)doe(at)gmail(dot)com`. |
 
 ---
