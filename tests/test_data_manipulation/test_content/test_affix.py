@@ -21,6 +21,22 @@ def sample_data():
                 "type": "iban_code",
             },
         ],
+        "llm_input_long": (
+            "Please provide an overview of the new employee onboarding process "
+            "for the engineering department. "
+            "Include details on the responsibilities of the HR team and the necessary "
+            "documents they need to collect such as turnerandrea(at)example(dot)org for "
+            "communication with the new hires, "
+            "identification documents, and technical onboarding guides."
+        ),
+        "spans_long": [
+            {
+                "value": "turnerandrea(at)example(dot)org",
+                "start": 210,
+                "end": 241,
+                "type": "email",
+            },
+        ],
     }
 
 
@@ -75,6 +91,28 @@ def sample_data():
                 ],
             ),
         ),
+        (
+            "llm_input_long",
+            "spans_long",
+            "ADVERSARIAL_CONTENT",
+            False,
+            (
+                "Please provide an overview of the new employee onboarding process "
+                "for the engineering department. "
+                "Include details on the responsibilities of the HR team and the necessary "
+                "documents they need to collect such as turnerandrea(at)example(dot)org "
+                "ADVERSARIAL_CONTENT for communication with the new hires, "
+                "identification documents, and technical onboarding guides.",
+                [
+                    {
+                        "value": "turnerandrea(at)example(dot)org",
+                        "start": 210,
+                        "end": 241,
+                        "type": "email",
+                    },
+                ],
+            ),
+        ),
     ],
 )
 def test_adversarial_affix(
@@ -87,8 +125,8 @@ def test_adversarial_affix(
 ):
     assert (
         adversarial_affix(
-            llm_input=sample_data["llm_input"],
-            spans=sample_data["spans"],
+            llm_input=sample_data[llm_input],
+            spans=sample_data[spans],
             adv_affix=adv_content,
             prefix=prefix,
         )

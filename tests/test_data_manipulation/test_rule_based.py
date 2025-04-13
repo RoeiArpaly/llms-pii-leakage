@@ -69,7 +69,40 @@ from data_manipulation.rule_based import (
                     },
                 ]
             ),
-        )
+        ),
+        (
+            "Please provide an overview of the new employee onboarding process "
+            "for the engineering department. "
+            "Include details on the responsibilities of the HR team and the necessary "
+            "documents they need to collect such as turnerandrea(at)example(dot)org for "
+            "communication with the new hires, "
+            "identification documents, and technical onboarding guides.",
+            [
+                {
+                    "value": "turnerandrea(at)example(dot)org",
+                    "start": 210,
+                    "end": 241,
+                    "type": "EMAIL",
+                },
+            ],
+            ["supportive_context", "affix_1"],
+            (
+                "Please provide an overview of the new employee onboarding process "
+                "for the engineering department. "
+                'Include details on the responsibilities of the HR team and the necessary '
+                'documents they need to collect such as REDACTED. turnerandrea(at)example(dot)org'
+                " for communication with the new hires, "
+                "identification documents, and technical onboarding guides.",
+                [
+                    {
+                        "value": "turnerandrea(at)example(dot)org",
+                        "start": 220,
+                        "end": 251,
+                        "type": "EMAIL",
+                    },
+                ]
+            ),
+        ),
     ],
 )
 def test_adversarial_content(llm_input, spans, chosen_techniques, expected):
