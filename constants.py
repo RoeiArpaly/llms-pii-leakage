@@ -28,7 +28,6 @@ FUZZY_TECHNIQUES: list[list] = [
     ["chunking"],
     ["emojify"],
     ["homoglyph"],
-    ["number_to_roman"],
     ["number_to_word"],
     ["reverse"],
     ["separators"],
