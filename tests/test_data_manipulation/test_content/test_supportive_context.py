@@ -1,6 +1,6 @@
 import pytest
 
-from data_manipulation.content.supportive_context import supportive_context
+from data_manipulation.attacks.red_teaming.content.supportive_context import supportive_context
 
 
 @pytest.mark.parametrize(

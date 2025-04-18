@@ -1,11 +1,11 @@
 import pytest
 
-from data_manipulation.pii import (
+from data_manipulation.attacks.red_teaming import (
     homoglyph,
     char_to_word,
     reverse_pii,
 )
-from data_manipulation.pii.utils import fuzzy_pii_injection
+from data_manipulation.attacks.red_teaming.pii.utils import fuzzy_pii_injection
 
 
 @pytest.mark.parametrize(

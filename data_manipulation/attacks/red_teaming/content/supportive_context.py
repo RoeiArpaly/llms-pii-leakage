@@ -9,7 +9,7 @@ from data_manipulation.constants import (
     PII_EMOJI_MAP,
     SSN_VARIATIONS,
 )
-from data_manipulation.content.utils import replacer
+from data_manipulation.attacks.red_teaming.content.utils import replacer
 from logger import logger
 
 

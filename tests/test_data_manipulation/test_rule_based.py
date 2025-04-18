@@ -1,6 +1,6 @@
 import pytest
 
-from data_manipulation.rule_based import (
+from data_manipulation.attacks.injection import (
     adversarial_content,
     pii_fuzzer,
 )

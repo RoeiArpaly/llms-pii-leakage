@@ -1,6 +1,6 @@
 import pytest
 
-from data_manipulation.pii import char_to_word
+from data_manipulation.attacks.red_teaming import char_to_word
 
 
 @pytest.mark.parametrize(
@@ -33,5 +33,5 @@ from data_manipulation.pii import char_to_word
         ),
     ],
 )
-def test_number_to_word(text, lang, expected):
+def test_char_to_word(text, lang, expected):
     assert char_to_word(text=text, lang=lang) == expected

@@ -18,12 +18,12 @@ from constants import (
 )
 from data_generation.pii_generator import presidio_inject_pii
 from data_generation.llm_input_generator import generate_llm_input
-from data_manipulation.rule_based import (
+from data_manipulation.attacks.injection import (
     adversarial_content,
     pii_fuzzer,
 )
-from data_manipulation.defenses.fuzzy_match import get_fuzzy_recognizers
-from data_manipulation.defenses.preprocess import defensive_preprocess
+from data_manipulation.defenses.detection.fuzzy_match import get_fuzzy_recognizers
+from data_manipulation.defenses.prevention.preprocess import defensive_preprocess
 from detectors.gliner_detector import gliner_pii_detector
 from detectors.llm_detector import llm_pii_detector
 from detectors.presidio_detector import presidio_pii_analyzer

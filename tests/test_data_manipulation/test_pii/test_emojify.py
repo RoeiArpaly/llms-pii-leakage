@@ -1,6 +1,6 @@
 import pytest
 
-from data_manipulation.pii import emojify_pii
+from data_manipulation.attacks.red_teaming import emojify_pii
 
 
 @pytest.mark.parametrize(

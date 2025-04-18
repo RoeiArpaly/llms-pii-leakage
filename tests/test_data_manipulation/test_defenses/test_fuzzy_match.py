@@ -6,7 +6,7 @@ from presidio_analyzer.predefined_recognizers import (
     UsSsnRecognizer,
 )
 
-from data_manipulation.defenses.fuzzy_match import fuzzy_pii_recognizer
+from data_manipulation.defenses.detection.fuzzy_match import fuzzy_pii_recognizer
 from detectors.presidio_detector import presidio_pii_analyzer
 
 

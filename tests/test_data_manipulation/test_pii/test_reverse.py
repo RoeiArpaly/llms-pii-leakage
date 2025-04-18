@@ -1,6 +1,6 @@
 import pytest
 
-from data_manipulation.pii import reverse_pii
+from data_manipulation.attacks.red_teaming import reverse_pii
 
 
 @pytest.mark.parametrize(

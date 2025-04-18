@@ -1,9 +1,8 @@
-from data_manipulation.content import (
+from data_manipulation.attacks.template_based.affix import (
+    AdversarialAffix,
     adversarial_affix,
-    supportive_context,
 )
-from data_manipulation.content.affix import AdversarialAffix
-from data_manipulation.pii import (
+from data_manipulation.attacks.red_teaming import (
     chunking,
     emojify_pii,
     homoglyph,
@@ -11,7 +10,8 @@ from data_manipulation.pii import (
     inject_separator,
     reverse_pii,
 )
-from data_manipulation.pii.utils import fuzzy_pii_injection
+from data_manipulation.attacks.red_teaming.content.supportive_context import supportive_context
+from data_manipulation.attacks.red_teaming.pii.utils import fuzzy_pii_injection
 
 
 def pii_fuzzer(llm_input: str, spans: list[dict], chosen_techniques: list) -> tuple:
@@ -35,10 +35,10 @@ def pii_fuzzer(llm_input: str, spans: list[dict], chosen_techniques: list) -> tu
         return llm_input, spans
 
     mapping = {
+        "char_to_word": char_to_word,
         "chunking": chunking,
         "emojify": emojify_pii,
         "homoglyph": homoglyph,
-        "char_to_word": char_to_word,
         "separators": inject_separator,
         "reverse": reverse_pii,
     }

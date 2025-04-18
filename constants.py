@@ -25,13 +25,12 @@ TOPICS: list = [
     "executive",
 ]
 FUZZY_TECHNIQUES: list[list] = [
+    ["char_to_word"],
     ["chunking"],
     ["emojify"],
     ["homoglyph"],
-    ["number_to_word"],
     ["reverse"],
     ["separators"],
-    ["word_symbols"],
 ]
 ADV_CONTENT_TECHNIQUES: list[list] = [
     ["supportive_context"],

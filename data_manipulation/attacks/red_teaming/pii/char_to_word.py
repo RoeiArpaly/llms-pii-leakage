@@ -13,8 +13,8 @@ def char_to_word(text: str, sep: str = "", separators: str = "()", lang: str = N
     text = list(text)
     for i, char in enumerate(text):
         if char in WORD_SYMBOLS_MAP:
-            text[i] = separators[0] + WORD_SYMBOLS_MAP[char] + separators[1]
+            text[i] = f"{separators[0]}{WORD_SYMBOLS_MAP[char]}{separators[1]}"
         elif char.isdigit():
             value = number_word_map.get(char, char)
-            text[i] = sep + separators[0] + value + separators[1]
+            text[i] = f"{sep}{separators[0]}{value}{separators[1]}"
     return "".join(text)

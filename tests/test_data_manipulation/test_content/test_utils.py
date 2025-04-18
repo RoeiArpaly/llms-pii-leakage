@@ -5,7 +5,7 @@ from data_manipulation.constants import (
     IBAN_VARIATIONS,
     PII_EMOJI_MAP,
 )
-from data_manipulation.content.utils import replacer
+from data_manipulation.attacks.red_teaming.content.supportive_context import replacer
 
 
 @pytest.mark.parametrize(

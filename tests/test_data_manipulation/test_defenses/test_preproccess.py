@@ -1,6 +1,6 @@
 import pytest
 
-from data_manipulation.defenses.preprocess import (
+from data_manipulation.defenses.prevention.preprocess import (
     defensive_preprocess,
     mappings,
     remove_separators,

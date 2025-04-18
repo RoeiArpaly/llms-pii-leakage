@@ -1,6 +1,6 @@
 import pytest
 
-from data_manipulation.content import adversarial_affix
+from data_manipulation.attacks.template_based.affix import adversarial_affix
 
 
 @pytest.fixture

@@ -1,7 +1,7 @@
 import pytest
 
-from data_manipulation.pii import chunking
-from data_manipulation.pii.chunking import smart_split
+from data_manipulation.attacks.red_teaming import chunking
+from data_manipulation.attacks.red_teaming.pii.chunking import smart_split
 
 
 @pytest.mark.parametrize(

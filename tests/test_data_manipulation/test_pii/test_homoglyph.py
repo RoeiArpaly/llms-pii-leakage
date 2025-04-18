@@ -1,6 +1,6 @@
 import pytest
 
-from data_manipulation.pii import homoglyph
+from data_manipulation.attacks.red_teaming import homoglyph
 
 
 @pytest.mark.parametrize(
