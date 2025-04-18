@@ -13,19 +13,30 @@ llms-pii-leakage
 │   └── prompts.py
 │
 ├── data_manipulation
-│   ├── content
-│   │   ├── affix.py
-│   │   ├── supportive_context.py
-│   │   └── utils.py
-│   ├── pii
-│   │   ├── emojify.py
-│   │   ├── homoglyph.py
-│   │   ├── number_to_roman.py
-│   │   ├── number_to_word.py
-│   │   ├── reverse.py
-│   │   ├── separators.py
-│   │   └── utils.py
-│   ├── rule_based.py
+│   ├── attacks
+│   │   ├── neural_prompt_to_prompt
+│   │   │   ├── llm.py
+│   │   │   └── prompts.yaml
+│   │   ├── red_teaming
+│   │   │   ├── content
+│   │   │   │   ├── supportive_context.py
+│   │   │   │   └── utils.py
+│   │   │   └── pii
+│   │   │       ├── char_to_word.py
+│   │   │       ├── chunking.py
+│   │   │       ├── emojify.py
+│   │   │       ├── homoglyph.py
+│   │   │       ├── reverse.py
+│   │   │       └── separators.py
+│   │   ├── template_based
+│   │   │   ├── affix.py
+│   │   │   └── prompt_injection.py
+│   │   └── injection.py
+│   ├── defenses
+│   │   ├── detection
+│   │   │   └── fuzzy_match.py
+│   │   └── prevention
+│   │       └── preprocess.py
 │   └── constants.py
 │
 ├── datasets
