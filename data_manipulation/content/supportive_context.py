@@ -18,7 +18,6 @@ def supportive_context(
         spans: list[dict],
         replace_with: str = "emoji",
         update_spans: bool = True,
-        pii_value_key: str = "value_fuzzy",
 ) -> tuple:
 
     if replace_with == "emoji":
@@ -64,11 +63,12 @@ def supportive_context(
         for i, span in enumerate(spans):
             # search the span in the new text (result), handle case of multiple occurrences
             new_span = new_spans[i]
-            start = result.find(span[pii_value_key], last_idx)
+            key = "value_fuzzy" if "value_fuzzy" in span else "value"
+            start = result.find(span[key], last_idx)
             if start == -1:
-                logger.warning(f"Span {span[pii_value_key]} not found in the text.")
+                logger.warning(f"Span {span[key]} not found in the text.")
                 continue
-            end = start + len(span[pii_value_key])
+            end = start + len(span[key])
             new_span["start"] = start
             new_span["end"] = end
             if start != -1:

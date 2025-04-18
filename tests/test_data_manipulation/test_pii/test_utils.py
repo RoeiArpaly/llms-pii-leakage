@@ -2,7 +2,7 @@ import pytest
 
 from data_manipulation.pii import (
     homoglyph,
-    number_to_word,
+    char_to_word,
     reverse_pii,
 )
 from data_manipulation.pii.utils import fuzzy_pii_injection
@@ -64,16 +64,16 @@ from data_manipulation.pii.utils import fuzzy_pii_injection
             [
                 {"value": "1234", "start": 18, "end": 22, "type": "CREDIT_CARD"},
             ],
-            number_to_word,
+            char_to_word,
             {"lang": "english"},
             (
-                "My Credit Card is one two three four",
+                "My Credit Card is (one)(two)(three)(four)",
                 [
                     {
                         "value": "1234",
-                        "value_fuzzy": "one two three four",
+                        "value_fuzzy": "(one)(two)(three)(four)",
                         "start": 18,
-                        "end": 36,
+                        "end": 41,
                         "type": "CREDIT_CARD",
                     },
                 ]
@@ -108,28 +108,28 @@ from data_manipulation.pii.utils import fuzzy_pii_injection
             ),
         ),
         (
-            "My Credit Card is 1234 and email is john.doe@gmail.com",
+            "My Credit Card is 123 and email is john.doe@gmail.com",
             [
-                {"value": "1234", "start": 18, "end": 22, "type": "CREDIT_CARD"},
-                {"value": "john.doe@gmail.com", "start": 36, "end": 54, "type": "EMAIL"},
+                {"value": "123", "start": 18, "end": 21, "type": "CREDIT_CARD"},
+                {"value": "john.doe@gmail.com", "start": 35, "end": 53, "type": "EMAIL"},
             ],
-            number_to_word,
+            char_to_word,
             {"lang": "english"},
             (
-                "My Credit Card is one two three four and email is john.doe@gmail.com",
+                "My Credit Card is (one)(two)(three) and email is john(dot)doe(at)gmail(dot)com",
                 [
                     {
-                        "value": "1234",
-                        "value_fuzzy": "one two three four",
+                        "value": "123",
+                        "value_fuzzy": "(one)(two)(three)",
                         "start": 18,
-                        "end": 36,
+                        "end": 35,
                         "type": "CREDIT_CARD",
                     },
                     {
                         "value": "john.doe@gmail.com",
-                        "value_fuzzy": "john.doe@gmail.com",
-                        "start": 50,
-                        "end": 68,
+                        "value_fuzzy": "john(dot)doe(at)gmail(dot)com",
+                        "start": 49,
+                        "end": 78,
                         "type": "EMAIL"
                     },
                 ]

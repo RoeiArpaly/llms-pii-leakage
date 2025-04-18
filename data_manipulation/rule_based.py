@@ -7,10 +7,9 @@ from data_manipulation.pii import (
     chunking,
     emojify_pii,
     homoglyph,
-    number_to_word,
+    char_to_word,
     inject_separator,
     reverse_pii,
-    word_symbols,
 )
 from data_manipulation.pii.utils import fuzzy_pii_injection
 
@@ -32,7 +31,6 @@ def pii_fuzzer(llm_input: str, spans: list[dict], chosen_techniques: list) -> tu
     str
 
     """
-
     if not chosen_techniques or not spans:
         return llm_input, spans
 
@@ -40,10 +38,9 @@ def pii_fuzzer(llm_input: str, spans: list[dict], chosen_techniques: list) -> tu
         "chunking": chunking,
         "emojify": emojify_pii,
         "homoglyph": homoglyph,
-        "number_to_word": number_to_word,
+        "char_to_word": char_to_word,
         "separators": inject_separator,
         "reverse": reverse_pii,
-        "word_symbols": word_symbols,
     }
 
     result = llm_input
@@ -57,7 +54,6 @@ def pii_fuzzer(llm_input: str, spans: list[dict], chosen_techniques: list) -> tu
             )
         else:
             raise ValueError(f"Invalid technique: {technique}")
-
     return result, new_spans
 
 

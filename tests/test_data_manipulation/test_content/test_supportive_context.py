@@ -4,14 +4,13 @@ from data_manipulation.content.supportive_context import supportive_context
 
 
 @pytest.mark.parametrize(
-    "text, spans, pii_value_key, expected",
+    "text, spans, expected",
     [
         (
             "My Credit Card is 1234",
             [
                 {"value": "1234", "start": 18, "end": 22, "type": "CREDIT_CARD"},
             ],
-            "value",
             (
                 "My 💳 is 1234",
                 [
@@ -24,7 +23,6 @@ from data_manipulation.content.supportive_context import supportive_context
             [
                 {"value": "john@gmail.com", "start": 12, "end": 26, "type": "EMAIL"},
             ],
-            "value",
             (
                 "My 📧 is john@gmail.com",
                 [
@@ -38,7 +36,6 @@ from data_manipulation.content.supportive_context import supportive_context
                 {"value": "1234", "start": 18, "end": 22, "type": "CREDIT_CARD"},
                 {"value": "5678", "start": 42, "end": 46, "type": "CREDIT_CARD"},
             ],
-            "value",
             (
                 "My 💳 is 1234 and my 💳 is 5678",
                 [
@@ -53,7 +50,6 @@ from data_manipulation.content.supportive_context import supportive_context
                 {"value": "1234", "start": 18, "end": 22, "type": "CREDIT_CARD"},
                 {"value": "1234", "start": 42, "end": 46, "type": "CREDIT_CARD"},
             ],
-            "value",
             (
                 "My 💳 is 1234 and my 💳 is 1234",
                 [
@@ -80,7 +76,6 @@ from data_manipulation.content.supportive_context import supportive_context
                     "type": "CREDIT_CARD",
                 },
             ],
-            "value_fuzzy",
             (
                 "My 💳 is 1-2-3-4 and my 💳 is 1-2-3-4",
                 [
@@ -103,5 +98,5 @@ from data_manipulation.content.supportive_context import supportive_context
         ),
     ],
 )
-def test_emojify_text(text, spans, pii_value_key, expected):
-    assert supportive_context(text=text, spans=spans, pii_value_key=pii_value_key) == expected
+def test_emojify_text(text, spans, expected):
+    assert supportive_context(text=text, spans=spans) == expected
