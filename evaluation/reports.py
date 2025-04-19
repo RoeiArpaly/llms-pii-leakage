@@ -6,6 +6,7 @@ from pandas import (
     read_csv,
 )
 
+from config import Config
 from constants import DATASETS
 from evaluation import spans_scorer
 from evaluation.constants import SPANS_METRICS
@@ -16,9 +17,19 @@ from utils import (
 
 
 def evaluate_predictions(models, match_level: str):
+    datasets = []
     for dataset in DATASETS:
         for model in models:
             data = read_csv(f"datasets/predictions/{dataset}_{model}.csv").apply(infer_json)
+            if "fuzzy_techniques" in data.columns:
+                data = data[data["fuzzy_techniques"].apply(
+                    lambda x: all([v in Config.ATTACKS for v in x]))
+                ]
+            if "adv_content_techniques" in data.columns:
+                data = data[data["adv_content_techniques"].apply(
+                    lambda x: all([v in Config.CONTENT_ATTACKS for v in x]))
+                ]
+
             data["spans_score"] = data.apply(
                 lambda row: spans_scorer(
                     spans_true=row["pii_spans"],
@@ -27,8 +38,13 @@ def evaluate_predictions(models, match_level: str):
                 ),
                 axis=1,
             )
-            data = data[["uid", "prediction", "spans_score"]].apply(cast_to_json)
-            data.to_csv(f"datasets/evaluations/{dataset}_{model}.csv", index=False)
+            _data = data[["uid", "prediction", "spans_score"]].apply(cast_to_json)
+            _data.to_csv(f"datasets/evaluations/{dataset}_{model}.csv", index=False)
+            data["model"] = model
+            datasets.append(data)
+    columns = ["uid", "model", "fuzzy_techniques", "adv_content_techniques", "spans_score"]
+    raw = concat(datasets, ignore_index=True)[columns].apply(cast_to_json)
+    raw.to_csv("datasets/evaluations/0_raw.csv", index=False)
 
 
 def load_and_preprocess_data(dataset: str, model: str) -> DataFrame:
@@ -37,7 +53,7 @@ def load_and_preprocess_data(dataset: str, model: str) -> DataFrame:
     data_pred = read_csv(f"datasets/evaluations/{dataset}_{model}.csv").apply(infer_json)
     data = data_pred.merge(data, on="uid", how="left")
     for col in ["fuzzy_techniques", "adv_content_techniques"]:
-        data[col] = data[col].apply(lambda x: x[0] if x else None) if col in data.columns else None
+        data[col] = data[col].apply(lambda x: "_".join(x)) if col in data.columns else None
     for col in SPANS_METRICS:
         data[col] = data["spans_score"].apply(lambda x: x.get(col))
     return data
