@@ -2,6 +2,10 @@ from data_manipulation.attacks.template_based.affix import (
     AdversarialAffix,
     adversarial_affix,
 )
+from data_manipulation.attacks.template_based.prompt_injection import (
+    PromptInjection,
+    prompt_injection,
+)
 from data_manipulation.attacks.red_teaming import (
     chunking,
     emojify_pii,
@@ -75,7 +79,12 @@ def adversarial_content(llm_input: str, spans: list[dict], chosen_techniques: li
                 llm_input=result, spans=new_spans, adv_affix=adv_affix.text, prefix=adv_affix.prefix
             )
         elif technique == "prompt_injection":
-            ...
+            # Extract the affix number from the technique name
+            prompt_injection_number = int(technique.split("_")[-1])
+            adv_instructions = PromptInjection.list_configs()[prompt_injection_number - 1]
+            result, new_spans = prompt_injection(
+                llm_input=result, spans=new_spans, adv_instructions=adv_instructions.text
+            )
         else:
             raise ValueError(f"Invalid technique: {technique}")
     return result, new_spans
