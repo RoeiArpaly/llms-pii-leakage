@@ -22,7 +22,8 @@ def setup_plot():
 def setup_axes(ax, tick_positions, tick_labels, ylabel, title, ylim=1.05):
     """Configure axis ticks, labels, title, and grid."""
     ax.set_xticks(tick_positions)
-    ax.set_xticklabels(tick_labels, fontsize=10)
+    rotation = 0 if len(tick_labels) < 5 else 7.5
+    ax.set_xticklabels(tick_labels, fontsize=8, rotation=rotation)
     ax.set_ylabel(ylabel, fontsize=10)
     ax.set_title(title, fontsize=12, fontweight="bold")
     ax.set_ylim(0, ylim)
@@ -252,7 +253,7 @@ datasets = [
 
 common_params = {
     "models": Config.MODELS,
-    "model_hatches": dict(zip(Config.MODELS, ["xxx", "///", ""])),
+    "model_hatches": dict(zip(Config.MODELS, ["xxx", "//"])),
     "bar_width": 0.8,
     "group_gap": 1.0,
     "inner_gap": 0.2,
