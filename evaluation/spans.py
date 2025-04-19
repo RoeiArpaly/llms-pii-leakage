@@ -69,7 +69,7 @@ def spans_scorer(
                     match_conditions.append(
                         true_value == pred_value[::-1] and true_type == pred_type
                     )
-                else:
+                elif match_level == "value":
                     match_conditions.append(true_value == pred_value[::-1])
             if any(match_conditions):
                 true_positives += 1
