@@ -78,7 +78,7 @@ def adversarial_content(llm_input: str, spans: list[dict], chosen_techniques: li
             result, new_spans = adversarial_affix(
                 llm_input=result, spans=new_spans, adv_affix=adv_affix.text, prefix=adv_affix.prefix
             )
-        elif technique == "prompt_injection":
+        elif "prompt_injection" in technique:
             # Extract the affix number from the technique name
             prompt_injection_number = int(technique.split("_")[-1])
             adv_instructions = PromptInjection.list_configs()[prompt_injection_number - 1]
