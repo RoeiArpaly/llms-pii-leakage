@@ -22,8 +22,9 @@ from data_manipulation.attacks.injection import (
     adversarial_content,
     pii_fuzzer,
 )
-from data_manipulation.defenses.detection.fuzzy_match import get_fuzzy_recognizers
-from data_manipulation.defenses.prevention.preprocess import defensive_preprocess
+from data_manipulation.attacks.neural_prompt_to_prompt.llm import llm_pii_fuzzer
+from detectors.fuzzy_match import get_fuzzy_recognizers
+from data_manipulation.defenses.preprocess import defensive_preprocess
 from detectors.gliner_detector import gliner_pii_detector
 from detectors.llm_detector import llm_pii_detector
 from detectors.presidio_detector import presidio_pii_analyzer
@@ -109,6 +110,26 @@ def generate_fuzzy_adv_dataset():
             result_type="expand",
         )
         datasets.append(_data.copy())
+
+    ##################################################
+    #            NEURAL PROMPT TO PROMPT             #
+    ##################################################
+
+    technique = ["neural_prompt_to_prompt"]
+    _data = read_csv("datasets/baseline_dataset.csv").apply(infer_json)
+    _data = _data[_data["pii_spans"].apply(len) > 0].copy().reset_index(drop=True)
+    _data = _data.rename(columns={"uid": "input_id"})
+    logger.info(f"Generating adversarial content for technique: {technique}")
+    _data[["llm_input", "pii_spans"]] = _data.apply(
+        lambda row: llm_pii_fuzzer(llm_input=row["llm_input"], spans=row["pii_spans"]),
+        axis=1,
+        result_type="expand",
+    )
+    _data["fuzzy_techniques"] = _data.apply(lambda _: technique, axis=1)
+    _data["adv_content_techniques"] = _data.apply(lambda _: technique, axis=1)
+    datasets.append(_data.copy())
+
+    # Dataset Creation
     data = concat(datasets, ignore_index=True)
     data["llm_input_defend"] = data["llm_input"].apply(defensive_preprocess)
     data = data[FUZZY_ADV_DATASET_COLS]
