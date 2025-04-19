@@ -1,6 +1,6 @@
 import pytest
 
-from data_manipulation.pii import inject_separator
+from data_manipulation.attacks.red_teaming import inject_separator
 
 
 @pytest.mark.parametrize(
