@@ -33,8 +33,7 @@ llms-pii-leakage
 │   │   │   └── prompt_injection.py
 │   │   └── injection.py
 │   ├── defenses
-│   │   └── detection
-│   │       └── preprocess.py
+│   │   └── preprocess.py
 │   └── constants.py
 │
 ├── datasets
