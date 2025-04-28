@@ -39,6 +39,8 @@ ADV_CONTENT_TECHNIQUES: list[list] = [
     ["supportive_context", "affix_3"],
     ["supportive_context", "affix_4"],
     ["supportive_context", "prompt_injection_1"],
+    ["supportive_context", "prompt_injection_2"],
+    ["supportive_context", "prompt_injection_3"],
 ]
 BASELINE_DATASET_COLS: list = [
     "llm_input",
