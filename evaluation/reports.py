@@ -16,7 +16,7 @@ from utils import (
 )
 
 
-def evaluate_predictions(models, match_level: str):
+def evaluate_predictions(models, match_level: str, method: str):
     datasets = []
     for dataset in DATASETS:
         for model in models:
@@ -35,6 +35,7 @@ def evaluate_predictions(models, match_level: str):
                     spans_true=row["pii_spans"],
                     spans_pred=row["prediction"],
                     match_level=match_level,
+                    method=method,
                 ),
                 axis=1,
             )
@@ -71,11 +72,11 @@ def compute_aggregated_scores(data: DataFrame, groupby_cols: List[str] = None) -
     return data.drop(columns=SPANS_METRICS).fillna(0)
 
 
-def evaluate_and_save_datasets(models: List[str], match_level: str) -> None:
+def evaluate_and_save_datasets(models: List[str], match_level: str, method: str) -> None:
     """Evaluate and save aggregated scores for all dataset-model pairs."""
 
     models = models + ["ensemble"]
-    evaluate_predictions(models=models, match_level=match_level)
+    evaluate_predictions(models=models, match_level=match_level, method=method)
 
     groupings = {
         "dataset_level": [],
