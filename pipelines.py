@@ -121,7 +121,11 @@ def generate_fuzzy_adv_dataset():
     _data = _data.rename(columns={"uid": "input_id"})
     logger.info(f"Generating adversarial content for technique: {technique}")
     _data[["llm_input", "pii_spans"]] = _data.apply(
-        lambda row: llm_pii_fuzzer(llm_input=row["llm_input"], spans=row["pii_spans"]),
+        lambda row: llm_pii_fuzzer(
+            llm_input=row["llm_input"],
+            spans=row["pii_spans"],
+            few_shots=False,
+        ),
         axis=1,
         result_type="expand",
     )
