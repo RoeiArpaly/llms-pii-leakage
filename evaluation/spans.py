@@ -1,5 +1,7 @@
 import re
 
+from evaluation.partial_matching import partial_match
+
 
 def safe_divide(a, b):
     return a / b if b > 0 else 0
@@ -21,7 +23,9 @@ def spans_scorer(
         spans_true: list[dict],
         spans_pred: list[dict],
         match_level: str,
-        reverse_match: bool = True,
+        normalize_value: bool = True,
+        method: str = "rapidfuzz",
+        threshold: float = 0.8,
 ) -> dict:
     """
     Parameters
@@ -32,8 +36,14 @@ def spans_scorer(
         The predicted spans.
     match_level : str
         One of "value", "type", or "both".
-    reverse_match : bool
-        Whether to check for reverse match.
+    normalize_value : bool
+        Whether to normalize PII values.
+    method : str
+        The method to use for matching.
+        Options are 'exact', 'subsequence', 'difflib', 'rapidfuzz' or 'llm_judge'.
+    threshold : float
+        The threshold for matching.
+        Default is 0.8.
 
     Examples
     --------
@@ -54,23 +64,22 @@ def spans_scorer(
     matched_true = set()  # Tracks matched true spans
     matched_pred = set()  # Tracks matched predicted spans
     for i, true_span in enumerate(spans_true):
-        true_value = normalize_pii(true_span["value"])
+        if normalize_value:
+            true_span["value"] = normalize_pii(true_span["value"])
         true_type = true_span["type"]
         for j, pred_span in enumerate(spans_pred):
-            pred_value = normalize_pii(pred_span["value"])
+            if normalize_value:
+                pred_span["value"] = normalize_pii(pred_span["value"])
             pred_type = pred_span["type"]
+
+            score = partial_match(predicted_span=pred_span, actual_span=true_span, method=method)
+            condition = score >= threshold
+
             match_conditions = [
-                match_level == "both" and true_value == pred_value and true_type == pred_type,
-                match_level == "value" and true_value == pred_value,
+                match_level == "value" and condition,
                 match_level == "type" and true_type == pred_type,
+                match_level == "both" and condition and true_type == pred_type,
             ]
-            if reverse_match:
-                if match_level == "both":
-                    match_conditions.append(
-                        true_value == pred_value[::-1] and true_type == pred_type
-                    )
-                elif match_level == "value":
-                    match_conditions.append(true_value == pred_value[::-1])
             if any(match_conditions):
                 true_positives += 1
                 matched_true.add(i)
