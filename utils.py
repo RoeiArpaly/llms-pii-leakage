@@ -69,7 +69,9 @@ def parallel_apply(func: callable, series: Series, max_workers: int = 8, **kwarg
 
 
 def cast_to_json(column: Series) -> Series:
-    return column.apply(lambda x: json.dumps(x) if isinstance(x, (dict, list)) else x)
+    return column.apply(
+        lambda x: json.dumps(x, ensure_ascii=False) if isinstance(x, (dict, list)) else x
+    )
 
 
 def infer_json(column: Series) -> Series:
@@ -77,7 +79,7 @@ def infer_json(column: Series) -> Series:
 
 
 def parse_json(value, column_name):
-    # TODO: improve
+    # TODO: improve logic to detect JSON
     if "span" in column_name or "prediction" in column_name or "techniques" in column_name:
         try:
             return json.loads(value)
