@@ -3,7 +3,6 @@ import pytest
 from data_manipulation.attacks.red_teaming import (
     homoglyph,
     char_to_word,
-    reverse_pii,
 )
 from data_manipulation.attacks.red_teaming.pii.utils import fuzzy_pii_injection
 
@@ -11,34 +10,6 @@ from data_manipulation.attacks.red_teaming.pii.utils import fuzzy_pii_injection
 @pytest.mark.parametrize(
     "text, spans, fuzzy_func, fuzzy_func_kwargs, expected",
     [
-        (
-            "My Credit Card is 1234 and my IBAN is DE89370400440532013000 ok?",
-            [
-                {"value": "1234", "start": 18, "end": 22, "type": "CREDIT_CARD"},
-                {"value": "DE89370400440532013000", "start": 38, "end": 60, "type": "IBAN"},
-            ],
-            reverse_pii,
-            None,
-            (
-                "My Credit Card is 4321 and my IBAN is 00031023504400407398ED ok?",
-                [
-                    {
-                        "value": "1234",
-                        "value_fuzzy": "4321",
-                        "start": 18,
-                        "end": 22,
-                        "type": "CREDIT_CARD",
-                    },
-                    {
-                        "value": "DE89370400440532013000",
-                        "value_fuzzy": "00031023504400407398ED",
-                        "start": 38,
-                        "end": 60,
-                        "type": "IBAN",
-                    },
-                ]
-            ),
-        ),
         (
             "My Credit Card is 1234",
             [

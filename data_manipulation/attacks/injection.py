@@ -12,7 +12,6 @@ from data_manipulation.attacks.red_teaming import (
     homoglyph,
     char_to_word,
     inject_separator,
-    reverse_pii,
 )
 from data_manipulation.attacks.red_teaming.content.supportive_context import supportive_context
 from data_manipulation.attacks.red_teaming.pii.utils import fuzzy_pii_injection
@@ -44,7 +43,6 @@ def pii_fuzzer(llm_input: str, spans: list[dict], chosen_techniques: list) -> tu
         "emojify": emojify_pii,
         "homoglyph": homoglyph,
         "separators": inject_separator,
-        "reverse": reverse_pii,
     }
 
     result = llm_input

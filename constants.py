@@ -29,7 +29,6 @@ FUZZY_TECHNIQUES: list[list] = [
     ["chunking"],
     ["emojify"],
     ["homoglyph"],
-    ["reverse"],
     ["separators"],
 ]
 ADV_CONTENT_TECHNIQUES: list[list] = [
@@ -41,6 +40,7 @@ ADV_CONTENT_TECHNIQUES: list[list] = [
     ["supportive_context", "prompt_injection_1"],
     ["supportive_context", "prompt_injection_2"],
     ["supportive_context", "prompt_injection_3"],
+    ["supportive_context", "prompt_injection_4"],
 ]
 BASELINE_DATASET_COLS: list = [
     "llm_input",
