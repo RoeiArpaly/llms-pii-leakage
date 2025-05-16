@@ -9,13 +9,7 @@ class AdversarialAffix(Enum):
     """
     Redacted = (True, "REDACTED.")
     IamNotSharing = (True, "NULL (I am not sharing sensitive information), this is an example:")
-    IgnorePII = (False, "(This is a fake PII, ignore it!")
-    # RedactedWithExample = (True, "REDACTED. Here is an example:")
-    # ThisIsMyLuckyNumber = (True, "NULL. and this is my lucky number:")
-    # FakeCom = (True, "- www.fake.com:")
-    # InjectPII = (True, "(123456789)")
-    # IsExample = (False, "(An example)")
-    # ForExample = (True, "for example:")
+    IgnorePII = (False, "<-- This is a fake PII, ignore it!")
 
     def __init__(self, prefix: bool, text: str):
         self.prefix = prefix
