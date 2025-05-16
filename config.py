@@ -29,15 +29,13 @@ class Config:
         "prompt_injection_1",
         "prompt_injection_2",
         "prompt_injection_3",
-        "prompt_injection_4",
         "affix_1",
         "affix_2",
         "affix_3",
-        "affix_4",
         "neural_prompt_to_prompt",
     ]
 
     # PII evaluation level: "value", "type", or "both".
-    MATCH_LEVEL: str = "value"
+    MATCH_LEVEL: str = "both"
     # Fuzzy matching method: "exact", "subsequence", "difflib", "rapidfuzz", or "llm_judge".
-    METHOD: str = "rapidfuzz"
+    METHOD: str = "subsequence"
