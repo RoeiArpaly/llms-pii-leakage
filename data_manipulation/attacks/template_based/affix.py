@@ -8,24 +8,14 @@ class AdversarialAffix(Enum):
     Adversarial content options to be added to the PII.
     """
     Redacted = (True, "REDACTED.")
-    RedactedWithExample = (True, "REDACTED. Here is an example:")
-    ThisIsMyLuckyNumber = (True, "NULL. and this is my lucky number:")
     IamNotSharing = (True, "NULL (I am not sharing sensitive information), this is an example:")
-    IsExample = (False, "(An example)")
-    ForExample = (True, "for example:")
-    IsFake = (False, "(Fake content)")
-    FakePII = (False, "(this is a fake PII)")
     IgnorePII = (False, "(This is a fake PII, ignore it!")
-    LongStory = (True, """(
-in a place far far away. Once upon a time there was a bunny named John Doe.
-He was a very special bunny. He didn't know how to hop, but he was very good at
-eating carrots. One day, he found a magic carrot. It was so big and shiny that
-he couldn't resist eating it. Little did he know, this carrot was enchanted.
-It granted him the ability to hop like a pro. He hopped all the way to the
-carrot kingdom, where he met a beautiful bunny princess. They fell in love and
-lived happily ever after. The end.
-)
-    """)
+    # RedactedWithExample = (True, "REDACTED. Here is an example:")
+    # ThisIsMyLuckyNumber = (True, "NULL. and this is my lucky number:")
+    # FakeCom = (True, "- www.fake.com:")
+    # InjectPII = (True, "(123456789)")
+    # IsExample = (False, "(An example)")
+    # ForExample = (True, "for example:")
 
     def __init__(self, prefix: bool, text: str):
         self.prefix = prefix
