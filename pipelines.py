@@ -4,6 +4,7 @@ import time
 from pandas import (
     concat,
     DataFrame,
+    json_normalize,
     read_csv,
     Series,
 )
@@ -141,7 +142,7 @@ def generate_fuzzy_adv_dataset():
     data.apply(cast_to_json).to_csv(path_or_buf="datasets/fuzzy_adv_dataset.csv", index=True)
 
 
-def process_predictions(data: DataFrame, model: str, dataset: str) -> Series:
+def process_predictions(data: DataFrame, model: str, dataset: str, logprobs: bool) -> Series:
     """Apply the appropriate PII detection model to the dataset."""
     logger.info(f"Detecting PII with {model} for {dataset} dataset")
     if model == "presidio":
@@ -159,15 +160,19 @@ def process_predictions(data: DataFrame, model: str, dataset: str) -> Series:
     elif model == "gliner-defend":
         prediction = data["llm_input_defend"].apply(gliner_pii_detector)
     elif model == "gpt-4o-mini":
-        prediction = parallel_apply(func=llm_pii_detector, series=data["llm_input"])
+        prediction = parallel_apply(
+            func=llm_pii_detector, series=data["llm_input"], logprobs=logprobs
+        )
     elif model == "gpt-4o-mini-defend":
-        prediction = parallel_apply(func=llm_pii_detector, series=data["llm_input_defend"])
+        prediction = parallel_apply(
+            func=llm_pii_detector, series=data["llm_input_defend"], logprobs=logprobs
+        )
     else:
         raise ValueError(f"Model {model} is not supported")
     return prediction
 
 
-def pii_detection_pipeline(models: list[str]):
+def pii_detection_pipeline(models: list[str], logprobs: bool = False):
     """Runs PII detection using multiple models and aggregates results."""
     for dataset in DATASETS:
         logger.info(f"[DATASET]: {dataset} ...")
@@ -177,7 +182,15 @@ def pii_detection_pipeline(models: list[str]):
             if model == "ensemble":
                 continue
             start_time = time.time()
-            data["prediction"] = process_predictions(data=data, model=model, dataset=dataset)
+            predictions = process_predictions(
+                data=data, model=model, dataset=dataset, logprobs=logprobs
+            )
+            if isinstance(predictions, list):
+                predictions = json_normalize(predictions)
+                data["prediction"] = predictions["structured_output.prediction"]
+                data["perplexity"] = predictions["perplexity"]
+            else:  # instance is already a Series
+                data["prediction"] = predictions
             loop_runtime = round(time.time() - start_time, 1)
             logger.info(f"Time taken for {model} is {loop_runtime} seconds")
             ensemble_predictions[model] = data["prediction"]

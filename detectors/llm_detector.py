@@ -12,7 +12,7 @@ with PROMPTS_PATH.open("r") as f:
     PROMPTS = yaml.safe_load(f)
 
 
-def llm_pii_detector(text: str, model: str = "gpt-4o-mini"):
+def llm_pii_detector(text: str, model: str = "gpt-4o-mini", logprobs: bool = False):
     """
     Detect PII in the LLM input.
     """
@@ -71,5 +71,9 @@ def llm_pii_detector(text: str, model: str = "gpt-4o-mini"):
         "temperature": 0,
         "max_tokens": 3_000,
     }
-    json_schema = post_request_openai(data=data)
-    return json_schema["prediction"]
+    if logprobs:
+        data.update({"logprobs": True})
+    response = post_request_openai(data=data, logprobs=logprobs)
+    if logprobs:
+        return response
+    return response["prediction"]

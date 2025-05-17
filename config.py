@@ -2,7 +2,7 @@ class Config:
 
     # Dataset generation
     PII_PROBABILITY: float = 0.9
-    NUMBER_OF_SAMPLES: int = 100
+    NUMBER_OF_SAMPLES: int = 3
 
     # Evaluation
     MODELS: list = [
@@ -39,3 +39,4 @@ class Config:
     MATCH_LEVEL: str = "both"
     # Fuzzy matching method: "exact", "subsequence", "difflib", "rapidfuzz", or "llm_judge".
     METHOD: str = "subsequence"
+    LOGPROBS: bool = True  # if to compute perplexity scores

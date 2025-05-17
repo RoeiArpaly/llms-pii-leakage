@@ -13,9 +13,9 @@ if __name__ == "__main__":
     generate_baseline_dataset(n_samples=Config.NUMBER_OF_SAMPLES, pii_proba=Config.PII_PROBABILITY)
     generate_fuzzy_dataset()
     generate_fuzzy_adv_dataset()
-    pii_detection_pipeline(models=Config.MODELS)
+    pii_detection_pipeline(models=Config.MODELS, logprobs=Config.LOGPROBS)
     evaluate_and_save_datasets(
-        models=Config.MODELS, match_level=Config.MATCH_LEVEL, method=Config.METHOD,
+        models=Config.MODELS, match_level=Config.MATCH_LEVEL, method=Config.METHOD
     )
 
     logger.info("SUCCESS")

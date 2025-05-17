@@ -7,6 +7,7 @@ import requests
 
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
+from math import exp
 
 from pandas import Series
 
@@ -14,6 +15,14 @@ from logger import logger
 
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+
+def calculate_perplexity(logprobs: list[float]) -> float:
+    """Calculate the perplexity of a sequence of log probabilities."""
+    _N = len(logprobs)
+    if _N == 0:
+        return float("inf")  # Avoid division by zero
+    return round(exp(-sum(logprobs) / _N), 5)
 
 
 def retry(times: int = 5, delay: int = 1):
@@ -35,7 +44,7 @@ def retry(times: int = 5, delay: int = 1):
 
 
 @retry(times=5)
-def post_request_openai(data: dict) -> dict:
+def post_request_openai(data: dict, logprobs: bool = False) -> dict:
     response = requests.post(
         url="https://api.openai.com/v1/chat/completions",
         headers={
@@ -44,16 +53,20 @@ def post_request_openai(data: dict) -> dict:
         },
         json=data,
     )
-
     if response.status_code == 200:
-        content = (
-            response.json()
-            .get("choices", [{}])[0]
-            .get("message", {})
-            .get("content", {})
-        )
+        content = response.json().get("choices", [{}])[0]
+        message_content = content.get("message", {}).get("content", {})
+        perplexity = None
+        if logprobs:
+            logprobs_content = content.get("logprobs", {}).get("content", {})
+            token_logprobs = [
+                t["logprob"] for t in logprobs_content if t.get("logprob") not in (None, 0.0)
+            ]
+            perplexity = calculate_perplexity(logprobs=token_logprobs)
         try:
-            json_schema = json.loads(content)
+            json_schema = json.loads(message_content)
+            if logprobs:
+                return dict(structured_output=json_schema, perplexity=perplexity)
             return json_schema
         except json.JSONDecodeError:
             logger.error(content)
