@@ -17,12 +17,39 @@ from logger import logger
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 
-def calculate_perplexity(logprobs: list[float]) -> float:
+def calculate_perplexity(logprobs: list[float]) -> float or None:
     """Calculate the perplexity of a sequence of log probabilities."""
     _N = len(logprobs)
     if _N == 0:
-        return float("inf")  # Avoid division by zero
+        return  # Avoid division by zero
     return round(exp(-sum(logprobs) / _N), 5)
+
+
+def filter_pii_logprobs(logprobs_content: list[dict]) -> list[float]:
+    token_logprobs = [(t.get("token"), t.get("logprob")) for t in logprobs_content]
+    collected = []
+    i = 0
+    n = len(token_logprobs)
+    # Walk tokens looking for any 'value' -> ':' start markers
+    while i < n:
+        token, _ = token_logprobs[i]
+        if token == "value" and i + 1 < n and token_logprobs[i + 1][0] == '":"':
+            # Skip the 'value' and ':' tokens
+            i += 2
+            # Collect tokens until a comma before 'start'
+            while i < n:
+                tk, lp = token_logprobs[i]
+                # Stop ONLY if we hit a comma directly before 'start'
+                if tk == '","' and i + 1 < n and token_logprobs[i + 1][0] == 'start':
+                    break
+                # Skip comma tokens but collect others
+                if tk != '","' and lp is not None:
+                    collected.append(lp)
+                i += 1
+            # After finishing this span, continue scanning further spans
+        else:
+            i += 1
+    return collected
 
 
 def retry(times: int = 5, delay: int = 1):
@@ -59,10 +86,8 @@ def post_request_openai(data: dict, logprobs: bool = False) -> dict:
         perplexity = None
         if logprobs:
             logprobs_content = content.get("logprobs", {}).get("content", {})
-            token_logprobs = [
-                t["logprob"] for t in logprobs_content if t.get("logprob") not in (None, 0.0)
-            ]
-            perplexity = calculate_perplexity(logprobs=token_logprobs)
+            pii_logprobs = filter_pii_logprobs(logprobs_content=logprobs_content)
+            perplexity = calculate_perplexity(logprobs=pii_logprobs)
         try:
             json_schema = json.loads(message_content)
             if logprobs:

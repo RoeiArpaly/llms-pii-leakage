@@ -39,7 +39,10 @@ def evaluate_predictions(models, match_level: str, method: str):
                 ),
                 axis=1,
             )
-            _data = data[["uid", "prediction", "spans_score"]].apply(cast_to_json)
+            columns_to_keep = ["uid", "prediction", "spans_score"]
+            if "perplexity" in data.columns:
+                columns_to_keep.append("perplexity")
+            _data = data[columns_to_keep].apply(cast_to_json)
             _data.to_csv(f"datasets/evaluations/{dataset}_{model}.csv", index=False)
             data["model"] = model
             datasets.append(data)
