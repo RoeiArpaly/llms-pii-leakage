@@ -73,7 +73,7 @@ def test_transform_emoji_to_text(input_text, expected_output):
     ),
 ])
 def test_defensive_preprocess(input_text, expected_output):
-    result = defensive_preprocess(input_text)
+    result = defensive_preprocess(input_text, include_sandwich=False)
     assert result == expected_output
 
 
