@@ -24,8 +24,8 @@ from data_manipulation.attacks.injection import (
     pii_fuzzer,
 )
 from data_manipulation.attacks.neural_prompt_to_prompt.llm import llm_pii_fuzzer
-from detectors.fuzzy_match import get_fuzzy_recognizers
 from data_manipulation.defenses.preprocess import defensive_preprocess
+from detectors.fuzzy_match import get_fuzzy_recognizers
 from detectors.gliner_detector import gliner_pii_detector
 from detectors.llm_detector import llm_pii_detector
 from detectors.presidio_detector import presidio_pii_analyzer
