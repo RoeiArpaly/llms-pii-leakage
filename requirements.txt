@@ -1,5 +1,5 @@
 emoji==2.14.1
-gliner==0.2.16
+gliner==0.2.20
 matplotlib==3.9.4
 pandas==2.2.3
 presidio-analyzer==2.2.357
@@ -7,5 +7,6 @@ presidio-evaluator==0.1.2
 PyYAML==6.0.2
 RapidFuzz==3.13.0
 requests==2.32.3
-torch==2.6.0
-transformers==4.48.3
+scikit-learn==1.6.1
+torch==2.7.0
+transformers==4.52.4
