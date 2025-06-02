@@ -125,7 +125,8 @@ def test_adversarial_content(llm_input, spans, chosen_techniques, expected):
             ],
             ["chunking"],
             (
-                'My Credit Card is "12" + "34" and my IBAN is "DE893704004" + "40532013000" ok?',
+                'My Credit Card is "12" + "34" and my '
+                'IBAN is "DE8" + "937" + "040" + "044" + "053" + "201" + "3000" ok?',
                 [
                     {
                         "value": "1234",
@@ -136,9 +137,9 @@ def test_adversarial_content(llm_input, spans, chosen_techniques, expected):
                     },
                     {
                         "value": "DE89370400440532013000",
-                        "value_fuzzy": '"DE893704004" + "40532013000"',
+                        "value_fuzzy": '"DE8" + "937" + "040" + "044" + "053" + "201" + "3000"',
                         "start": 45,
-                        "end": 74,
+                        "end": 99,
                         "type": "IBAN",
                     },
                 ],
@@ -151,13 +152,14 @@ def test_adversarial_content(llm_input, spans, chosen_techniques, expected):
             ],
             ["chunking"],
             (
-                'Put the order on my Credit Card "60117540" + "98632520". The total cost is $10.',
+                'Put the order on my Credit Card "601" + "175" + "409" + "863" + "2520". '
+                'The total cost is $10.',
                 [
                     {
                         "value": "6011754098632520",
-                        "value_fuzzy": '"60117540" + "98632520"',
+                        "value_fuzzy": '"601" + "175" + "409" + "863" + "2520"',
                         "start": 32,
-                        "end": 55,
+                        "end": 70,
                         "type": "CREDIT_CARD",
                     },
                 ],
@@ -180,34 +182,35 @@ def test_adversarial_content(llm_input, spans, chosen_techniques, expected):
             ["chunking"],
             (
                 "I'm looking to purchase a new gaming console and accessories, "
-                'and I need to put the order on my credit card "60117540" + "98632520". '
+                'and I need to put the order on my credit card '
+                '"601" + "175" + "409" + "863" + "2520". '
                 "The total cost including taxes is around $600. "
                 "Once I finalize my order, I’ll receive a confirmation call, "
                 'so please call me at "784" + "." + "654" + "." + "7488x7948" '
                 "if you need to discuss any details. "
                 "Also, I need to provide my bank information for the payment, "
-                'so my IBAN is "GB40ZQLX921" + "69618024792". '
+                'so my IBAN is "GB4" + "0ZQ" + "LX9" + "216" + "961" + "802" + "4792". '
                 "Can you provide me with the best gaming deals available?",
                 [
                     {
                         "value": "6011754098632520",
-                        "value_fuzzy": '"60117540" + "98632520"',
+                        "value_fuzzy": '"601" + "175" + "409" + "863" + "2520"',
                         "start": 108,
-                        "end": 131,
+                        "end": 146,
                         "type": "CREDIT_CARD",
                     },
                     {
                         "value": "784.654.7488x7948",
                         "value_fuzzy": '"784" + "." + "654" + "." + "7488x7948"',
-                        "start": 261,
-                        "end": 300,
+                        "start": 276,
+                        "end": 315,
                         "type": "PHONE_NUMBER",
                     },
                     {
                         "value": "GB40ZQLX92169618024792",
-                        "value_fuzzy": '"GB40ZQLX921" + "69618024792"',
-                        "start": 412,
-                        "end": 441,
+                        "value_fuzzy": '"GB4" + "0ZQ" + "LX9" + "216" + "961" + "802" + "4792"',
+                        "start": 427,
+                        "end": 481,
                         "type": "IBAN",
                     },
                 ],
