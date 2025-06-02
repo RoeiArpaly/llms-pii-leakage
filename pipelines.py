@@ -8,6 +8,7 @@ from pandas import (
     read_csv,
     Series,
 )
+from pathlib import Path
 
 from constants import (
     ADV_CONTENT_TECHNIQUES,
@@ -39,19 +40,33 @@ from utils import (
 
 
 def generate_baseline_dataset(n_samples: int, pii_proba: float, save_every_n: int = 100):
+    # check if the dataset file already exists
+    folder = Path("datasets")
+    csv_file = folder / "baseline_dataset.csv"
+    if csv_file.exists():
+        existing_data = read_csv(csv_file).apply(infer_json)
+        logger.info(f"Found existing dataset with {len(existing_data)} samples.")
+        n_samples = max(0, n_samples - len(existing_data))
+    else:
+        existing_data = DataFrame()
+
     results = []
     for i in range(n_samples):
         logger.info(f"Generating LLM input sample {i + 1}/{n_samples}")
         contains_pii = random.random() < pii_proba
         llm_input = generate_llm_input(contains_pii=contains_pii)
         fake_record = presidio_inject_pii(text=llm_input) if contains_pii else {"spans": []}
-
         results.append({
             "llm_input": fake_record["text"] if contains_pii else llm_input,
             "pii_spans": fake_record["spans"] if contains_pii else [],
         })
-        if (i + 1) % save_every_n == 0 or i + 1 == n_samples:
-            data = DataFrame(results)
+        should_save = (i + 1) % save_every_n == 0 or i + 1 == n_samples
+        if should_save:
+            partial_data = DataFrame(results)
+            data = (
+                concat(objs=[existing_data, partial_data], ignore_index=True)
+                if not existing_data.empty else partial_data
+            )
             if i + 1 == n_samples:
                 data = data.sort_values(
                     by="pii_spans",
@@ -61,8 +76,9 @@ def generate_baseline_dataset(n_samples: int, pii_proba: float, save_every_n: in
                 data["llm_input_defend"] = data["llm_input"].apply(defensive_preprocess)
                 data = data[BASELINE_DATASET_COLS]
                 data = data.reset_index(drop=True)
+
             data.index.name = "uid"
-            data.apply(cast_to_json).to_csv(path_or_buf="datasets/baseline_dataset.csv", index=True)
+            data.apply(cast_to_json).to_csv(path_or_buf=csv_file, index=True)
             logger.info(f"LLM input generation results saved at sample {i + 1}")
     logger.info("LLM input generation completed successfully")
 
