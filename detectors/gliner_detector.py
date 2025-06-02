@@ -9,7 +9,7 @@ _model = None
 def get_gliner_model():
     global _model
     if _model is None:
-        _model = GLiNER.from_pretrained("urchade/gliner_multi_pii-v1")
+        _model = GLiNER.from_pretrained("urchade/gliner_multi_pii-v1", max_length=4096)
     return _model
 
 
