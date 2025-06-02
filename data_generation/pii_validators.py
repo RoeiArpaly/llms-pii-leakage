@@ -17,22 +17,15 @@ def is_valid_credit_card(card_number: str) -> bool:
 def is_valid_iban(iban: str) -> bool:
     """Validate IBAN using Mod 97 checksum."""
     # Remove spaces, make uppercase
-    iban = iban.replace(" ", "").upper()
-    if not 15 <= len(iban) <= 34:
+    iban = iban.upper().replace(" ", "").replace("-", "")
+    if any([not iban.isalnum(), len(iban) < 15, len(iban) > 34, not iban[2:4].isdigit()]):
         return False
-    # Move the four initial characters to the end
-    rearranged = iban[4:] + iban[:4]
-    # Replace letters with numbers (A=10, B=11, ..., Z=35)
-    numeric_iban = ""
-    for ch in rearranged:
-        if ch.isdigit():
-            numeric_iban += ch
-        elif ch.isalpha():
-            numeric_iban += str(ord(ch) - 55)
+    iban = iban[4:] + iban[:4]
+    iban_numeric = ""
+    for char in iban:
+        if char.isalpha():
+            iban_numeric += str(ord(char) - 55)
         else:
-            return False  # invalid character
-    # Perform mod-97
-    try:
-        return int(numeric_iban) % 97 == 1
-    except ValueError:
-        return False
+            iban_numeric += char
+    iban_numeric = int(iban_numeric)
+    return iban_numeric % 97 == 1

@@ -72,9 +72,7 @@ def get_fuzzy_recognizers() -> list:
             (
                 IbanRecognizer(), [
                     dict(deletions=1),
-                    dict(deletions=2),
                     dict(substitutions=1),
-                    dict(substitutions=1, deletions=1),
                 ],
             ),
             (

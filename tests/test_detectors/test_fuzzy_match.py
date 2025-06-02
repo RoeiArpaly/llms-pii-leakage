@@ -19,12 +19,14 @@ from detectors.presidio_detector import presidio_pii_analyzer
         ("My IBAN is GB82 WEST 1234 5698 7654 32.", 1),
         ("My IBAN is GB82 WEST 1234 5698 7654 32", 1),
         # Fuzzy match
-        ("My IBAN is GB82 WEST 1234 5698 32", 1),
         ("My IBAN is GB82 WEST 1234 5698 7654 32 1", 1),
         # Not detected
+        ("My IBAN is GB82 WEST 1234 5698 7654 3B", 0),
+        ("My IBAN is GB82 WEST 1234 5698 32", 0),
         ("My IBAN is of 2024 and what genres", 0),
         ("My IBAN is in 2023 that have captivated audiences and", 0),
         ("of 3D printing in", 0),
+        ("My IBAN is explore potential challenges like", 0),
         ("My IBAN is GB82 1234 32 1", 0),
         ("My IBAN is 1234 32", 0),
     ],

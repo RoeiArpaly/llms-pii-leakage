@@ -67,6 +67,7 @@ def test_luhn_verify(card_number, expected):
     ("DE4450010517540732493123456789012345678901234567890", False),  # Too long
 
     # Non-IBAN strings
+    ("explore potential challenges like", False),
     ("of 2024 and what genres", False),
     ("", False),
     ("1234567890", False),
