@@ -1,6 +1,7 @@
 import re
 
 from constants import PII_ENTITIES
+from detectors.presidio_detector import presidio_pii_analyzer
 
 
 def contain_pii_template(text: str, contains_pii: bool):
@@ -20,16 +21,6 @@ def contain_pii_template(text: str, contains_pii: bool):
         )
     if not extracted_params and has_template:
         raise ValueError("Invalid template found in the text.")
-
-
-def luhn_verify(string):
-    """
-    Compute the Luhn checksum for the provided string of digits. Note this
-    assumes the check digit is in place.
-    """
-    digits = list(map(int, string))
-    odd_sum = sum(digits[-1::-2])
-    even_sum = sum([sum(divmod(2 * d, 10)) for d in digits[-2::-2]])
-    is_valid = (odd_sum + even_sum) % 10 == 0
-    if not is_valid:
-        raise ValueError(f"Invalid Luhn checksum. Credit Card: {string}")
+    results = presidio_pii_analyzer(text=text)
+    if results:
+        raise ValueError("Template contains PII")
