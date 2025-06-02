@@ -256,16 +256,16 @@ HOMOGLYPH_MAP = {
     "Z": "Ζ",  # Greek Zeta (U+0396)
 
     # Digits
-    "0": "０",  # Fullwidth 0 (U+FF10)
-    "1": "１",  # Fullwidth 1 (U+FF11)
-    "2": "２",  # Fullwidth 2 (U+FF12)
-    "3": "３",  # Fullwidth 3 (U+FF13)
-    "4": "４",  # Fullwidth 4 (U+FF14)
-    "5": "５",  # Fullwidth 5 (U+FF15)
-    "6": "６",  # Fullwidth 6 (U+FF16)
-    "7": "７",  # Fullwidth 7 (U+FF17)
-    "8": "８",  # Fullwidth 8 (U+FF18)
-    "9": "９",  # Fullwidth 9 (U+FF19)
+    "0": "₀",
+    "1": "₁",
+    "2": "₂",
+    "3": "₃",
+    "4": "₄",
+    "5": "₅",
+    "6": "₆",
+    "7": "₇",
+    "8": "₈",
+    "9": "₉",
 
     # Symbols
     "@": "＠",  # Fullwidth at sign (U+FF20)
