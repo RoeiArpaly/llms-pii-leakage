@@ -14,6 +14,7 @@ llm_input_generator: |
   - Please do not use this specific example in the generated content.
 
   Do not generate PII which is not listed above.
+  Never generate PII that is not in the template format.
   The results should be in English.
 
 additional_instructions: |
