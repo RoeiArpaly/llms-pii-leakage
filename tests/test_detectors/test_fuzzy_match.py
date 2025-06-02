@@ -22,13 +22,16 @@ from detectors.presidio_detector import presidio_pii_analyzer
         ("My IBAN is GB82 WEST 1234 5698 32", 1),
         ("My IBAN is GB82 WEST 1234 5698 7654 32 1", 1),
         # Not detected
+        ("My IBAN is of 2024 and what genres", 0),
+        ("My IBAN is in 2023 that have captivated audiences and", 0),
+        ("of 3D printing in", 0),
         ("My IBAN is GB82 1234 32 1", 0),
         ("My IBAN is 1234 32", 0),
     ],
 )
 def test_fuzzy_iban_detection(text, expected_count):
     """Test IBAN detection with fuzzy matching."""
-    recognizers = [(IbanRecognizer(), [dict(deletions=1)])]
+    recognizers = [(IbanRecognizer(exact_match=True), [dict(substitutions=1)])]
     fuzzy_recognizers = fuzzy_pii_recognizer(recognizers=recognizers)
     detected = presidio_pii_analyzer(text=text, recognizers=fuzzy_recognizers, use_cache=False)
 

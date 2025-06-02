@@ -60,3 +60,6 @@ FUZZY_ADV_DATASET_COLS: list = [
     "llm_input_defend",
     "pii_spans",
 ]
+GLINER_INVALID_VALUES: list = [  # values that should not be detected by GLiNER
+    "email",
+]

@@ -1,6 +1,9 @@
 from gliner import GLiNER
 
-from constants import PII_ENTITIES
+from constants import (
+    GLINER_INVALID_VALUES,
+    PII_ENTITIES,
+)
 
 
 _model = None
@@ -19,7 +22,10 @@ def gliner_pii_detector(text: str, threshold: float = 0.5):
     pii_labels = list(PII_ENTITIES.values())
 
     spans = model.predict_entities(text=text, labels=pii_labels, threshold=threshold)
+    results = []
     for span in spans:  # Rename the label key to type
         span["value"] = span.pop("text")
         span["type"] = span.pop("label")
-    return spans
+        if span["value"].lower() not in GLINER_INVALID_VALUES:
+            results.append(span)
+    return results

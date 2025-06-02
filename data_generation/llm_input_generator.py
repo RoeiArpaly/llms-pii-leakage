@@ -8,8 +8,11 @@ from constants import (
     PII_ENTITIES,
     TOPICS,
 )
-from data_generation.data_validators import contain_pii_template
-from utils import post_request_openai
+from data_generation.template_validators import contain_pii_template
+from utils import (
+    post_request_openai,
+    retry,
+)
 
 
 PROMPTS_PATH = files("data_generation").joinpath("prompts.yaml")
@@ -29,8 +32,8 @@ def randomize_topics():
     return random.choice(a=TOPICS, size=n, replace=False).tolist()
 
 
+@retry(times=5)
 def generate_llm_input(contains_pii: bool, model: str = "gpt-4o-mini") -> str:
-
     data = {
         "model": model,
         "messages": [

@@ -1,6 +1,7 @@
 from presidio_analyzer import AnalyzerEngine
 
 from constants import PII_ENTITIES
+from data_generation.pii_validators import is_valid_iban
 
 
 _models = {
@@ -48,21 +49,24 @@ def presidio_pii_analyzer(
 ) -> list:
     if text is None:
         return []
-
     analyzer = get_presidio_model(recognizers=recognizers, use_cache=use_cache)
     results = analyzer.analyze(text=text, language="en")
     # Format the results in equivalent format to the Presidio Data Generator
-    relevant_results = [
-        {
-            "value": text[result.start:result.end],
-            "start": result.start,
-            "end": result.end,
-            "type": PII_ENTITIES[result.entity_type],
-            "score": result.score,
-            "recognizer": result.recognition_metadata["recognizer_name"],
-        }
-        for result in results if result.entity_type in PII_ENTITIES
-    ]
+    relevant_results = []
+    for result in results:
+        if result.entity_type in PII_ENTITIES:
+            span = {
+                "value": text[result.start:result.end],
+                "start": result.start,
+                "end": result.end,
+                "type": PII_ENTITIES[result.entity_type],
+                "score": result.score,
+                "recognizer": result.recognition_metadata["recognizer_name"],
+            }
+            if span["type"] == "iban":
+                if not is_valid_iban(span["value"]):
+                    continue
+            relevant_results.append(span)
     if recognizers:
         relevant_results = filter_results(results=relevant_results)
     return relevant_results
