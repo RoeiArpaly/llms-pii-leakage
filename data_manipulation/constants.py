@@ -295,5 +295,5 @@ HOMOGLYPH_MAP = {
     "{": "｛",  # Fullwidth left curly bracket (U+FF5B)
     "}": "｝",  # Fullwidth right curly bracket (U+FF5D)
 }
-SEPARATORS = ["-", "_", ".", " ", "/", ":", ";", ","]
+SEPARATORS = ["_", ":", ";"]
 PARENTHESES = ["(", ")", "[", "]", "{", "}"]
