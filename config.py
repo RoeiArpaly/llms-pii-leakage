@@ -1,18 +1,18 @@
 class Config:
 
     # Dataset generation
-    PII_PROBABILITY: float = 0.9
-    NUMBER_OF_SAMPLES: int = 3
+    PII_PROBABILITY: float = 0.1
+    NUMBER_OF_SAMPLES: int = 1000
 
     # Evaluation
     MODELS: list = [
-        # "gpt-4o-mini-defend",
+        "gpt-4o-mini-defend",
         "gpt-4o-mini",
-        # "gliner-defend",
+        "gliner-defend",
         "gliner",
-        # "presidio-fuzzy-defend",
-        # "presidio-defend",
-        # "presidio-fuzzy",
+        "presidio-fuzzy-defend",
+        "presidio-defend",
+        "presidio-fuzzy",
         "presidio",
     ]
     ATTACKS: list = [
@@ -40,3 +40,6 @@ class Config:
     # Fuzzy matching method: "exact", "subsequence", "difflib", "rapidfuzz", or "llm_judge".
     METHOD: str = "subsequence"
     LOGPROBS: bool = True  # if to compute perplexity scores
+
+    # Guard
+    PERPLEXITY_THRESHOLD: float = 1.01  # Threshold for perplexity to consider PII detected
