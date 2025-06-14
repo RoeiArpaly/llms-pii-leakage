@@ -8,15 +8,15 @@ from data_manipulation.attacks.red_teaming import homoglyph
     [
         (
             "1234",
-            "１２３４",
+            "₁₂₃₄",
         ),
         (
             "john34@gmail.com",
-            "јоһп３４＠ɡмаіӏ．сом",
+            "јоһп₃₄＠ɡмаіӏ．сом",
         ),
         (
             "JOHN34@gmail.com",
-            "ЈОНＮ３４＠ɡмаіӏ．сом",
+            "ЈОНＮ₃₄＠ɡмаіӏ．сом",
         ),
     ],
 )

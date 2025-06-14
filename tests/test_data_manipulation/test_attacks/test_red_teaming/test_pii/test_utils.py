@@ -18,11 +18,11 @@ from data_manipulation.attacks.red_teaming.pii.utils import fuzzy_pii_injection
             homoglyph,
             None,
             (
-                "My Credit Card is １２３４",
+                "My Credit Card is ₁₂₃₄",
                 [
                     {
                         "value": "1234",
-                        "value_fuzzy": "１２３４",
+                        "value_fuzzy": "₁₂₃₄",
                         "start": 18,
                         "end": 22,
                         "type": "CREDIT_CARD",
@@ -59,11 +59,11 @@ from data_manipulation.attacks.red_teaming.pii.utils import fuzzy_pii_injection
             homoglyph,
             None,
             (
-                "My Credit Card is １２３４ and email is јоһп．ԁое＠ɡмаіӏ．сом",
+                "My Credit Card is ₁₂₃₄ and email is јоһп．ԁое＠ɡмаіӏ．сом",
                 [
                     {
                         "value": "1234",
-                        "value_fuzzy": "１２３４",
+                        "value_fuzzy": "₁₂₃₄",
                         "start": 18,
                         "end": 22,
                         "type": "CREDIT_CARD",
