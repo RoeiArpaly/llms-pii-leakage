@@ -61,5 +61,5 @@ FUZZY_ADV_DATASET_COLS: list = [
     "pii_spans",
 ]
 GLINER_INVALID_VALUES: list = [  # values that should not be detected by GLiNER
-    "email",
+    "email",  # GLiNER struggles with emails
 ]
