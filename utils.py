@@ -118,7 +118,7 @@ def infer_json(column: Series) -> Series:
 
 def parse_json(value, column_name):
     # TODO: improve logic to detect JSON
-    if "span" in column_name or "prediction" in column_name or "techniques" in column_name:
+    if any(v in column_name for v in ["span", "prediction", "techniques", "result"]):
         try:
             return json.loads(value)
         except (json.JSONDecodeError, TypeError):
