@@ -29,7 +29,7 @@ def filter_pii_logprobs(logprobs_content: list[dict]) -> list[float]:
     """
     Extracts the logprobs of tokens corresponding to the value of the 'pii_detected' key.
     """
-    key_sequence = ['pi', 'i', '_detect', 'ed', '":']  # Tokens forming 'pii_detected":'
+    key_sequence = ["pi", "i", "_detect", "ed", '":']  # Tokens forming 'pii_detected":'
     n = len(key_sequence)
 
     for i in range(len(logprobs_content) - n):
