@@ -1,7 +1,7 @@
 import pytest
 
 from config import Config
-from pii_guard import guard
+from pii_shield import guard
 
 
 @pytest.mark.parametrize(

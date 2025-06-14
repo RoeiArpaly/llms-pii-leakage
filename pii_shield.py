@@ -29,7 +29,7 @@ def guard(text: str, perplexity_threshold: float) -> dict:
     -------
     dict
     """
-    # defensive preprocess
+    # Defensive preprocess
     preprocessed_text = defensive_preprocess(text=text)
     # Presidio
     presidio_spans = presidio_pii_analyzer(text=preprocessed_text)
@@ -46,7 +46,7 @@ def guard(text: str, perplexity_threshold: float) -> dict:
         return {"detected": True, "detector": "presidio-fuzzy", "spans": fuzzy_spans}
     # LLM
     predictions = llm_pii_detector(text=preprocessed_text, logprobs=True)
-    llm_spans = predictions["structured_output"]["prediction"]
+    llm_spans = predictions["spans"]
     if llm_spans:
         return {"detected": True, "detector": "llm", "spans": llm_spans}
     # Perplexity
