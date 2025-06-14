@@ -203,8 +203,9 @@ def pii_detection_pipeline(models: list[str], logprobs: bool = False):
             )
             if isinstance(predictions, list):
                 predictions = json_normalize(predictions)
-                data["prediction"] = predictions["structured_output.prediction"]
+                data["prediction"] = predictions["spans"]
                 data["perplexity"] = predictions["perplexity"]
+                data["confidence"] = predictions["result.confidence"]
             else:  # instance is already a Series
                 data["prediction"] = predictions
             loop_runtime = round(time.time() - start_time, 1)

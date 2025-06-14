@@ -22,34 +22,26 @@ def calculate_perplexity(logprobs: list[float]) -> float or None:
     _N = len(logprobs)
     if _N == 0:
         return  # Avoid division by zero
-    return round(exp(-sum(logprobs) / _N), 5)
+    return exp(-sum(logprobs) / _N)
 
 
 def filter_pii_logprobs(logprobs_content: list[dict]) -> list[float]:
-    token_logprobs = [(t.get("token"), t.get("logprob")) for t in logprobs_content]
-    collected = []
-    i = 0
-    n = len(token_logprobs)
-    # Walk tokens looking for any 'value' -> ':' start markers
-    while i < n:
-        token, _ = token_logprobs[i]
-        if token == "value" and i + 1 < n and token_logprobs[i + 1][0] == '":"':
-            # Skip the 'value' and ':' tokens
-            i += 2
-            # Collect tokens until a comma before 'start'
-            while i < n:
-                tk, lp = token_logprobs[i]
-                # Stop ONLY if we hit a comma directly before 'start'
-                if tk == '","' and i + 1 < n and token_logprobs[i + 1][0] == 'start':
-                    break
-                # Skip comma tokens but collect others
-                if tk != '","' and lp is not None:
-                    collected.append(lp)
-                i += 1
-            # After finishing this span, continue scanning further spans
-        else:
-            i += 1
-    return collected
+    """
+    Extracts the logprobs of tokens corresponding to the value of the 'pii_detected' key.
+    """
+    key_sequence = ['pi', 'i', '_detect', 'ed', '":']  # Tokens forming 'pii_detected":'
+    n = len(key_sequence)
+
+    for i in range(len(logprobs_content) - n):
+        if [t["token"] for t in logprobs_content[i:i + n]] == key_sequence:
+            # Now get the value token(s) after the key (likely one token like 'true' or 'false')
+            value_token = logprobs_content[i + n]
+            if value_token["token"] in ["true", "false"]:
+                return [value_token["logprob"]]
+            raise ValueError(
+                f"Unexpected value token found: {value_token['token']}. Expected 'true' or 'false'."
+            )
+    raise ValueError("No 'pii_detected' key found in logprobs content.")
 
 
 def retry(times: int = 5, delay: int = 1):
@@ -90,8 +82,7 @@ def post_request_openai(data: dict, logprobs: bool = False) -> dict:
             perplexity = calculate_perplexity(logprobs=pii_logprobs)
         try:
             json_schema = json.loads(message_content)
-            if logprobs:
-                return dict(structured_output=json_schema, perplexity=perplexity)
+            json_schema["perplexity"] = perplexity
             return json_schema
         except json.JSONDecodeError:
             logger.error(content)
