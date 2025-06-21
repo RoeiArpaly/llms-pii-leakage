@@ -16,7 +16,6 @@ def test_mapping(key, mapping):
         assert result["text"] == letter
 
 
-# use special characters and create sentences with them
 @pytest.mark.parametrize("input_text, expected_output", [
     # Social Security Numbers (SSN)
     ("SSN: ①②③-④⑤-⑥⑦⑧⑨", "SSN: 123-45-6789"),
@@ -36,6 +35,7 @@ def test_mapping(key, mapping):
     ("Contact me at 𝓉𝑒𝓈𝓉@𝑒𝓍𝒶𝓂𝓅𝓁𝑒.𝒸𝑜𝓂", "Contact me at test@example.com"),
     ("Work Email: ✉️ 𝘢𝘭𝘪𝘤𝘦@𝘤𝘰𝘮𝘱𝘢𝘯𝘺.𝘤𝘰𝘮", "Work Email: :envelope: alice@company.com"),
     ("📨 Send mail to 🆄🆂🅴🆁@🆈🅰🅷🅾🅾.🅲🅾🅼", ":incoming_envelope: Send mail to USER@YAHOO.COM"),
+    ("My email is: ԛβаｒｒетт＠ехамрӏе．пет", "My email is: qbarrett@example.net"),
 
     # Phone Numbers
     ("Call me at ①②③-④⑤⑥-⑦⑧⑨⓪", "Call me at 123-456-7890"),
@@ -83,6 +83,12 @@ def test_defensive_preprocess(input_text, expected_output):
     ("My phone number is 123   456   7890", "My phone number is 123 456 7890"),
     ("My SSN is 123$$45$$6789", "My SSN is 123-45-6789"),
     ("My SSN is (123) 45 6789", "My SSN is (123) 45 6789"),
+    (
+        """
+        My Credit Card is "413" + "771" + "193" + "548" + "2232"
+        """,
+        "My Credit Card is 413-771-193-548-2232"
+    ),
 ])
 def test_remove_separators(input_text, expected_output):
     result = remove_separators(input_text)

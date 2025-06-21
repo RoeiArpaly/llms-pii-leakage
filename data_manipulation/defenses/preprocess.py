@@ -6,6 +6,7 @@ import emoji
 
 from data_manipulation.constants import (
     ALPHABET_EMOJI_MAP,
+    HOMOGLYPH_MAP,
     NUMBER_EMOJI_MAP,
     NUMBER_WORD_MAP,
 )
@@ -20,6 +21,9 @@ digits_1_10 = [str(i) for i in range(1, 11)]
 
 # Homoglyphs
 mappings = {  # Check hex of letter by using: hex(ord("Ⓐ"))
+    # Attack based mappings
+    "homoglyph_input_map": {v: k for k, v in HOMOGLYPH_MAP.items()},
+
     # Letters
     "circle_letters": mapping_helper(0x24D0, 26, string.ascii_lowercase),  # ⓐ-ⓩ
     "circle_uppercase_letters": mapping_helper(0x24B6, 26, string.ascii_uppercase),  # Ⓐ-Ⓩ
@@ -29,10 +33,6 @@ mappings = {  # Check hex of letter by using: hex(ord("Ⓐ"))
     "parenthesized_letters": mapping_helper(0x249C, 26, string.ascii_lowercase),  # ⒜-⒵
     "math_bold_script_small": mapping_helper(0x1d4b6, 26, string.ascii_lowercase),  # 𝒜-𝒵
     "italic_letters": mapping_helper(0x1D44E, 26, string.ascii_lowercase),  # 𝑎-𝑧
-    "cyrillic_letters": mapping_helper(0x0430, 32, string.ascii_lowercase),  # а-я
-    "cyrillic_uppercase_letters": mapping_helper(0x0410, 32, string.ascii_uppercase),  # А-Я
-    "greek_letters": mapping_helper(0x03B1, 25, string.ascii_lowercase),  # α-ω
-    "greek_uppercase_letters": mapping_helper(0x0391, 25, string.ascii_uppercase),  # Α-Ω
     "emoji_letters_circle": mapping_helper(0x1F170, 26, string.ascii_uppercase),  # 🅐-🅩
     "emoji_letters_circle_2": mapping_helper(0x1F150, 26, string.ascii_uppercase),  # 🅐-🅩
     "emoji_letters_square": mapping_helper(0x1F130, 26, string.ascii_uppercase),  # 🄰-🅉
@@ -44,6 +44,7 @@ mappings = {  # Check hex of letter by using: hex(ord("Ⓐ"))
     "sans_serif_bold_letters": mapping_helper(0x1D5D4, 26, string.ascii_uppercase),  # 𝗔-𝗭
     "sans_serif_italic_bold_letters": mapping_helper(0x1D622, 26, string.ascii_lowercase),  # 𝘢-𝘺
     "sans_serif_italic_bold_letters_2": mapping_helper(0x1D492, 26, string.ascii_lowercase),  # 𝓐-𝓩
+    "fullwidth_letters_2": mapping_helper(0xff41, 26, string.ascii_lowercase),  # ａ-ｚ
 
     # Digits
     "fullwidth_digits": mapping_helper(0xFF10, 10, string.digits),  # ０-９
@@ -62,10 +63,9 @@ mappings = {  # Check hex of letter by using: hex(ord("Ⓐ"))
     "emoji_clock_faces": mapping_helper(0x1F550, 12, [str(i + 1) for i in range(12)]),  # 🕐-🕟
     "emoji_enclosed_alphabet": {v: k for k, v in ALPHABET_EMOJI_MAP.items()},
 }
+
 # Emojis that can't be mapped to a single character
-replace_mapping = {
-    "emoji_keycap_number": {v: k for k, v in NUMBER_EMOJI_MAP.items()},
-}
+replace_mapping = {"emoji_keycap_number": {v: k for k, v in NUMBER_EMOJI_MAP.items()}}
 
 
 def transform_homoglyphs_to_alphabets(text: str, delimiter=":") -> dict:
@@ -88,24 +88,28 @@ def transform_homoglyphs_to_alphabets(text: str, delimiter=":") -> dict:
             new_text = new_text.replace(emoji_, mapping[emoji_])
 
     new_text = emoji.demojize(new_text, delimiters=(delimiter, delimiter))
-    return {
-        "text": new_text,
-        "homoglyph_detected": text != new_text,
-    }
+    return {"text": new_text, "homoglyph_detected": text != new_text}
 
 
 def remove_separators(text: str) -> str:
     """
-    Transform all unsupported separators to '-'.
-    Replace consecutive identical separators with a single separator.
+    Replace unsupported separators with '-'.
+    Collapse repeated allowed separators.
+    Remove quotes and clean whitespace.
     """
-    # Define supported separators. (Note: '-' is already escaped below)
-    allowed_separators = "()\-@. "  # noqa: W605
-    # Replace unsupported separators with '-'
-    text = re.sub(pattern=f"[^\w{allowed_separators}]", repl="-", string=text)  # noqa: W605
-    # Collapse consecutive *identical* separators.
-    text = re.sub(pattern=r"([" + re.escape(allowed_separators) + r"])\1+", repl=r"\1", string=text)
-    return text
+    # Remove quotes
+    text = text.replace('"', "")
+    # Replace unsupported characters with '-'
+    allowed_separators = r"\-@.() "  # space is included
+    text = re.sub(pattern=rf"[^\w{allowed_separators}]", repl="-", string=text)
+    # Collapse multiple occurrences of allowed separators
+    text = re.sub(pattern=r"([\-@.() ])\1+", repl=r"\1", string=text)
+    # Replace multiple spaces with single space
+    text = re.sub(pattern=r"\s+", repl=" ", string=text)
+    # Remove space around dashes
+    text = re.sub(pattern=r"\s*-\s*", repl="-", string=text)
+    # Final trim
+    return text.strip(" -")
 
 
 def textual_number_to_numeric(text: str) -> str:
