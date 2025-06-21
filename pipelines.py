@@ -205,7 +205,7 @@ def pii_detection_pipeline(models: list[str], logprobs: bool = False):
                 predictions = json_normalize(predictions)
                 data["prediction"] = predictions["spans"]
                 data["perplexity"] = predictions["perplexity"]
-                data["confidence"] = predictions["result.confidence"]
+                data["predicted_proba"] = predictions["result.predicted_proba"]
             else:  # instance is already a Series
                 data["prediction"] = predictions
             loop_runtime = round(time.time() - start_time, 1)

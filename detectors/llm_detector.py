@@ -37,7 +37,7 @@ def llm_pii_detector(text: str, model: str = "gpt-4o-mini", logprobs: bool = Fal
             "properties": {
                 "result": {
                     "type": "object",
-                    "required": ["pii_detected", "confidence"],
+                    "required": ["pii_detected", "predicted_proba"],
                     "properties": {
                         "pii_detected": {
                             "type": "boolean",
@@ -47,9 +47,14 @@ def llm_pii_detector(text: str, model: str = "gpt-4o-mini", logprobs: bool = Fal
                                 f"was detected in the text."
                             )
                         },
-                        "confidence": {
+                        "predicted_proba": {
                             "type": "number",
-                            "description": "A confidence parameter value between 0 and 1.",
+                            "description": (
+                                "A predicted_proba value between 0 and 1. "
+                                "The higher amount/likelihood of PII entities detected from the "
+                                f"following entities: {pii_entities}"
+                                " - the higher the confidence score."
+                            ),
                             "minimum": 0,
                             "maximum": 1
                         },
