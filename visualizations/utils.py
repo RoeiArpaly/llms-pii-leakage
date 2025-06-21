@@ -2,22 +2,29 @@ from pandas import DataFrame
 
 
 def dataframe_to_astar_html(
-    data: DataFrame,
-    title: str = "",
-    caption: str = "",
-    index: bool = False,
-    highlight_cols: list[str] = None,
-    show_index_name: bool = True
+        data: DataFrame,
+        title: str = "",
+        caption: str = "",
+        index: bool = False,
+        highlight_cols: list[str] or str or bool = False,
+        highlight_axis: int = 0,  # 1 or 0
+        show_index_name: bool = True
 ) -> str:
     """
     Render a DataFrame as a centered, HTML table with title & caption.
     If the DataFrame has an index.name and show_index_name is True, it will be rendered as a
     vertical “y-axis” label to the left of the table.
-    """
-    if highlight_cols is None:
-        highlight_cols = data.select_dtypes("number").columns.tolist()
 
-    # Booktabs-like CSS, hiding the in-table index-name row completely
+    highlight_cols:
+        - "auto" or None: highlights all numeric columns (default)
+        - list of column names: highlights those columns
+        - False: disables highlighting
+    """
+    if highlight_cols in (None, "auto"):
+        highlight_cols = data.select_dtypes("number").columns.tolist()
+    elif highlight_cols is False:
+        highlight_cols = []
+
     css = [
         {
             "selector": "table.astar",
@@ -30,12 +37,10 @@ def dataframe_to_astar_html(
                 ("display", "table"),
             ],
         },
-        # remove the extra header row that only held the in-table index name
         {
             "selector": "thead tr:nth-child(2)",
             "props": [("display", "none")],
         },
-        # styling for column headers (first row)
         {
             "selector": "thead tr:nth-child(1) th",
             "props": [
@@ -44,7 +49,6 @@ def dataframe_to_astar_html(
                 ("padding", "0.25em 0.5em"),
             ],
         },
-        # body cells
         {
             "selector": "tbody td",
             "props": [
@@ -53,7 +57,6 @@ def dataframe_to_astar_html(
                 ("padding", "0.2em 0.5em"),
             ],
         },
-        # caption styling
         {
             "selector": "caption",
             "props": [
@@ -64,21 +67,17 @@ def dataframe_to_astar_html(
         },
     ]
 
-    # Build HTML container
     html = ['<div style="display: flex; flex-direction: column; align-items: center;">']
-    # Title above everything
     if title:
         html.append(
             f'<div style="font-weight: bold; font-size: 12pt; margin-bottom: 0.4em;">'
             f'{title}</div>'
         )
 
-    # Start the row that holds the vertical index-name label + the table
     html.append(
         '<div style="display: flex; flex-direction: row; align-items: center;">'
     )
 
-    # If index.name exists and should be shown, render it as rotated y-axis label
     if show_index_name and data.index.name:
         html.append(
             f"""
@@ -94,7 +93,6 @@ def dataframe_to_astar_html(
             """
         )
 
-    # Build the Styler for the actual table
     styler = (
         data.style
         .format("{:.2%}")
@@ -105,13 +103,14 @@ def dataframe_to_astar_html(
         styler = styler.hide(axis="index")
     if caption:
         styler = styler.set_caption(caption)
-    styler = styler.highlight_max(subset=highlight_cols, props="font-weight: bold;")
 
-    # Insert the table HTML
+    if highlight_cols:
+        styler = styler.highlight_max(
+            subset=highlight_cols, axis=highlight_axis, props="font-weight: bold;"
+        )
+
     html.append(styler.to_html())
-
-    # Close row and container
-    html.append('</div>')  # end flex row
-    html.append('</div>')  # end flex column
+    html.append('</div>')
+    html.append('</div>')
 
     return "\n".join(html)
