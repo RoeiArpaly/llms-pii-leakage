@@ -62,7 +62,7 @@ def retry(times: int = 5, delay: int = 1):
     return decorator
 
 
-@retry(times=5)
+@retry(times=10)
 def post_request_openai(data: dict, logprobs: bool = False) -> dict:
     response = requests.post(
         url="https://api.openai.com/v1/chat/completions",
