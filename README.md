@@ -7,10 +7,11 @@ This project contains adversarial attacks against LLM PII detection Guardrails.
 ```
 llms-pii-leakage
 ├── data_generation
-│   ├── data_validators.py
 │   ├── llm_input_generator.py
 │   ├── pii_generator.py
-│   └── prompts.py
+│   ├── pii_validators.py
+│   ├── prompts.yaml
+│   └── template_validators.py
 │
 ├── data_manipulation
 │   ├── attacks
@@ -26,7 +27,8 @@ llms-pii-leakage
 │   │   │       ├── chunking.py
 │   │   │       ├── emojify.py
 │   │   │       ├── homoglyph.py
-│   │   │       └── separators.py
+│   │   │       ├── separators.py
+│   │   │       └── utils.py
 │   │   ├── template_based
 │   │   │   ├── affix.py
 │   │   │   └── prompt_injection.py
@@ -55,6 +57,7 @@ llms-pii-leakage
 ├── constants.py
 ├── logger.py
 ├── main.py
+├── pii_shield.py
 ├── pipelines.py
 └── utils.py
 ```
