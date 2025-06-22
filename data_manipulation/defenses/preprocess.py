@@ -9,6 +9,8 @@ from data_manipulation.constants import (
     HOMOGLYPH_MAP,
     NUMBER_EMOJI_MAP,
     NUMBER_WORD_MAP,
+    PLACEHOLDERS_FOR_REMOVAL,
+    WORD_SYMBOLS_MAP,
 )
 
 
@@ -126,6 +128,71 @@ def textual_number_to_numeric(text: str) -> str:
     return text
 
 
+def textual_symbol_to_symbol(text: str) -> str:
+    """
+    Convert textual representations of symbols (optionally in parentheses/brackets)
+    into actual symbols.
+    This function prioritizes replacing symbols enclosed in delimiters, then
+    replaces standalone symbol words that are not part of larger alphabetic words.
+    """
+    # It's crucial to sort words by length in descending order.
+    # This prevents shorter words from being matched inside longer ones (e.g.,
+    # 'dash' matching inside 'dashdot' if 'dash' were processed first).
+    sorted_words = sorted(WORD_SYMBOLS_MAP.keys(), key=len, reverse=True)
+
+    for symbol in sorted_words:
+        word = WORD_SYMBOLS_MAP[symbol]
+        # Pattern 1: Match and replace the word when it's enclosed in
+        # parentheses, square brackets, or curly braces.
+        # This pattern replaces the entire enclosed structure with just the symbol.
+        # Examples: "(dash)" -> "-", "[dash]" -> "-", "{dash}" -> "-"
+        pattern_delimited = rf"[\(\[\{{]\s*{re.escape(word)}\s*[\)\]\}}]"
+        text = re.sub(pattern=pattern_delimited, repl=symbol, string=text, flags=re.IGNORECASE)
+        # Pattern 2: Match and replace the word when it appears standalone,
+        # but NOT if it's part of a longer *alphabetic* word.
+        # This is achieved using negative lookarounds that specifically check
+        # for the presence/absence of English alphabet characters ([a-zA-Z]).
+        # (?<![a-zA-Z]): Ensures the word is NOT preceded by an alphabetic character.
+        #                  Allows numbers, punctuation, or start of string before it.
+        # (?![a-zA-Z]): Ensures the word is NOT followed by an alphabetic character.
+        #                 Allows numbers, punctuation, or end of string after it.
+        # Examples: "1dash2" -> "1-2", "dash!" -> "-!", "dashboard" (no match)
+        pattern_standalone = rf"(?<![a-zA-Z]){re.escape(word)}(?![a-zA-Z])"
+        text = re.sub(pattern=pattern_standalone, repl=symbol, string=text, flags=re.IGNORECASE)
+    return text
+
+
+def remove_placeholders(text: str) -> str:
+    """
+    Removes specified placeholder words (case-insensitive) from a string,
+    handling delimited, numeric-bound, and other standalone instances,
+    and then cleans up resultant spacing.
+    """
+    # Build a single, comprehensive regex pattern for all placeholder types
+    # and their desired replacements.
+    # We use a list of (pattern, replacement) tuples to apply replacements iteratively.
+    replacements = []
+    for p in PLACEHOLDERS_FOR_REMOVAL:
+        escaped_p = re.escape(p)
+        # 1. Delimited placeholders: (REDACTED), [NULL], {UNDEFINED} -> ""
+        replacements.append((rf"[\(\[\{{]\s*{escaped_p}\s*[\)\]\}}]", ""))
+        # 2. Placeholders between digits: 1NULL2 -> " " (space)
+        # This must be distinct and specific.
+        replacements.append((rf"(?<=\d){escaped_p}(?=\d)", " "))
+        # 3. Other standalone placeholders: REDACTED, NULL, N/A (not part of alphabetic words) -> ""
+        # This will catch cases like " REDACTED ", "NULL,", " N/A " etc.
+        replacements.append((rf"(?<![a-zA-Z]){escaped_p}(?![a-zA-Z])", ""))
+
+    for pattern, replacement in replacements:
+        text = re.sub(pattern=pattern, repl=replacement, string=text, flags=re.IGNORECASE)
+    # Final comprehensive space and punctuation cleanup:
+    # 1. Remove any spaces that appear directly before punctuation marks.
+    text = re.sub(pattern=r"\s*([,.;:!?])", repl=r"\1", string=text)
+    # 2. Consolidate multiple spaces into single spaces and remove leading/trailing spaces.
+    text = re.sub(pattern=r"\s+", repl=" ", string=text).strip()
+    return text
+
+
 def sandwich_defense(text: str) -> str:
     """
     Parameters
@@ -183,6 +250,8 @@ def defensive_preprocess(text: str, include_sandwich: bool = True) -> str:
     )
     new_text = "".join(formatted_text.split(delimiter))
     new_text = textual_number_to_numeric(new_text)
+    new_text = textual_symbol_to_symbol(new_text)
+    new_text = remove_placeholders(new_text)
     new_text = remove_separators(new_text)
     if include_sandwich:
         new_text = sandwich_defense(new_text)

@@ -297,3 +297,4 @@ HOMOGLYPH_MAP = {
 }
 SEPARATORS = ["_", ":", ";"]
 PARENTHESES = ["(", ")", "[", "]", "{", "}"]
+PLACEHOLDERS_FOR_REMOVAL = ["REDACTED", "NULL", "UNDEFINED", "N/A"]

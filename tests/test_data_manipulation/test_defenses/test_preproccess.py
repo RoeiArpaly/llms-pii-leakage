@@ -3,8 +3,10 @@ import pytest
 from data_manipulation.defenses.preprocess import (
     defensive_preprocess,
     mappings,
+    remove_placeholders,
     remove_separators,
     textual_number_to_numeric,
+    textual_symbol_to_symbol,
     transform_homoglyphs_to_alphabets,
 )
 
@@ -78,6 +80,49 @@ def test_defensive_preprocess(input_text, expected_output):
 
 
 @pytest.mark.parametrize("input_text, expected_output", [
+    # Basic removal tests
+    ("This is some REDACTED text.", "This is some text."),
+    ("The value is NULL and REdaCted.", "The value is and."),
+    ("Data: N/A, Status: UNDEFINED.", "Data:, Status:."),
+    ("No issues here.", "No issues here."),
+    ("null and redacted are gone.", "and are gone."),
+
+    # Tests with delimiters
+    ("Customer ID: 12345 (REDACTED), Transaction: NULL.", "Customer ID: 12345, Transaction:."),
+    ("Access denied to [REDACTED] information.", "Access denied to information."),
+    ("Value is {NULL} or (UNDEFINED).", "Value is or."),
+    ("User (REDACTED) created an entry (NULL).", "User created an entry."),
+
+    # Tests with numbers and punctuation
+    ("Values: 1NULL2, NULL.", "Values: 1 2,."),  # 1NULL2 becomes 12
+    ("Hello!REDACTEDWorld.", "Hello!REDACTEDWorld."),  # Adjacent to punctuation
+    ("Amount: $NULL.50", "Amount: $.50"),
+    ("Code: AAREDACTEDAA", "Code: AAREDACTEDAA"),  # Should NOT remove if part of alphanumeric
+    ("Value_NULL", "Value_"),  # Remove NULL is not part of alphanumeric
+
+    # Tests for not removing partial words
+    ("This is notannulled, nor aredactable.", "This is notannulled, nor aredactable."),
+    ("Do not unREDACTED this data.", "Do not unREDACTED this data."),
+
+    # Edge cases / Multiple occurrences
+    ("Multiple REDACTED, NULL values.", "Multiple, values."),
+    ("  leading and trailing NULL spaces   ", "leading and trailing spaces"),
+    ("REDACTED REDACTED NULL", ""),  # All placeholders, leading/trailing space cleaned
+
+    # Empty string
+    ("", ""),
+    ("   ", ""),  # Only whitespace
+])
+def test_remove_placeholders(input_text, expected_output):
+    """
+    Tests the remove_placeholders function for various scenarios
+    including delimited, standalone, and partial word occurrences.
+    """
+    result = remove_placeholders(input_text)
+    assert result == expected_output
+
+
+@pytest.mark.parametrize("input_text, expected_output", [
     ("My Credit Card is 4567---8901---2345---6789", "My Credit Card is 4567-8901-2345-6789"),
     ("My email is user@@domain..com", "My email is user@domain.com"),
     ("My phone number is 123   456   7890", "My phone number is 123 456 7890"),
@@ -105,4 +150,19 @@ def test_remove_separators(input_text, expected_output):
 ])
 def test_text_to_numeric(input_text, expected_output):
     result = textual_number_to_numeric(input_text)
+    assert result == expected_output
+
+
+@pytest.mark.parametrize("input_text, expected_output", [
+    ("Hello 1(dash)2(dash)3", "Hello 1-2-3"),
+    ("Hello 1dash2dash3", "Hello 1-2-3"),
+    ("Hello 1dashboard2dash3", "Hello 1dashboard2-3"),
+    ("Hello 1dashed2dash3", "Hello 1dashed2-3"),
+    ("Hello 1dash!2dash3", "Hello 1-!2-3"),
+    ("Hello 1dashdot2dash3", "Hello 1dashdot2-3"),
+    ("My email is: johndotdoe@gmail.com", "My email is: johndotdoe@gmail.com"),
+    ("My email is: john(dot)doe@gmail.com", "My email is: john.doe@gmail.com"),
+])
+def test_textual_symbol_to_symbol(input_text, expected_output):
+    result = textual_symbol_to_symbol(input_text)
     assert result == expected_output
