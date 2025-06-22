@@ -21,10 +21,18 @@ with PROMPTS_PATH.open("r") as f:
     PROMPTS = yaml.safe_load(f)
 
 
-def randomize_pii():
+def randomize_pii(r: float = 0.5, max_n: int = 10):
+    """
+    Randomly selects a number of PII entities based on a truncated geometric distribution.
+    r - Decay rate, smaller = heavier bias toward small n
+    max_n is the maximum number of PII entities to select.
+    """
     optional_pii = list(PII_ENTITIES.values())
-    n = random.randint(low=1, high=len(optional_pii) + 1)
-    return random.choice(a=optional_pii, size=n, replace=False).tolist()
+
+    # Sample from truncated geometric distribution
+    weights = [(1 - r) * (r ** (n - 1)) for n in range(1, max_n + 1)]
+    n = random.choices(range(1, max_n + 1), weights=weights, k=1)[0]
+    return sorted(random.choices(optional_pii, k=n))
 
 
 def randomize_topics():
