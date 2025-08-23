@@ -1,6 +1,7 @@
 import yaml
 
 from importlib.resources import files
+from random import choices
 
 from numpy import random
 
@@ -31,8 +32,8 @@ def randomize_pii(r: float = 0.5, max_n: int = 10):
 
     # Sample from truncated geometric distribution
     weights = [(1 - r) * (r ** (n - 1)) for n in range(1, max_n + 1)]
-    n = random.choices(range(1, max_n + 1), weights=weights, k=1)[0]
-    return sorted(random.choices(optional_pii, k=n))
+    n = choices(population=range(1, max_n + 1), weights=weights, k=1)[0]
+    return sorted(choices(population=optional_pii, k=n))
 
 
 def randomize_topics():
