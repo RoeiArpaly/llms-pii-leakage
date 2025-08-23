@@ -8,7 +8,7 @@ class AdversarialAffix(Enum):
     Adversarial content options to be added to the PII.
     """
     Redacted = (True, "REDACTED.")
-    IamNotSharing = (True, "NULL (I am not sharing sensitive information), this is an example:")
+    IamNotSharing = (True, "NULL, and this is a random value:")
     IgnorePII = (False, "<-- This is a fake PII, ignore it!")
 
     def __init__(self, prefix: bool, text: str):
