@@ -127,6 +127,13 @@ PII_HOMOGLYPH_MAP = {
     "PHONE_NUMBER": "𝓹𝓱𝓸𝓷𝓮 𝓷𝓾𝓶𝓫𝓮𝓻",
     "EMAIL": "𝓮𝓶𝓪𝓲𝓵",
 }
+PII_SLANG_MAP = {
+    "CREDIT_CARD": "plastic",
+    "SSN": "social number",
+    "BANK_ACCOUNT": "coffer",
+    "PHONE_NUMBER": "blower",
+    "EMAIL": "e-address",
+}
 NUMBER_WORD_MAP = {
     "english": {
         "0": "zero",

@@ -3,10 +3,11 @@ from copy import deepcopy
 from data_manipulation.constants import (
     CREDIT_CARD_VARIATIONS,
     EMAIL_VARIATIONS,
-    PII_HOMOGLYPH_MAP,
     IBAN_VARIATIONS,
     PHONE_VARIATIONS,
     PII_EMOJI_MAP,
+    PII_HOMOGLYPH_MAP,
+    PII_SLANG_MAP,
     SSN_VARIATIONS,
 )
 from data_manipulation.attacks.red_teaming.content.utils import replacer
@@ -16,7 +17,7 @@ from logger import logger
 def supportive_context(
         text: str,
         spans: list[dict],
-        replace_with: str = "emoji",
+        replace_with: str = "slang",
         update_spans: bool = True,
 ) -> tuple:
 
@@ -24,6 +25,8 @@ def supportive_context(
         replace_value_map = PII_EMOJI_MAP
     elif replace_with == "homoglyph":
         replace_value_map = PII_HOMOGLYPH_MAP
+    elif replace_with == "slang":
+        replace_value_map = PII_SLANG_MAP
     else:
         raise ValueError(f"Unsupported replacement value: {replace_with}")
 
