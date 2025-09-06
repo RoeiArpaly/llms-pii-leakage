@@ -51,7 +51,7 @@ def presidio_pii_analyzer(
         return []
 
     analyzer = get_presidio_model(recognizers=recognizers, use_cache=use_cache)
-    results = analyzer.analyze(text=text, language="en")
+    results = analyzer.analyze(text=text, language="en", score_threshold=0.3)
     # Format the results in equivalent format to the Presidio Data Generator
     relevant_results = [
         {
