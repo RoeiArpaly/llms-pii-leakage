@@ -132,7 +132,7 @@ PII_SLANG_MAP = {
     "SSN": "social number",
     "BANK_ACCOUNT": "coffer",
     "PHONE_NUMBER": "blower",
-    "EMAIL": "e-address",
+    "EMAIL": "e-addy",
 }
 NUMBER_WORD_MAP = {
     "english": {
