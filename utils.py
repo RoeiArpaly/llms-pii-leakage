@@ -44,7 +44,12 @@ def filter_pii_logprobs(logprobs_content: list[dict]) -> list[float]:
     raise ValueError("No 'pii_detected' key found in logprobs content.")
 
 
-def retry(times: int = 5, delay: int = 1):
+def retry(
+    times: int = 5,
+    delay: int = 1,
+    increment_param: str = None,
+    increment_value: float = None,
+):
     """Retries a function up to `times` times with a `delay` in seconds between attempts."""
     def decorator(func):
         @functools.wraps(func)
@@ -54,7 +59,13 @@ def retry(times: int = 5, delay: int = 1):
                     return func(*args, **kwargs)
                 except Exception as e:
                     if attempt + 1 < times:
-                        logger.warning(f"Retrying {func.__name__}, {attempt + 1}/{times}...")
+                        logger.warning(
+                            f"Retrying {func.__name__}, attempt {attempt + 1}/{times}..."
+                        )
+                        # increment the parameter if specified
+                        data = kwargs.get("data", {})
+                        if increment_param in data:
+                            data[increment_param] += increment_value
                         time.sleep(delay)
                     else:
                         raise e
@@ -62,8 +73,9 @@ def retry(times: int = 5, delay: int = 1):
     return decorator
 
 
-@retry(times=10)
+@retry(times=10, increment_param="temperature", increment_value=0.1)
 def post_request_openai(data: dict, logprobs: bool = False) -> dict:
+
     response = requests.post(
         url="https://api.openai.com/v1/chat/completions",
         headers={
