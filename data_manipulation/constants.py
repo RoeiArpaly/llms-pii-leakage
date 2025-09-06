@@ -113,6 +113,9 @@ ALPHABET_EMOJI_MAP = {
     "Y": "🆈",
     "Z": "🆉",
 }
+SYMBOL_EMOJI_MAP = {
+    "@": "🌀",
+}
 PII_EMOJI_MAP = {
     "CREDIT_CARD": "💳",
     "SSN": "🪪",
@@ -275,7 +278,7 @@ HOMOGLYPH_MAP = {
     "9": "₉",
 
     # Symbols
-    "@": "＠",  # Fullwidth at sign (U+FF20)
+    "@": "꩜",  # Cyrillic small letter Monocular O (U+AB9C)
     "#": "＃",  # Fullwidth number sign (U+FF03)
     "$": "＄",  # Fullwidth dollar sign (U+FF04)
     "%": "％",  # Fullwidth percent sign (U+FF05)
@@ -302,6 +305,6 @@ HOMOGLYPH_MAP = {
     "{": "｛",  # Fullwidth left curly bracket (U+FF5B)
     "}": "｝",  # Fullwidth right curly bracket (U+FF5D)
 }
-SEPARATORS = ["_", ":", ";"]
+SEPARATORS = ["＿", ":", ";"]
 PARENTHESES = ["(", ")", "[", "]", "{", "}"]
 PLACEHOLDERS_FOR_REMOVAL = ["REDACTED", "NULL", "UNDEFINED", "N/A"]

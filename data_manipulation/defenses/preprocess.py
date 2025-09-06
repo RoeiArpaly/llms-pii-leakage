@@ -10,6 +10,7 @@ from data_manipulation.constants import (
     NUMBER_EMOJI_MAP,
     NUMBER_WORD_MAP,
     PLACEHOLDERS_FOR_REMOVAL,
+    SYMBOL_EMOJI_MAP,
     WORD_SYMBOLS_MAP,
 )
 
@@ -64,6 +65,7 @@ mappings = {  # Check hex of letter by using: hex(ord("Ⓐ"))
     "regional_indicator_letters": mapping_helper(0x1F1E6, 26, string.ascii_uppercase),  # 🇦-🇿
     "emoji_clock_faces": mapping_helper(0x1F550, 12, [str(i + 1) for i in range(12)]),  # 🕐-🕟
     "emoji_enclosed_alphabet": {v: k for k, v in ALPHABET_EMOJI_MAP.items()},
+    "emoji_symbols": {v: k for k, v in SYMBOL_EMOJI_MAP.items()},
 }
 
 # Emojis that can't be mapped to a single character
