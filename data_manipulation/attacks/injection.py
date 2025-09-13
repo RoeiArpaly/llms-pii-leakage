@@ -54,6 +54,8 @@ def pii_fuzzer(llm_input: str, spans: list[dict], chosen_techniques: list) -> tu
                 spans=new_spans,
                 fuzzy_func=mapping[technique],
             )
+        elif technique == "baseline":
+            continue
         else:
             raise ValueError(f"Invalid technique: {technique}")
     return result, new_spans

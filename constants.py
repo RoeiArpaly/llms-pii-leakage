@@ -25,6 +25,7 @@ TOPICS: list = [
     "executive",
 ]
 FUZZY_TECHNIQUES: list[list] = [
+    ["baseline"],
     ["char_to_word"],
     ["chunking"],
     ["emojify"],
