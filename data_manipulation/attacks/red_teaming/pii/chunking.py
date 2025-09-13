@@ -11,8 +11,8 @@ def smart_split(text: str) -> list[str]:
 
 def split_token(token: str) -> list[str]:
     """
-    Splits a single alphanumeric token into at least 2 chunks,
-    using greedy logic with a preference for chunks of size 3.
+    Splits numeric tokens into chunks of 3,
+    borrowing one character if the last chunk would be length 1.
 
     Parameters
     ----------
@@ -24,28 +24,24 @@ def split_token(token: str) -> list[str]:
     list[str]
         A list of split string parts.
     """
-    length = len(token)
-    if length == 1:
+    # Determine if we should split
+    if token.isalpha():
         return [token]
-    # Force at least 2 chunks
-    elif length < 6:
-        mid = length // 2
-        return [token[:mid], token[mid:]]
-    chunks = []
-    i = 0
-    while length - i > 4:
-        chunks.append(token[i:i + 3])
-        i += 3
-    chunks.append(token[i:])
+
+    # Split into chunks of 3
+    chunks = [token[i:i + 3] for i in range(0, len(token), 3)]
+    # Borrow if last chunk is length 1
+    if len(chunks) >= 2 and len(chunks[-1]) == 1:
+        chunks[-2], chunks[-1] = chunks[-2][:-1], chunks[-2][-1] + chunks[-1]
     return chunks
 
 
 def chunking(text: str) -> str:
-    items = smart_split(text)
-    if len(items) == 1 and items[0].isalnum():
-        # One alphanumeric item — split if possible
-        parts = split_token(items[0])
-    else:
-        # Multiple tokens — treat as atomic
-        parts = items
+    items = smart_split(text)  # Split into alnum / non-alnum tokens
+    parts = []
+    for item in items:
+        if item.isalnum():
+            parts.extend(split_token(item))
+        else:
+            parts.append(item)
     return " + ".join(f'"{part}"' for part in parts) if len(parts) > 1 else parts[0]
