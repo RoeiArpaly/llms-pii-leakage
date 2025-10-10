@@ -28,11 +28,9 @@ class Config:
         "supportive_context",
         "prompt_injection_1",
         "prompt_injection_2",
-        "prompt_injection_3",
         "affix_1",
         "affix_2",
-        "affix_3",
-        "neural_prompt_to_prompt",
+        # "neural_prompt_to_prompt",
     ]
 
     # PII evaluation level: "value", "type", or "both".

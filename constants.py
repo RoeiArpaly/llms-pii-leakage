@@ -36,10 +36,9 @@ ADV_CONTENT_TECHNIQUES: list[list] = [
     ["supportive_context"],
     ["supportive_context", "affix_1"],
     ["supportive_context", "affix_2"],
-    ["supportive_context", "affix_3"],
     ["supportive_context", "prompt_injection_1"],
     ["supportive_context", "prompt_injection_2"],
-    ["supportive_context", "prompt_injection_3"],
+    ["supportive_context", "affix_1", "prompt_injection_2"],
 ]
 BASELINE_DATASET_COLS: list = [
     "llm_input",
@@ -62,5 +61,5 @@ FUZZY_ADV_DATASET_COLS: list = [
     "pii_spans",
 ]
 GLINER_INVALID_VALUES: list = [  # values that should not be detected by GLiNER
-    "email",  # GLiNER struggles with emails
+    "email",  # GLiNER is triggered every time email is mentioned
 ]
