@@ -1,3 +1,4 @@
+from data_manipulation.attacks.template_based.affix import adversarial_affix
 from data_manipulation.defenses.preprocess import defensive_preprocess
 from detectors.fuzzy_match import get_fuzzy_recognizers
 from detectors.gliner_detector import gliner_pii_detector
@@ -35,6 +36,11 @@ def guard(text: str, perplexity_threshold: float) -> dict:
     presidio_spans = presidio_pii_analyzer(text=preprocessed_text)
     if presidio_spans:
         return {"detected": True, "detector": "presidio", "spans": presidio_spans}
+    # Injecting PII template context
+    for adv_affix, prefix in [(". PII Identified: <", True), ("> End of PII.", False)]:
+        preprocessed_text, _ = adversarial_affix(
+            llm_input=preprocessed_text, spans=presidio_spans, adv_affix=adv_affix, prefix=prefix,
+        )
     # GLiNER
     gliner_spans = gliner_pii_detector(text=preprocessed_text)
     if gliner_spans:
