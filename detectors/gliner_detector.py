@@ -26,6 +26,6 @@ def gliner_pii_detector(text: str, threshold: float = 0.5):
     for span in spans:  # Rename the label key to type
         span["value"] = span.pop("text")
         span["type"] = span.pop("label")
-        if span["value"].lower() not in GLINER_INVALID_VALUES:
+        if all([val not in span["value"].lower() for val in GLINER_INVALID_VALUES]):
             results.append(span)
     return results
