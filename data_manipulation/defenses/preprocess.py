@@ -237,7 +237,7 @@ def sandwich_defense(text: str) -> str:
 
 def defensive_preprocess(text: str, include_sandwich: bool = True) -> str:
     """
-    Defensive preprocessing to convert homoglyphs and emojis to alphabets.
+    Defensive preprocessing by applying Standardization, Sanitization, and Prompt Injection Defense.
     """
     rand_n = random.randint(10, 20)  # Random delimiter length to avoid delimiter attacks
     delimiter = "|" * rand_n
@@ -247,10 +247,13 @@ def defensive_preprocess(text: str, include_sandwich: bool = True) -> str:
     # Format the result by replacing underscores with spaces and title casing
     formatted_text = re.sub(
         pattern=rf"{esc_delimiter}([\w_]+){esc_delimiter}",
-        repl=lambda m: m[1].replace("_", " ").title(),  # Convert emoji representation to text
+        # Capitalize in order to convert emoji representation to text
+        repl=lambda m: m[1].replace("_", " ").title(),
         string=result["text"],
     )
     new_text = "".join(formatted_text.split(delimiter))
+    new_text = re.sub(pattern=r"\s+", repl=" ", string=new_text)  # Collapse whitespace
+    new_text = re.sub(pattern=r"(.)\1{3,}", repl=r"\1", string=new_text)  # Remove char repetition
     new_text = textual_number_to_numeric(new_text)
     new_text = textual_symbol_to_symbol(new_text)
     new_text = remove_placeholders(new_text)
