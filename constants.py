@@ -62,4 +62,5 @@ FUZZY_ADV_DATASET_COLS: list = [
 ]
 GLINER_INVALID_VALUES: list = [  # values that should not be detected by GLiNER
     "email",  # GLiNER is triggered every time email is mentioned
+    "e-addy",  # Slang for email
 ]
