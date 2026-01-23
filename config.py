@@ -40,4 +40,4 @@ class Config:
     LOGPROBS: bool = True  # if to compute perplexity scores
 
     # Guard
-    PERPLEXITY_THRESHOLD: float = 1.01  # Threshold for perplexity to consider PII detected
+    PERPLEXITY_THRESHOLD: float = 1.000002  # Threshold for perplexity to consider PII detected
