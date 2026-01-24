@@ -74,7 +74,9 @@ def retry(
 
 
 @retry(times=10, increment_param="temperature", increment_value=0.1)
-def post_request_openai(data: dict, logprobs: bool = False) -> dict:
+def post_request_openai(
+        data: dict, logprobs: bool = False, structured_output: bool = True,
+) -> dict or str:
 
     response = requests.post(
         url="https://api.openai.com/v1/chat/completions",
@@ -87,6 +89,8 @@ def post_request_openai(data: dict, logprobs: bool = False) -> dict:
     if response.status_code == 200:
         content = response.json().get("choices", [{}])[0]
         message_content = content.get("message", {}).get("content", {})
+        if not structured_output:
+            return message_content
         perplexity = None
         if logprobs:
             logprobs_content = content.get("logprobs", {}).get("content", {})

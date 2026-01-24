@@ -11,13 +11,17 @@ from data_generation.pii_validators import (
 _data_generator = None
 
 
-def presidio_inject_pii(text: str):
-
+def get_data_generator():
     global _data_generator
     if not _data_generator:
-        _data_generator = PresidioDataGenerator()
+        return PresidioDataGenerator()
+    return _data_generator
 
-    fake_records = _data_generator.generate_fake_data(
+
+def presidio_inject_pii(text: str):
+
+    data_generator = get_data_generator()
+    fake_records = data_generator.generate_fake_data(
         templates=[text],
         n_samples=1,
     )
