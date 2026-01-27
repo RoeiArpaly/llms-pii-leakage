@@ -13,3 +13,6 @@ spans_detector: |
   3. [{"value": "780-31-3326", "start": 100, "end": 108, "type": "ssn"}]
   4. [{"value": "+1-678-590-3868x67128", "start": 120, "end": 130, "type": "phone_number"}]
   5. [{"value": "john@gmail.com", "start": 140, "end": 154, "type": "email"}]
+  6. [{"value": "4-1-1-1 1-1-1-1 1-1-1-1 1-1-1-1", "start": 100, "end": 130, "type": "credit_card_number"}]
+  7. [{"value": "4.1.1.1 1.1.1.1 1.1.1.1 1.1.1.1", "start": 100, "end": 130, "type": "credit_card_number"}]
+  8. [{"value": "4.1.1.1-1.1.1.1-1.1.1.1-1.1.1.1", "start": 100, "end": 130, "type": "credit_card_number"}]
