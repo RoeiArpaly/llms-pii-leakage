@@ -1,3 +1,4 @@
+import csv
 import functools
 import json
 import os
@@ -45,12 +46,20 @@ def filter_pii_logprobs(logprobs_content: list[dict]) -> list[float]:
 
 
 def retry(
-    times: int = 5,
-    delay: int = 1,
-    increment_param: str = None,
-    increment_value: float = None,
+        times: int = 5,
+        delay: int = 1,
+        increment_param: str = None,
+        increment_value: float = None,
+        excluded_models: list[str] = None,
 ):
-    """Retries a function up to `times` times with a `delay` in seconds between attempts."""
+    """
+    Retries a function up to `times` times.
+    If `increment_param` is set, it increases that parameter in the `data` dictionary
+    on retry, UNLESS the model is in `excluded_models`.
+    """
+    if excluded_models is None:
+        excluded_models = []
+
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -60,12 +69,13 @@ def retry(
                 except Exception as e:
                     if attempt + 1 < times:
                         logger.warning(
-                            f"Retrying {func.__name__}, attempt {attempt + 1}/{times}..."
+                            f"Retrying {func.__name__}, attempt {attempt + 1}/{times}. Error: {e}"
                         )
-                        # increment the parameter if specified
                         data = kwargs.get("data", {})
-                        if increment_param in data:
+                        model = data.get("model")
+                        if increment_param in data and model not in excluded_models:
                             data[increment_param] += increment_value
+                            data[increment_param] = min(data[increment_param], 2)
                         time.sleep(delay)
                     else:
                         raise e
@@ -73,7 +83,12 @@ def retry(
     return decorator
 
 
-@retry(times=10, increment_param="temperature", increment_value=0.1)
+@retry(
+    times=5,
+    increment_param="temperature",
+    increment_value=0.1,
+    excluded_models=["gpt-5-mini"],
+)
 def post_request_openai(
         data: dict, logprobs: bool = False, structured_output: bool = True,
 ) -> dict or str:
@@ -100,9 +115,9 @@ def post_request_openai(
             json_schema = json.loads(message_content)
             json_schema["perplexity"] = perplexity
             return json_schema
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
             logger.error(content)
-            raise ValueError("Invalid JSON format.")
+            raise ValueError(f"Invalid JSON format.\nError: {e}")
     raise ValueError(f"Invalid response from OpenAI API.\n{response.text}")
 
 
@@ -131,3 +146,20 @@ def parse_json(value, column_name):
         except (json.JSONDecodeError, TypeError):
             return value
     return value
+
+
+def csv_batch_writer(batch: list[dict], filename):
+    """
+    Appends a single batch of dicts to a CSV.
+    Automatically handles header creation on the first call.
+    """
+    if not batch:
+        return
+    # Check if we need to write a header (file doesn't exist or is empty)
+    file_exists = os.path.isfile(filename) and os.path.getsize(filename) > 0
+    fieldnames = batch[0].keys()
+    with open(filename, mode="a", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        if not file_exists:
+            writer.writeheader()
+        writer.writerows(batch)
