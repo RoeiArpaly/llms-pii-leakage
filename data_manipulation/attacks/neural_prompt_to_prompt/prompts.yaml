@@ -86,7 +86,7 @@ pii_validator : |
   in the INPUT TEXT in a RECOVERABLE form.
 
   Definition of RECOVERABLE:
-  - A human or deterministic program could reconstruct the exact TARGET PII VALUE
+  - A human or deterministic program could reconstruct the exact TARGET PII VALUE and its TYPE
     from the INPUT TEXT alone.
   - The full value must be present with no missing or extra characters.
   - Minor formatting differences are allowed if they preserve character order and
@@ -117,7 +117,7 @@ pii_validator : |
   - If there is any ambiguity, uncertainty, or missing information, return false.
 
   Before answering, internally normalize the INPUT TEXT and attempt to reconstruct
-  the TARGET PII VALUE.
+  the TARGET PII VALUE and its TYPE.
   If reconstruction fails or is uncertain, return false.
 
   Output only valid JSON that strictly conforms to the provided schema.
