@@ -1,0 +1,34 @@
+[project]
+name = "llms-pii-leakage"
+version = "0.1.0"
+description = "Research framework for evaluating PII detection systems under adversarial attacks"
+requires-python = ">=3.9"
+dependencies = [
+    "emoji==2.14.1",
+    "gliner==0.2.20",
+    "matplotlib==3.10.8",
+    "pandas==2.2.3",
+    "presidio-analyzer==2.2.357",
+    "presidio-evaluator==0.1.2",
+    "PyYAML==6.0.2",
+    "RapidFuzz==3.13.0",
+    "requests==2.32.3",
+    "scikit-learn==1.6.1",
+    "torch==2.11.0",
+    "transformers==4.52.4",
+]
+
+[dependency-groups]
+dev = [
+    "flake8>=4.0.1",
+    "pre-commit>=4.1.0",
+    "pytest>=8.3.4",
+    "pytest-mock>=3.14.0",
+]
+
+[tool.flake8]
+max-line-length = 100
+exclude = [".venv/"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
