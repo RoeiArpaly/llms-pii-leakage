@@ -12,6 +12,7 @@ from math import exp
 
 from pandas import Series
 
+from config import Config
 from logger import logger
 
 
@@ -90,8 +91,11 @@ def retry(
     excluded_models=["gpt-5-mini"],
 )
 def post_request_openai(
-        data: dict, logprobs: bool = False, structured_output: bool = True,
+    data: dict, logprobs: bool = False, structured_output: bool = True,
 ) -> dict or str:
+    if Config.MOCK_LLM:
+        from mock_llm import mock_openai_response
+        return mock_openai_response(data=data, logprobs=logprobs, structured_output=structured_output)
 
     response = requests.post(
         url="https://api.openai.com/v1/chat/completions",

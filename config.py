@@ -1,5 +1,8 @@
 class Config:
 
+    # Mock LLM API calls (set to True to use mock responses instead of real API calls)
+    MOCK_LLM: bool = False
+
     # Dataset generation
     PII_PROBABILITY: float = 0.1
     NUMBER_OF_SAMPLES: int = 1000
