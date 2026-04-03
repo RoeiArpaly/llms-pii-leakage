@@ -17,7 +17,7 @@ from logger import logger
 def supportive_context(
         text: str,
         spans: list[dict],
-        replace_with: str = "slang",
+        replace_with: str = "emoji",
         update_spans: bool = True,
 ) -> tuple:
 

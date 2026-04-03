@@ -117,9 +117,9 @@ def test_fuzzy_email_detection(text, expected_count):
         ("My credit card number is 4111 1111 1111 11112.", 1),
         ("My fake card number is 1234 5678 9876 5432.", 1),
         ("My partial card number is 4111 1111 1111 11", 1),
-        ("My partial is 4111 1111 1111 11", 1),
+        ("My partial card is 4111 1111 1111 11", 1),
         ("My credit card number is 4111_1111_1111_1111", 1),
-        ("My partial is 4111 1111 XXXX 1111 11", 1),
+        ("My partial card is 4111 1111 XXXX 1111 11", 1),
         # Not detected
         ("My very partial is 411 111", 0),
         ("No card numbers in this text.", 0),

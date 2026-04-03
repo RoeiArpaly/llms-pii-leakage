@@ -12,11 +12,11 @@ from data_manipulation.attacks.red_teaming import emojify_pii
         ),
         (
             "john34@gmail.com",
-            "🅹🅾🅷🅽3️⃣4️⃣@🅶🅼🅰🅸🅻.🅲🅾🅼",
+            "🅹🅾🅷🅽3️⃣4️⃣🌀🅶🅼🅰🅸🅻.🅲🅾🅼",
         ),
         (
             "JOHN34@gmail.com",
-            "🅹🅾🅷🅽3️⃣4️⃣@🅶🅼🅰🅸🅻.🅲🅾🅼",
+            "🅹🅾🅷🅽3️⃣4️⃣🌀🅶🅼🅰🅸🅻.🅲🅾🅼",
         ),
 
     ],

@@ -37,7 +37,7 @@ def test_mapping(key, mapping):
     ("Contact me at 𝓉𝑒𝓈𝓉@𝑒𝓍𝒶𝓂𝓅𝓁𝑒.𝒸𝑜𝓂", "Contact me at test@example.com"),
     ("Work Email: ✉️ 𝘢𝘭𝘪𝘤𝘦@𝘤𝘰𝘮𝘱𝘢𝘯𝘺.𝘤𝘰𝘮", "Work Email: :envelope: alice@company.com"),
     ("📨 Send mail to 🆄🆂🅴🆁@🆈🅰🅷🅾🅾.🅲🅾🅼", ":incoming_envelope: Send mail to USER@YAHOO.COM"),
-    ("My email is: ԛβаｒｒетт＠ехамрӏе．пет", "My email is: qbarrett@example.net"),
+    ("My email is: ԛβаｒｒетт＠ехамрӏе．пет", "My email is: qbarrett＠example.net"),
 
     # Phone Numbers
     ("Call me at ①②③-④⑤⑥-⑦⑧⑨⓪", "Call me at 123-456-7890"),

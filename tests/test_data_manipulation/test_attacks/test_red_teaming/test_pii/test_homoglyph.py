@@ -12,11 +12,11 @@ from data_manipulation.attacks.red_teaming import homoglyph
         ),
         (
             "john34@gmail.com",
-            "јоһп₃₄＠ɡмаіӏ．сом",
+            "јоһп₃₄꩜ɡмаіӏ．сом",
         ),
         (
             "JOHN34@gmail.com",
-            "ЈОНＮ₃₄＠ɡмаіӏ．сом",
+            "ЈОНＮ₃₄꩜ɡмаіӏ．сом",
         ),
     ],
 )

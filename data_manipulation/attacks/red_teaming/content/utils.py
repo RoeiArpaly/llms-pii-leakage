@@ -52,9 +52,10 @@ def replacer(text: str, configs: list[dict]) -> str:
     str
     """
     global _engine
-    if not _engine:
-        _engine = _build_engines(configs=configs)
-    _analyzer, _anonymizer, _operators = _engine
+    cache_key = tuple((c["pii_entity"], c["replace_value"]) for c in configs)
+    if not _engine or _engine[0] != cache_key:
+        _engine = (cache_key, *_build_engines(configs=configs))
+    _, _analyzer, _anonymizer, _operators = _engine
 
     entities = [config["pii_entity"] for config in configs]
     results = _analyzer.analyze(text=text, entities=entities, language="en")

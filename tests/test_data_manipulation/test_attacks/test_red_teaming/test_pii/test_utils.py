@@ -59,7 +59,7 @@ from data_manipulation.attacks.red_teaming.pii.utils import fuzzy_pii_injection
             homoglyph,
             None,
             (
-                "My Credit Card is ₁₂₃₄ and email is јоһп．ԁое＠ɡмаіӏ．сом",
+                "My Credit Card is ₁₂₃₄ and email is јоһп．ԁое꩜ɡмаіӏ．сом",
                 [
                     {
                         "value": "1234",
@@ -70,7 +70,7 @@ from data_manipulation.attacks.red_teaming.pii.utils import fuzzy_pii_injection
                     },
                     {
                         "value": "john.doe@gmail.com",
-                        "value_fuzzy": "јоһп．ԁое＠ɡмаіӏ．сом",
+                        "value_fuzzy": "јоһп．ԁое꩜ɡмаіӏ．сом",
                         "start": 36,
                         "end": 54,
                         "type": "EMAIL"
