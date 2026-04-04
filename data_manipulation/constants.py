@@ -1,3 +1,7 @@
+"""Lookup tables for attacks and defenses: PII entity name variations, character
+mapping tables (emoji, homoglyph, word-based, slang), separator lists, and
+placeholder patterns for removal during defensive preprocessing.
+"""
 CREDIT_CARD_VARIATIONS = [
     "credit card",
     "credit card number",

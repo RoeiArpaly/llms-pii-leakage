@@ -1,8 +1,14 @@
+"""Defensive preprocessing pipeline for normalizing adversarial PII inputs.
+
+Applies a chain of reversals: homoglyph-to-ASCII, emoji demojization, separator
+cleanup, textual-number-to-digit conversion, symbol-word-to-symbol conversion,
+placeholder removal, and sandwich-defense prompt wrapping.
+"""
 import random
-import regex as re
 import string
 
 import emoji
+import regex as re
 
 from data_manipulation.constants import (
     ALPHABET_EMOJI_MAP,
@@ -72,21 +78,17 @@ mappings = {  # Check hex of letter by using: hex(ord("Ⓐ"))
 replace_mapping = {"emoji_keycap_number": {v: k for k, v in NUMBER_EMOJI_MAP.items()}}
 
 
+_merged_mapping = {}
+for _mapping in mappings.values():
+    _merged_mapping.update(_mapping)
+
+
 def transform_homoglyphs_to_alphabets(text: str, delimiter=":") -> dict:
     """
     Converts homoglyphs in the text to their respective alphabets.
     Includes emojis and special characters.
     """
-    new_text = []
-    for letter in text:
-        for key, mapping in mappings.items():
-            if letter in mapping:
-                new_text.append(mapping[letter])
-                break
-        else:
-            new_text.append(letter)
-
-    new_text = "".join(new_text)
+    new_text = "".join(_merged_mapping.get(ch, ch) for ch in text)
     for key, mapping in replace_mapping.items():
         for emoji_ in mapping:
             new_text = new_text.replace(emoji_, mapping[emoji_])
@@ -116,17 +118,20 @@ def remove_separators(text: str) -> str:
     return text.strip(" -")
 
 
+_NUMBER_REVERSE_MAP = {
+    word: digit
+    for lang_map in NUMBER_WORD_MAP.values()
+    for digit, word in lang_map.items()
+}
+
+
 def textual_number_to_numeric(text: str) -> str:
     """
     Convert textual numbers to numeric representation.
     Example: "Hello one-two-three" -> "Hello 1-2-3"
     """
-    # Define mapping of textual numbers to numeric representation
-    for language in NUMBER_WORD_MAP:
-        mapping = {v: k for k, v in NUMBER_WORD_MAP[language].items()}
-        # Replace textual numbers with numeric representation
-        for word, number in mapping.items():
-            text = re.sub(pattern=r"\b" + word + r"\b", repl=number, string=text)
+    for word, number in _NUMBER_REVERSE_MAP.items():
+        text = re.sub(pattern=r"\b" + word + r"\b", repl=number, string=text)
     return text
 
 

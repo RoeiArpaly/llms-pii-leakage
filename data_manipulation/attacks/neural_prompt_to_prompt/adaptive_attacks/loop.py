@@ -1,13 +1,19 @@
+"""Attack loop: runs the adaptive attacker against multiple detectors (naive
+Presidio and PII Shield) for a given PII value, tracking per-iteration results
+and stopping when all detectors are evaded.
+"""
 import yaml
 
 from importlib.resources import files
 
 from config import Config
-from detectors.presidio_detector import presidio_pii_analyzer
+from detectors.presidio import presidio_pii_analyzer
 from pii_shield import guard
 
-from attacker import AdaptiveAttacker
-from const import (
+from data_manipulation.attacks.neural_prompt_to_prompt.adaptive_attacks.attacker import (
+    AdaptiveAttacker,
+)
+from data_manipulation.attacks.neural_prompt_to_prompt.adaptive_attacks.const import (
     ADVERSARIAL_ATTACK_README_PATHS,
     ADVERSARIAL_DEFENSE_README_PATHS,
 )

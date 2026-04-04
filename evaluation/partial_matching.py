@@ -1,16 +1,16 @@
-import yaml
+"""Partial matching strategies for comparing predicted vs actual PII span values.
 
+Supports exact, subsequence, difflib, rapidfuzz, and LLM-as-a-judge methods
+to score how well a predicted PII value matches the ground truth.
+"""
 from difflib import SequenceMatcher
-from importlib.resources import files
+
 from rapidfuzz import fuzz
 
-from utils import post_request_openai
-
-
-PROMPTS_PATH = files("evaluation").joinpath("prompts.yaml")
-
-with PROMPTS_PATH.open("r") as f:
-    PROMPTS = yaml.safe_load(f)
+from utils import (
+    load_prompts,
+    post_request_openai,
+)
 
 
 def is_subsequence(query: str, string: str) -> bool:
@@ -39,23 +39,17 @@ def partial_match(predicted_span: dict, actual_span: dict, method: str = "rapidf
     float
         The similarity ratio between the query and target strings.
     """
+    predicted_value = predicted_span["value"]
+    actual_value = actual_span["value"]
 
     if method == "exact":
-        query = predicted_span["value"]
-        string = actual_span["value"]
-        return float(query == string)
+        return float(predicted_value == actual_value)
     elif method == "subsequence":
-        query = predicted_span["value"]
-        string = actual_span["value"]
-        return float(is_subsequence(query=query, string=string))
+        return float(is_subsequence(query=predicted_value, string=actual_value))
     elif method == "difflib":
-        a = predicted_span["value"]
-        b = actual_span["value"]
-        return round(SequenceMatcher(a=a, b=b).ratio(), 2)
+        return round(SequenceMatcher(a=predicted_value, b=actual_value).ratio(), 2)
     elif method == "rapidfuzz":
-        s1 = predicted_span["value"]
-        s2 = actual_span["value"]
-        return round(fuzz.partial_ratio(s1=s1, s2=s2) / 100.0, 2)
+        return round(fuzz.partial_ratio(s1=predicted_value, s2=actual_value) / 100.0, 2)
     elif method == "llm_judge":
         details = (
             f"Here is the input:\n"
@@ -65,7 +59,7 @@ def partial_match(predicted_span: dict, actual_span: dict, method: str = "rapidf
         data = {
             "model": "gpt-4o-mini",
             "messages": [
-                {"role": "system", "content": PROMPTS["llm_as_a_judge"]},
+                {"role": "system", "content": load_prompts("evaluation")["llm_as_a_judge"]},
                 {"role": "user", "content": details},
             ],
             "response_format": {

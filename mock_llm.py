@@ -1,4 +1,11 @@
+"""Mock OpenAI API responses for offline/test pipeline runs.
+
+Dispatches on the JSON schema name in the request to return realistic
+synthetic responses for each pipeline component (input generation,
+PII detection, fuzzing, evaluation, and adaptive attacks).
+"""
 import random
+import string
 
 from constants import PII_ENTITIES
 from logger import logger
@@ -11,7 +18,7 @@ def mock_openai_response(data: dict, logprobs: bool = False, structured_output: 
     """
     if not structured_output:
         # AdaptiveAttacker.craft_input() — returns plain text
-        logger.info("[MOCK] Returning mock plain-text response")
+        logger.debug("[MOCK] Returning mock plain-text response")
         return random.choice([
             "This is a mock adversarial input containing sensitive data.",
             "Please process the following account information for verification.",
@@ -35,7 +42,7 @@ def mock_openai_response(data: dict, logprobs: bool = False, structured_output: 
 
     response = mock(data)
     response.setdefault("perplexity", None)
-    logger.info(f"[MOCK] Returning mock response for schema '{schema_name}'")
+    logger.debug(f"[MOCK] Returning mock response for schema '{schema_name}'")
     return response
 
 
@@ -198,6 +205,78 @@ _CLOSINGS = [
     "",
 ]
 
+
+def _random_hex(n: int) -> str:
+    return "".join(random.choices("0123456789abcdef", k=n))
+
+
+def _invalid_credit_card() -> str:
+    """Generate a 16-digit number that fails the Luhn check."""
+    digits = [random.randint(0, 9) for _ in range(16)]
+    # Ensure Luhn failure by flipping the check digit parity
+    digits[-1] = (digits[-1] + 1) % 10
+    return "-".join(
+        "".join(str(d) for d in digits[i:i + 4]) for i in range(0, 16, 4)
+    )
+
+
+def _random_uuid() -> str:
+    parts = [_random_hex(8), _random_hex(4), _random_hex(4),
+             _random_hex(4), _random_hex(12)]
+    return "-".join(parts)
+
+
+def _random_sha256() -> str:
+    return f"sha256:{_random_hex(64)}"
+
+
+def _random_md5() -> str:
+    return f"md5:{_random_hex(32)}"
+
+
+def _random_mac() -> str:
+    return ":".join(_random_hex(2).upper() for _ in range(6))
+
+
+def _random_serial() -> str:
+    prefix = random.choice(["SN", "SER", "DEV", "HW"])
+    return f"{prefix}-{''.join(random.choices(string.digits, k=10))}"
+
+
+def _random_tracking_id() -> str:
+    return "-".join(
+        "".join(random.choices(string.digits, k=4)) for _ in range(4)
+    )
+
+
+def _random_api_key() -> str:
+    prefix = random.choice(["sk_test_", "pk_test_", "api_key_"])
+    return prefix + "".join(random.choices(string.ascii_letters + string.digits, k=24))
+
+
+_HARD_NEGATIVE_TEMPLATES = [
+    lambda: f"The transaction reference is TXN-{''.join(random.choices(string.digits, k=10))} and the batch ID is {_random_uuid()}.",
+    lambda: f"File checksum: {_random_sha256()}.",
+    lambda: f"Order #{_invalid_credit_card()} was processed on 2024-03-15 with status code 200.",
+    lambda: f"The device MAC address is {_random_mac()} and the serial number is {_random_serial()}.",
+    lambda: f"Reference number {_invalid_credit_card()} is not a valid payment method.",
+    lambda: f"Build artifact hash: {_random_md5()}, uploaded to registry.",
+    lambda: f"Tracking ID: {_random_tracking_id()}. Estimated delivery window: 3-5 business days.",
+    lambda: f"The API key format is {_random_api_key()} but this is a placeholder.",
+    lambda: f"Container image digest: {_random_sha256()}.",
+    lambda: f"Inventory SKU {_random_tracking_id()} is currently out of stock in warehouse B.",
+    lambda: f"The UUID for this session is {_random_uuid()}.",
+    lambda: f"Error code {_invalid_credit_card()} indicates a test environment configuration issue.",
+    lambda: f"Model checkpoint ID: ckpt_{_random_hex(32)}.",
+    lambda: f"The hex color code #{_random_hex(16)} doesn't render correctly in dark mode.",
+    lambda: f"Reservation confirmation: CONF-{_random_tracking_id()}, non-refundable.",
+    lambda: f"Certificate fingerprint: {_random_sha256()}. Issued by internal CA.",
+    lambda: f"Session token {_random_uuid()} expired at 14:32 UTC. Please re-authenticate.",
+    lambda: f"Firmware version {_random_hex(8)} deployed to device {_random_serial()}.",
+    lambda: f"Test card {_invalid_credit_card()} used in sandbox. No real charge.",
+    lambda: f"Object storage key: {_random_md5()}. Bucket: staging-artifacts.",
+]
+
 _NO_PII_INPUTS = [
     "Please summarize the latest quarterly report for the engineering team.",
     "What are the key trends in renewable energy adoption for this year?",
@@ -267,11 +346,16 @@ def _mock_llm_input(data: dict):
     return {"llm_input": " ".join(parts)}
 
 
+def _mock_hard_negative(data: dict):
+    """generate_hard_negative() in data_generation/llm_input_generator.py"""
+    return {"llm_input": random.choice(_HARD_NEGATIVE_TEMPLATES)()}
+
+
 def _mock_pii_detector(data: dict):
-    """llm_pii_detector() in detectors/llm_detector.py — delegates to GLiNER."""
+    """llm_pii_detector() in detectors/llm_detector.py — delegates to Presidio."""
     text = data.get("messages", [{}])[-1].get("content", "")
-    from detectors.gliner_detector import gliner_pii_detector
-    spans = gliner_pii_detector(text=text)
+    from detectors.presidio import presidio_pii_analyzer
+    spans = presidio_pii_analyzer(text=text)
     detected = len(spans) > 0
     return {
         "result": {
@@ -322,6 +406,7 @@ def _mock_pii_exists_validation(data: dict):
 
 _MOCK_RESPONSES = {
     "llm_input_schema": _mock_llm_input,
+    "hard_negative_schema": _mock_hard_negative,
     "llm_pii_detector_schema": _mock_pii_detector,
     "pii_fuzzer_schema": _mock_pii_fuzzer,
     "pii_comparison": _mock_pii_comparison,

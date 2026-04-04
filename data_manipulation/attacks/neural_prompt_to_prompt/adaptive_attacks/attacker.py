@@ -1,3 +1,9 @@
+"""Adaptive adversarial attacker for iterative PII evasion.
+
+Maintains a memory of previous attempts and their detector verdicts, adapting
+its strategy across iterations. Includes a PII validation step to ensure the
+target value remains recoverable from the adversarial text.
+"""
 import yaml
 
 from collections import deque

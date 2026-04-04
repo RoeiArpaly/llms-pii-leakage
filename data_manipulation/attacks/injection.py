@@ -1,3 +1,9 @@
+"""Orchestrates PII-level and content-level attack application.
+
+pii_fuzzer applies character-level transformations (homoglyph, chunking, etc.)
+to PII values. adversarial_content applies context-level attacks (supportive
+context, prompt injection, affixes) around the PII.
+"""
 from data_manipulation.attacks.template_based.affix import (
     AdversarialAffix,
     adversarial_affix,
@@ -72,16 +78,14 @@ def adversarial_content(llm_input: str, spans: list[dict], chosen_techniques: li
         if technique == "supportive_context":
             result, new_spans = supportive_context(text=result, spans=new_spans)
         elif "affix" in technique:
-            # Extract the affix number from the technique name
             affix_number = int(technique.split("_")[-1])
-            adv_affix = AdversarialAffix.list_configs()[affix_number - 1]
+            adv_affix = list(AdversarialAffix)[affix_number - 1]
             result, new_spans = adversarial_affix(
                 llm_input=result, spans=new_spans, adv_affix=adv_affix.text, prefix=adv_affix.prefix
             )
         elif "prompt_injection" in technique:
-            # Extract the affix number from the technique name
             prompt_injection_number = int(technique.split("_")[-1])
-            adv_instructions = PromptInjection.list_configs()[prompt_injection_number - 1]
+            adv_instructions = list(PromptInjection)[prompt_injection_number - 1]
             result, new_spans = prompt_injection(
                 llm_input=result, spans=new_spans, adv_instructions=adv_instructions.text
             )
