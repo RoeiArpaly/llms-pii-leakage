@@ -1,3 +1,7 @@
+"""Grouped bar chart visualization for model performance comparison across
+datasets, attack techniques, and metrics. Supports 1D and 2D grouping with
+color-coded groups and hatched model patterns.
+"""
 import matplotlib.pyplot as plt
 
 from typing import Union
@@ -12,15 +16,13 @@ from config import Config
 
 
 def setup_plot():
-    """Create a new figure and axis with common settings."""
     fig, ax = plt.subplots(figsize=(14, 4), dpi=150)
     plt.subplots_adjust(right=0.8)
-    ax.set_axisbelow(True)  # Ensure grid is drawn behind the bars
+    ax.set_axisbelow(True)
     return fig, ax
 
 
 def setup_axes(ax, tick_positions, tick_labels, ylabel, title, ylim=1.05):
-    """Configure axis ticks, labels, title, and grid."""
     ax.set_xticks(tick_positions)
     rotation = 0 if len(tick_labels) < 5 else 7.5
     ax.set_xticklabels(tick_labels, fontsize=8, rotation=rotation)
@@ -32,7 +34,6 @@ def setup_axes(ax, tick_positions, tick_labels, ylabel, title, ylim=1.05):
 
 
 def add_legends(ax, group_handles, group_title, model_handles, model_title):
-    """Add two legends to the axis."""
     leg1 = ax.legend(
         handles=group_handles,
         title=group_title,
@@ -67,17 +68,14 @@ def plot_performance(
         ylabel: str = "Score",
         title: str = None,
 ):
-    """Plot model performance by metric, group, and model."""
     fig, ax = setup_plot()
     x_pos = 0
 
     xticks = []
-    # If multiple metrics are provided (e.g. Dataset 1), outer loop over metrics.
     if isinstance(metric, list) and len(metric) > 1:
         metric_titles = []
         for m in metric:
             group_start = x_pos
-            # For multi-metric plots, we assume a single grouping column.
             groups = list(data[group_cols[0]].unique())
             for i, group in enumerate(groups):
                 for model in models:
@@ -109,7 +107,6 @@ def plot_performance(
         if title is None:
             title = "Model Performance by Metric, Dataset, and Model"
     else:
-        # Single metric case (metric is string or single-element list)
         m = metric if isinstance(metric, str) else metric[0]
         if len(group_cols) == 1:
             groups = list(data[group_cols[0]].unique())
@@ -142,8 +139,6 @@ def plot_performance(
                 title = f"Model Performance by {group_cols[0]} (Metric: {m})"
         elif len(group_cols) == 2:
             major_gap = 0.5
-            # Dual grouping: major = group_cols[0] (for x-ticks)
-            # and minor = group_cols[1] (for colors)
             majors = list(data[group_cols[0]].unique())
             for major in majors:
                 group_start = x_pos
@@ -156,7 +151,6 @@ def plot_performance(
                         if row.empty:
                             continue
                         score = row.iloc[0][m]
-                        # group_colors is expected to be a dict for minor groups here
                         color = group_colors.get(minor, "#333333")
                         ax.bar(
                             x=x_pos,
@@ -183,9 +177,7 @@ def plot_performance(
 
     setup_axes(ax, xticks, tick_labels, ylabel, title)
 
-    # Create legends:
     if len(group_cols) == 2:
-        # Legend for minor groups (colors)
         minor_unique = list(data[group_cols[1]].unique())
         group_handles = [
             Patch(facecolor=(group_colors[minor_unique.index(g)] if isinstance(group_colors, list)
@@ -220,52 +212,58 @@ def plot_performance(
         for model in models
     ]
     add_legends(ax, group_handles, group_legend_title, model_handles, "Models")
-    plt.show()
+    return fig
 
 
-PREFIX = "../datasets/evaluations"
-datasets = [
-    {
-        "file": f"{PREFIX}/1_dataset_level.csv",
-        "metric": None,  # Will be determined dynamically
-        "group_cols": ["Dataset"],
-        "group_colors": ["#1f77b4", "#ff7f0e", "#2ca02c"],
-    },
-    {
-        "file": f"{PREFIX}/2_fuzzy.csv",
-        "metric": "F1",
-        "group_cols": ["fuzzy_techniques"],
-        "group_colors": ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b"],
-    },
-    {
-        "file": f"{PREFIX}/3_adv.csv",
-        "metric": "F1",
-        "group_cols": ["adv_content_techniques"],
-        "group_colors": ["#1f77b4", "#ff7f0e", "#2ca02c"],
-    },
-    {
-        "file": f"{PREFIX}/4_both.csv",
-        "metric": "F1",
-        "group_cols": ["fuzzy_techniques", "adv_content_techniques"],
-        "group_colors": {"affix": "#1f77b4", "emojify": "#ff7f0e"},
-    },
-]
+def main():
+    PREFIX = "../datasets/evaluations"
+    datasets = [
+        {
+            "file": f"{PREFIX}/1_dataset_level.csv",
+            "metric": None,
+            "group_cols": ["Dataset"],
+            "group_colors": ["#1f77b4", "#ff7f0e", "#2ca02c"],
+        },
+        {
+            "file": f"{PREFIX}/2_fuzzy.csv",
+            "metric": "F1",
+            "group_cols": ["pii_techniques_str"],
+            "group_colors": ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b"],
+        },
+        {
+            "file": f"{PREFIX}/3_adv.csv",
+            "metric": "F1",
+            "group_cols": ["content_techniques_str"],
+            "group_colors": ["#1f77b4", "#ff7f0e", "#2ca02c"],
+        },
+        {
+            "file": f"{PREFIX}/4_both.csv",
+            "metric": "F1",
+            "group_cols": ["pii_techniques_str", "content_techniques_str"],
+            "group_colors": {"affix": "#1f77b4", "emojify": "#ff7f0e"},
+        },
+    ]
 
-common_params = {
-    "models": Config.MODELS,
-    "model_hatches": dict(zip(Config.MODELS, ["xxx", "//"])),
-    "bar_width": 0.8,
-    "group_gap": 1.0,
-    "inner_gap": 0.2,
-}
+    common_params = {
+        "models": Config.MODELS,
+        "model_hatches": dict(zip(Config.MODELS, ["xxx", "//"])),
+        "bar_width": 0.8,
+        "group_gap": 1.0,
+        "inner_gap": 0.2,
+    }
 
-for dataset in datasets:
-    df = read_csv(dataset["file"])
-    metric = dataset["metric"] if dataset["metric"] else list(df.columns[2:])
-    plot_performance(
-        data=df,
-        metric=metric,
-        group_cols=dataset["group_cols"],
-        group_colors=dataset["group_colors"],
-        **common_params,
-    )
+    for dataset in datasets:
+        df = read_csv(dataset["file"])
+        metric = dataset["metric"] if dataset["metric"] else list(df.columns[2:])
+        plot_performance(
+            data=df,
+            metric=metric,
+            group_cols=dataset["group_cols"],
+            group_colors=dataset["group_colors"],
+            **common_params,
+        )
+        plt.show()
+
+
+if __name__ == "__main__":
+    main()

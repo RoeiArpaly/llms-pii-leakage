@@ -1,3 +1,7 @@
+"""Span-level scoring: computes precision, recall, and F1 by matching predicted
+PII spans against ground-truth spans using configurable matching strategies
+(value-only, type-only, or both).
+"""
 import re
 
 from evaluation.partial_matching import partial_match
@@ -7,15 +11,15 @@ def safe_divide(a, b):
     return a / b if b > 0 else 0
 
 
-def normalize_pii(value: str) -> str:
-    """Normalizes PII by removing non-alphanumeric characters and converting to lowercase."""
+def normalize_pii(value: str | None) -> str:
+    if value is None:
+        return ""
     return re.sub(pattern=r"\W", repl="", string=value).lower()
 
 
 def spans_set(span_lists: list[list[dict]]) -> list[dict]:
-    """Converts a list of spans to a set of spans."""
     spans = [item for sublist in span_lists for item in sublist]
-    frozen_spans = set([frozenset(span.items()) for span in spans])
+    frozen_spans = {frozenset(span.items()) for span in spans}
     return [dict(frozen_span) for frozen_span in frozen_spans]
 
 
@@ -60,31 +64,50 @@ def spans_scorer(
     if not isinstance(spans_pred, list):
         spans_pred = []
 
-    true_positives = 0
-    matched_true = set()  # Tracks matched true spans
-    matched_pred = set()  # Tracks matched predicted spans
-    for i, true_span in enumerate(spans_true):
-        if normalize_value:
-            true_span["value"] = normalize_pii(true_span["value"])
-        true_type = true_span["type"]
-        for j, pred_span in enumerate(spans_pred):
-            if normalize_value:
-                pred_span["value"] = normalize_pii(pred_span["value"])
-            pred_type = pred_span["type"]
+    if normalize_value:
+        spans_true = [{**s, "value": normalize_pii(s["value"])} for s in spans_true]
+        spans_pred = [{**s, "value": normalize_pii(s["value"])} for s in spans_pred]
 
-            score = partial_match(predicted_span=pred_span, actual_span=true_span, method=method)
-            condition = score >= threshold
+    # Message-level classifiers (guards) return a single
+    # span with type="pii" and value=None.  Treat as binary
+    # detection: one pred span can match all GT spans.
+    is_binary = (
+        len(spans_pred) == 1
+        and spans_pred[0].get("type") == "pii"
+        and not spans_pred[0].get("value")
+    )
 
-            match_conditions = [
-                match_level == "value" and condition,
-                match_level == "type" and true_type == pred_type,
-                match_level == "both" and condition and true_type == pred_type,
-            ]
-            if any(match_conditions):
-                true_positives += 1
-                matched_true.add(i)
-                matched_pred.add(j)
-                break  # Stop checking once a match is found
+    if is_binary:
+        if spans_true:
+            true_positives = len(spans_true)
+            matched_true = set(range(len(spans_true)))
+            matched_pred = {0}
+        else:
+            true_positives = 0
+            matched_true = set()
+            matched_pred = set()
+    else:
+        true_positives = 0
+        matched_true = set()
+        matched_pred = set()
+        for i, true_span in enumerate(spans_true):
+            true_type = true_span["type"]
+            for j, pred_span in enumerate(spans_pred):
+                pred_type = pred_span["type"]
+
+                score = partial_match(predicted_span=pred_span, actual_span=true_span, method=method)
+                condition = score >= threshold
+
+                match_conditions = [
+                    match_level == "value" and condition,
+                    match_level == "type" and true_type == pred_type,
+                    match_level == "both" and condition and true_type == pred_type,
+                ]
+                if any(match_conditions):
+                    true_positives += 1
+                    matched_true.add(i)
+                    matched_pred.add(j)
+                    break  # Stop checking once a match is found
 
     false_positives = len(spans_pred) - len(matched_pred)  # Unmatched predictions
     false_negatives = len(spans_true) - len(matched_true)  # Unmatched true spans
