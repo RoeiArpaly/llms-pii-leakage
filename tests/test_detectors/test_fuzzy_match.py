@@ -1,4 +1,5 @@
 import pytest
+from presidio_analyzer import AnalyzerEngine
 from presidio_analyzer.predefined_recognizers import (
     CreditCardRecognizer,
     EmailRecognizer,
@@ -6,11 +7,58 @@ from presidio_analyzer.predefined_recognizers import (
     UsSsnRecognizer,
 )
 
-from detectors.fuzzy_match import fuzzy_pii_recognizer
-from detectors.presidio_detector import presidio_pii_analyzer
+from detectors.presidio import (
+    fuzzy_pii_recognizer,
+    presidio_pii_analyzer,
+)
+
+# Build recognizers once at module level to avoid repeated regex compilation
+_iban_recognizers = fuzzy_pii_recognizer(
+    recognizers=[(IbanRecognizer(exact_match=True), [dict(substitutions=1)])]
+)
+_ssn_recognizers = fuzzy_pii_recognizer(
+    recognizers=[(UsSsnRecognizer(), [
+        dict(deletions=1),
+        dict(deletions=2),
+        dict(substitutions=1),
+        dict(substitutions=1, deletions=1),
+    ])]
+)
+_email_recognizers = fuzzy_pii_recognizer(
+    recognizers=[(EmailRecognizer(), [
+        dict(deletions=1),
+        dict(substitutions=1),
+    ])]
+)
+_credit_card_recognizers = fuzzy_pii_recognizer(
+    recognizers=[(CreditCardRecognizer(), [
+        dict(deletions=1),
+        dict(deletions=3),
+        dict(substitutions=3),
+        dict(substitutions=4),
+        dict(deletions=2, substitutions=2),
+    ])]
+)
 
 
-# TODO: Smart cache...
+def _build_analyzer(recognizers):
+    """Build a single AnalyzerEngine with fuzzy recognizers, reusable across test cases."""
+    analyzer = AnalyzerEngine(supported_languages=["en"])
+    for recognizer in recognizers:
+        analyzer.registry.add_recognizer(recognizer)
+    return analyzer
+
+
+# One AnalyzerEngine per recognizer set — avoids reloading spaCy per test case
+_iban_analyzer = _build_analyzer(_iban_recognizers)
+_ssn_analyzer = _build_analyzer(_ssn_recognizers)
+_email_analyzer = _build_analyzer(_email_recognizers)
+_cc_analyzer = _build_analyzer(_credit_card_recognizers)
+
+
+def _analyze(analyzer, text):
+    return presidio_pii_analyzer(text=text, recognizers=[], _analyzer_override=analyzer)
+
 
 @pytest.mark.parametrize(
     "text, expected_count",
@@ -32,12 +80,7 @@ from detectors.presidio_detector import presidio_pii_analyzer
     ],
 )
 def test_fuzzy_iban_detection(text, expected_count):
-    """Test IBAN detection with fuzzy matching."""
-    recognizers = [(IbanRecognizer(exact_match=True), [dict(substitutions=1)])]
-    fuzzy_recognizers = fuzzy_pii_recognizer(recognizers=recognizers)
-    detected = presidio_pii_analyzer(text=text, recognizers=fuzzy_recognizers, use_cache=False)
-
-    print(f"Input: {text}\nDetected Entities: {detected}")
+    detected = _analyze(_iban_analyzer, text)
     assert len(detected) == expected_count
 
 
@@ -60,17 +103,7 @@ def test_fuzzy_iban_detection(text, expected_count):
     ],
 )
 def test_fuzzy_ssn_detection(text, expected_count):
-    """Test SSN detection with fuzzy matching."""
-    recognizers = [(UsSsnRecognizer(), [
-        dict(deletions=1),
-        dict(deletions=2),
-        dict(substitutions=1),
-        dict(substitutions=1, deletions=1),
-    ])]
-    fuzzy_recognizers = fuzzy_pii_recognizer(recognizers=recognizers)
-    detected = presidio_pii_analyzer(text=text, recognizers=fuzzy_recognizers, use_cache=False)
-
-    print(f"Input: {text}\nDetected Entities: {detected}")
+    detected = _analyze(_ssn_analyzer, text)
     assert len(detected) == expected_count
 
 
@@ -94,15 +127,7 @@ def test_fuzzy_ssn_detection(text, expected_count):
     ],
 )
 def test_fuzzy_email_detection(text, expected_count):
-    """Test email detection with fuzzy matching."""
-    recognizers = [(EmailRecognizer(), [
-        dict(deletions=1),
-        dict(substitutions=1),
-    ])]
-    fuzzy_recognizers = fuzzy_pii_recognizer(recognizers=recognizers)
-    detected = presidio_pii_analyzer(text=text, recognizers=fuzzy_recognizers, use_cache=False)
-
-    print(f"Input: {text}\nDetected Entities: {detected}")
+    detected = _analyze(_email_analyzer, text)
     assert len(detected) == expected_count
 
 
@@ -127,16 +152,22 @@ def test_fuzzy_email_detection(text, expected_count):
     ],
 )
 def test_fuzzy_credit_card_detection(text, expected_count):
-    """Test credit card number detection with fuzzy matching."""
-    recognizers = [(CreditCardRecognizer(), [
-        dict(deletions=1),
-        dict(deletions=3),
-        dict(substitutions=3),
-        dict(substitutions=4),
-        dict(deletions=2, substitutions=2),
-    ])]
-    fuzzy_recognizers = fuzzy_pii_recognizer(recognizers=recognizers)
-    detected = presidio_pii_analyzer(text=text, recognizers=fuzzy_recognizers, use_cache=False)
-
-    print(f"Input: {text}\nDetected Entities: {detected}")
+    detected = _analyze(_cc_analyzer, text)
     assert len(detected) == expected_count
+
+
+def test_empty_error_types_raises():
+    with pytest.raises(ValueError, match="No error types"):
+        fuzzy_pii_recognizer([(IbanRecognizer(), [])])
+
+
+def test_insertions_raises():
+    with pytest.raises(ValueError, match="Insertions are not allowed"):
+        fuzzy_pii_recognizer([(IbanRecognizer(), [dict(insertions=1)])])
+
+
+def test_get_fuzzy_recognizers_returns_tuple():
+    from detectors.presidio import get_fuzzy_recognizers
+    result = get_fuzzy_recognizers()
+    assert isinstance(result, (list, tuple))
+    assert len(result) == 4  # iban, ssn, email, credit_card
