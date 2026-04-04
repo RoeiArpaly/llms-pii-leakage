@@ -4,18 +4,15 @@ import torch
 
 from detectors.gliner import gliner_pii_detector
 from detectors.guards import (
-    QWEN_GUARD_GEN_MODELS,
-    QWEN_GUARD_STREAM_MODELS,
+    QWEN_GUARD_MODELS,
     guard_pii_detector,
     guard_pii_detector_batch,
     llama_guard_classify_pii,
     llama_guard_classify_pii_batch,
     llama_guard_pii_detector,
-    classify_pii_gen,
-    classify_pii_gen_batch,
-    detect_pii_stream,
-    qwen_guard_gen_pii_detector,
-    qwen_guard_stream_pii_detector,
+    qwen_guard_classify_pii,
+    qwen_guard_classify_pii_batch,
+    qwen_guard_pii_detector,
 )
 from detectors.llm import llm_pii_detector
 from detectors.presidio import (

@@ -30,17 +30,6 @@ GLINER_MODELS = {
     "gliner-nvidia": "nvidia/gliner-PII",
 }
 
-# nvidia/gliner-PII uses different label names — map them to our standard types
-_NVIDIA_LABEL_MAP = {
-    "credit_card_number": "credit_card_number",
-    "iban_code": "iban",
-    "SSN": "ssn",
-    "social_security_number": "ssn",
-    "phone_number": "phone_number",
-    "email": "email",
-    "email_address": "email",
-}
-
 # Labels to request from each model
 _MODEL_LABELS = list(PII_ENTITIES.values())
 
@@ -86,14 +75,10 @@ def _filter_spans(spans: list[dict], label_map: dict = None) -> list[dict]:
     for span in spans:
         span["value"] = span.pop("text")
         raw_label = span.pop("label")
-        span["type"] = label_map[raw_label] if label_map else raw_label
+        span["type"] = label_map.get(raw_label, raw_label) if label_map else raw_label
         if all(val not in span["value"].lower() for val in GLINER_INVALID_VALUES):
             results.append(span)
     return results
-
-
-def _get_label_map(model_name: str) -> dict | None:
-    return _NVIDIA_LABEL_MAP if model_name == "gliner-nvidia" else None
 
 
 @torch.inference_mode()
@@ -102,7 +87,7 @@ def gliner_pii_detector(
 ) -> list:
     model = get_gliner_model(model_name)
     spans = model.predict_entities(text=text, labels=_MODEL_LABELS, threshold=threshold)
-    return _filter_spans(spans, _get_label_map(model_name))
+    return _filter_spans(spans)
 
 
 @torch.inference_mode()
@@ -110,8 +95,7 @@ def gliner_pii_detector_batch(
     texts: list[str], threshold: float = 0.5, model_name: str = "gliner",
 ) -> list[list[dict]]:
     model = get_gliner_model(model_name)
-    label_map = _get_label_map(model_name)
     batch_spans = model.inference(
         texts=list(texts), labels=_MODEL_LABELS, threshold=threshold,
     )
-    return [_filter_spans(spans, label_map) for spans in batch_spans]
+    return [_filter_spans(spans) for spans in batch_spans]

@@ -85,7 +85,10 @@ def classify_pii(text: str) -> bool:
     )
     input_ids = inputs["input_ids"].to(model.device)
 
-    output = model.generate(input_ids=input_ids, max_new_tokens=64)
+    torch.manual_seed(42)
+    output = model.generate(
+        input_ids=input_ids, max_new_tokens=64, do_sample=False,
+    )
     result = processor.decode(
         output[0][input_ids.shape[-1]:], skip_special_tokens=True,
     ).strip()

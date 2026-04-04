@@ -59,6 +59,7 @@ def classify_pii(text: str) -> bool:
     tokenizer, model = _get_model()
     prompt = _PROMPT_TEMPLATE.format(prompt=text, response="")
     input_ids = tokenizer([prompt], return_tensors="pt", add_special_tokens=False).input_ids.to(model.device)
+    torch.manual_seed(42)
     output = model.generate(input_ids=input_ids, max_new_tokens=32, pad_token_id=0, do_sample=False)
     result = tokenizer.decode(output[0][input_ids.shape[-1]:], skip_special_tokens=True)
     return _parse_result(result)
@@ -72,6 +73,7 @@ def classify_pii_batch(texts: list[str]) -> list[bool]:
     input_ids = inputs.input_ids.to(model.device)
     attention_mask = inputs.attention_mask.to(model.device)
     max_len = input_ids.shape[-1]
+    torch.manual_seed(42)
     outputs = model.generate(
         input_ids=input_ids,
         attention_mask=attention_mask,

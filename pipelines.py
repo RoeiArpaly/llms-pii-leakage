@@ -35,13 +35,11 @@ from detectors import unload_models
 from detectors.gliner import GLINER_MODELS, gliner_pii_detector_batch
 from detectors.guards import (
     LLAMA_GUARD_MODELS,
-    QWEN_GUARD_GEN_MODELS,
-    QWEN_GUARD_STREAM_MODELS,
+    QWEN_GUARD_MODELS,
     guard_pii_detector_batch,
     llama_guard_classify_pii_batch,
     nemotron_classify_pii_batch,
-    classify_pii_gen_batch,
-    qwen_guard_stream_pii_detector,
+    qwen_guard_classify_pii_batch,
     wildguard_classify_pii_batch,
 )
 from detectors.llm import llm_pii_detector
@@ -267,15 +265,9 @@ _DETECTOR_DISPATCH = {
     ),
     **{
         name: (lambda data, _name=name, **_: guard_pii_detector_batch(
-            data, classify_pii_gen_batch, model_name=_name,
+            data, qwen_guard_classify_pii_batch, model_name=_name,
         ))
-        for name in QWEN_GUARD_GEN_MODELS
-    },
-    **{
-        name: (lambda data, _name=name, **_: data.apply(
-            qwen_guard_stream_pii_detector, model_name=_name,
-        ))
-        for name in QWEN_GUARD_STREAM_MODELS
+        for name in QWEN_GUARD_MODELS
     },
 }
 

@@ -15,8 +15,10 @@ class TestGetPrompts:
 
 class TestLlmPiiDetector:
 
-    def test_none_returns_none(self):
-        assert llm_pii_detector(None) is None
+    def test_none_returns_empty_spans(self):
+        result = llm_pii_detector(None)
+        assert isinstance(result, dict)
+        assert result["spans"] == []
 
     def test_calls_openai_with_correct_schema(self, mocker):
         mock_post = mocker.patch("detectors.llm.detector.post_request_openai")

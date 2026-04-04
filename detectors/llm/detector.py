@@ -11,9 +11,17 @@ from utils import (
 )
 
 
-def llm_pii_detector(text: str, model: str = "gpt-4o-mini", logprobs: bool = False):
+def llm_pii_detector(text: str, model: str = "gpt-4o-mini", logprobs: bool = False) -> dict:
+    """Detect PII spans in text using an LLM.
+
+    Returns a dict with keys: result, spans, perplexity.
+    """
     if text is None:
-        return
+        return {
+            "result": {"pii_detected": False, "predicted_proba": 0.0},
+            "spans": [],
+            "perplexity": None,
+        }
 
     content = load_prompts("detectors.llm")["spans_detector"]
     pii_entities = list(PII_ENTITIES.values())

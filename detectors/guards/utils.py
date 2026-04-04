@@ -124,6 +124,7 @@ def generate_and_decode(
     attention_mask = attention_mask.to(model.device)
     max_len = padded.shape[-1]
 
+    torch.manual_seed(42)
     outputs = model.generate(
         input_ids=padded,
         attention_mask=attention_mask,
@@ -151,7 +152,7 @@ def guard_pii_detector(text: str, classifier: Callable, **kwargs) -> list:
     """Guard-based PII detector for message-level classifiers.
 
     Returns a single span with no value/position since these models
-    cannot extract token-level PII information.
+    classify at message level and cannot extract token-level PII.
     """
     if text is None:
         return []
@@ -168,9 +169,7 @@ def guard_pii_detector_batch(
 ) -> Series:
     """Batched guard-based PII detector for message-level classifiers."""
     texts = data.tolist()
-    no_pii: list = []
-    pii_found = [{"value": None, "start": None, "end": None, "type": "pii"}]
-    all_results: list[list] = [no_pii[:] for _ in range(len(texts))]
+    all_results: list[list] = [[] for _ in range(len(texts))]
 
     for start in range(0, len(texts), batch_size):
         batch_texts = texts[start:start + batch_size]
@@ -185,6 +184,8 @@ def guard_pii_detector_batch(
         flags = classifier_batch(valid_texts, **kwargs)
         for local_idx, flag in zip(valid_indices, flags):
             if flag:
-                all_results[start + local_idx] = pii_found[:]
+                all_results[start + local_idx] = [
+                    {"value": None, "start": None, "end": None, "type": "pii"},
+                ]
 
     return Series(all_results, index=data.index)

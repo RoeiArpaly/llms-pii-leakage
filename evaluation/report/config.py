@@ -24,14 +24,10 @@ DISPLAY_NAMES = {
     "wildguard-defend": "WildGuard + Shield",
     "nemotron-content-safety-4b": "Nemotron 4B",
     "nemotron-content-safety-4b-defend": "Nemotron 4B + Shield",
-    "qwen-guard-gen-0.6b": "Qwen Guard 0.6B",
-    "qwen-guard-gen-0.6b-defend": "Qwen Guard 0.6B + Shield",
-    "qwen-guard-gen-4b": "Qwen Guard 4B",
-    "qwen-guard-gen-4b-defend": "Qwen Guard 4B + Shield",
-    "qwen-guard-stream-0.6b": "Qwen Stream 0.6B",
-    "qwen-guard-stream-0.6b-defend": "Qwen Stream 0.6B + Shield",
-    "qwen-guard-stream-4b": "Qwen Stream 4B",
-    "qwen-guard-stream-4b-defend": "Qwen Stream 4B + Shield",
+    "qwen-guard-0.6b": "Qwen Guard 0.6B",
+    "qwen-guard-0.6b-defend": "Qwen Guard 0.6B + Shield",
+    "qwen-guard-4b": "Qwen Guard 4B",
+    "qwen-guard-4b-defend": "Qwen Guard 4B + Shield",
     # Categories
     "negative": "Negative",
     "hard_negative": "Hard Negative",
@@ -83,14 +79,10 @@ MODEL_COLORS = {
     "wildguard-defend":              "#85c1e9",
     "nemotron-content-safety-4b":    "#b7950b",
     "nemotron-content-safety-4b-defend": "#d4ac0d",
-    "qwen-guard-gen-0.6b":           "#e67e22",
-    "qwen-guard-gen-0.6b-defend":    "#f5b041",
-    "qwen-guard-gen-4b":             "#d35400",
-    "qwen-guard-gen-4b-defend":      "#eb984e",
-    "qwen-guard-stream-0.6b":        "#16a085",
-    "qwen-guard-stream-0.6b-defend": "#48c9b0",
-    "qwen-guard-stream-4b":          "#117864",
-    "qwen-guard-stream-4b-defend":   "#76d7c4",
+    "qwen-guard-0.6b":           "#e67e22",
+    "qwen-guard-0.6b-defend":    "#f5b041",
+    "qwen-guard-4b":             "#d35400",
+    "qwen-guard-4b-defend":      "#eb984e",
 }
 
 MODEL_MARKERS = {
@@ -103,10 +95,8 @@ MODEL_MARKERS = {
     "llama-guard-3-8b": "H", "llama-guard-3-8b-defend": "h",
     "wildguard": "*", "wildguard-defend": "*",
     "nemotron-content-safety-4b": "+", "nemotron-content-safety-4b-defend": "+",
-    "qwen-guard-gen-0.6b": "d", "qwen-guard-gen-0.6b-defend": "d",
-    "qwen-guard-gen-4b": "8", "qwen-guard-gen-4b-defend": "8",
-    "qwen-guard-stream-0.6b": "P", "qwen-guard-stream-0.6b-defend": "P",
-    "qwen-guard-stream-4b": "X", "qwen-guard-stream-4b-defend": "X",
+    "qwen-guard-0.6b": "d", "qwen-guard-0.6b-defend": "d",
+    "qwen-guard-4b": "8", "qwen-guard-4b-defend": "8",
 }
 
 MODEL_LINESTYLES = {
@@ -119,10 +109,8 @@ MODEL_LINESTYLES = {
     "llama-guard-3-8b": "-.", "llama-guard-3-8b-defend": ":",
     "wildguard": "-", "wildguard-defend": "--",
     "nemotron-content-safety-4b": "-.", "nemotron-content-safety-4b-defend": ":",
-    "qwen-guard-gen-0.6b": "-", "qwen-guard-gen-0.6b-defend": "--",
-    "qwen-guard-gen-4b": "-.", "qwen-guard-gen-4b-defend": ":",
-    "qwen-guard-stream-0.6b": "-", "qwen-guard-stream-0.6b-defend": "--",
-    "qwen-guard-stream-4b": "-.", "qwen-guard-stream-4b-defend": ":",
+    "qwen-guard-0.6b": "-", "qwen-guard-0.6b-defend": "--",
+    "qwen-guard-4b": "-.", "qwen-guard-4b-defend": ":",
 }
 
 # Canonical ordering: Presidio → GLiNER → SLMs (small→large) → LLMs
@@ -135,10 +123,8 @@ _BASE_MODEL_ORDER = [
     "llama-guard-3-8b",
     "wildguard",
     "nemotron-content-safety-4b",
-    "qwen-guard-gen-0.6b",
-    "qwen-guard-gen-4b",
-    "qwen-guard-stream-0.6b",
-    "qwen-guard-stream-4b",
+    "qwen-guard-0.6b",
+    "qwen-guard-4b",
     "gpt-4o-mini",
 ]
 
