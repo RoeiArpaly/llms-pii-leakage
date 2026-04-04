@@ -1,4 +1,6 @@
-DATASETS: list = ["baseline", "fuzzy", "fuzzy_adv"]
+"""Project-wide constants: PII entity mappings, dataset categories, topic lists,
+attack technique combinations, dataset column schemas, and GLiNER filter values.
+"""
 PII_ENTITIES: dict = {  # mapping of analyzer to generator entities
     "CREDIT_CARD": "credit_card_number",
     "IBAN_CODE": "iban",
@@ -25,7 +27,6 @@ TOPICS: list = [
     "executive",
 ]
 FUZZY_TECHNIQUES: list[list] = [
-    ["baseline"],
     ["char_to_word"],
     ["chunking"],
     ["emojify"],
@@ -40,24 +41,12 @@ ADV_CONTENT_TECHNIQUES: list[list] = [
     ["supportive_context", "prompt_injection_2"],
     ["supportive_context", "affix_1", "prompt_injection_2"],
 ]
-BASELINE_DATASET_COLS: list = [
-    "llm_input",
-    "llm_input_defend",
-    "pii_spans",
-]
-FUZZY_DATASET_COLS: list = [
+DATASET_COLS: list = [
+    "uid",
     "input_id",
-    "fuzzy_techniques",
+    "category",
+    "attack_target",
     "llm_input",
-    "llm_input_defend",
-    "pii_spans",
-]
-FUZZY_ADV_DATASET_COLS: list = [
-    "input_id",
-    "fuzzy_techniques",
-    "adv_content_techniques",
-    "llm_input",
-    "llm_input_defend",
     "pii_spans",
 ]
 GLINER_INVALID_VALUES: list = [  # values that should not be detected by GLiNER

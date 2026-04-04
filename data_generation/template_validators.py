@@ -1,7 +1,10 @@
+"""Validates that LLM-generated text correctly contains (or omits) PII template
+placeholders and does not leak real PII values through the templates.
+"""
 import re
 
 from constants import PII_ENTITIES
-from detectors.presidio_detector import presidio_pii_analyzer
+from detectors.presidio import presidio_pii_analyzer
 
 
 def contain_pii_template(text: str, contains_pii: bool):

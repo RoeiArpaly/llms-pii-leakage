@@ -1,3 +1,7 @@
+"""Supportive context attack: replaces PII entity names (e.g. "credit card")
+with emoji, homoglyph, or slang equivalents to remove contextual cues that
+help detectors identify nearby PII values.
+"""
 from copy import deepcopy
 
 from data_manipulation.constants import (

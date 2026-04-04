@@ -171,4 +171,8 @@ cython_debug/
 .pypirc
 
 /datasets/*.csv
+/datasets/*.html
+/datasets/predictions/
 /datasets/archive/
+/datasets/.run_status
+/datasets/.checkpoint.json

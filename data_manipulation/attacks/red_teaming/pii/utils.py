@@ -1,3 +1,8 @@
+"""Utility for applying PII-level fuzzing functions to spans within text.
+
+Replaces each PII span's value using a provided transformation function
+while preserving surrounding text and updating span offsets.
+"""
 import random
 
 from copy import deepcopy

@@ -2,28 +2,30 @@
 name = "llms-pii-leakage"
 version = "0.1.0"
 description = "Research framework for evaluating PII detection systems under adversarial attacks"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 dependencies = [
-    "emoji==2.14.1",
-    "gliner==0.2.20",
-    "matplotlib==3.10.8",
-    "pandas==2.2.3",
-    "presidio-analyzer==2.2.357",
-    "presidio-evaluator==0.1.2",
-    "PyYAML==6.0.2",
-    "RapidFuzz==3.13.0",
-    "requests==2.32.3",
-    "scikit-learn==1.6.1",
-    "torch==2.11.0",
-    "transformers==4.52.4",
+    "accelerate>=1.6.0",
+    "emoji>=2.15.0",
+    "gliner>=0.2.26",
+    "matplotlib>=3.10.8",
+    "pandas>=2.3.3",
+    "presidio-analyzer>=2.2.359",
+    "spacy==3.8.13",
+    "presidio-evaluator>=0.2.5",
+    "PyYAML>=6.0.3",
+    "RapidFuzz>=3.14.3",
+    "requests>=2.33.1",
+    "scikit-learn>=1.8.0",
+    "torch>=2.11.0",
+    "transformers>=5.1.0",
 ]
 
 [dependency-groups]
 dev = [
-    "flake8>=4.0.1",
-    "pre-commit>=4.1.0",
-    "pytest>=8.3.4",
-    "pytest-mock>=3.14.0",
+    "flake8>=7.3.0",
+    "pre-commit>=4.5.1",
+    "pytest>=9.0.2",
+    "pytest-mock>=3.15.1",
 ]
 
 [tool.flake8]
@@ -32,3 +34,10 @@ exclude = [".venv/"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+filterwarnings = [
+    "ignore:`torch.jit.script` is not supported:DeprecationWarning",
+    "ignore:builtin type Swig:DeprecationWarning",
+    "ignore:builtin type swigvarlink:DeprecationWarning",
+    "ignore:The sentencepiece tokenizer:UserWarning",
+    "ignore:The `resume_download` argument is deprecated:UserWarning",
+]

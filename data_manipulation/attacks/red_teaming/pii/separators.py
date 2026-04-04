@@ -1,3 +1,6 @@
+"""Separator injection attack: inserts random separator characters between
+characters of a PII value to disrupt pattern-based detection.
+"""
 import random
 
 from data_manipulation.constants import SEPARATORS

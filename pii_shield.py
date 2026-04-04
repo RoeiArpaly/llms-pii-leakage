@@ -1,9 +1,17 @@
+"""PII Shield: cascading defense framework for PII detection.
+
+Applies defensive preprocessing, then cascades through Presidio, GLiNER,
+fuzzy Presidio, LLM-based detection, and perplexity checking. Returns
+on the first detector that finds PII.
+"""
 from data_manipulation.attacks.template_based.affix import adversarial_affix
 from data_manipulation.defenses.preprocess import defensive_preprocess
-from detectors.fuzzy_match import get_fuzzy_recognizers
-from detectors.gliner_detector import gliner_pii_detector
-from detectors.llm_detector import llm_pii_detector
-from detectors.presidio_detector import presidio_pii_analyzer
+from detectors.gliner import gliner_pii_detector
+from detectors.llm import llm_pii_detector
+from detectors.presidio import (
+    get_fuzzy_recognizers,
+    presidio_pii_analyzer,
+)
 
 
 def guard(text: str, perplexity_threshold: float) -> dict:

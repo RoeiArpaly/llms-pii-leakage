@@ -1,3 +1,6 @@
+"""Shared utilities: OpenAI API client with retry logic, perplexity calculation,
+parallel execution, CSV/JSON serialization helpers, and YAML prompt loading.
+"""
 import csv
 import functools
 import json
@@ -5,10 +8,17 @@ import os
 import time
 
 import requests
+import yaml
 
 from concurrent.futures import ThreadPoolExecutor
-from functools import partial
+from functools import (
+    lru_cache,
+    partial,
+)
+from importlib.resources import files
 from math import exp
+from pathlib import Path
+from typing import Callable
 
 from pandas import Series
 
@@ -19,12 +29,19 @@ from logger import logger
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 
-def calculate_perplexity(logprobs: list[float]) -> float or None:
+@lru_cache(maxsize=None)
+def load_prompts(package: str) -> dict:
+    """Load and cache a prompts.yaml file from a package's resource directory."""
+    prompts_path = files(package).joinpath("prompts.yaml")
+    with prompts_path.open("r") as f:
+        return yaml.safe_load(f)
+
+
+def calculate_perplexity(logprobs: list[float]) -> float | None:
     """Calculate the perplexity of a sequence of log probabilities."""
-    _N = len(logprobs)
-    if _N == 0:
-        return  # Avoid division by zero
-    return exp(-sum(logprobs) / _N)
+    if not logprobs:
+        return None
+    return exp(-sum(logprobs) / len(logprobs))
 
 
 def filter_pii_logprobs(logprobs_content: list[dict]) -> list[float]:
@@ -92,7 +109,7 @@ def retry(
 )
 def post_request_openai(
     data: dict, logprobs: bool = False, structured_output: bool = True,
-) -> dict or str:
+) -> dict | str:
     if Config.MOCK_LLM:
         from mock_llm import mock_openai_response
         return mock_openai_response(data=data, logprobs=logprobs, structured_output=structured_output)
@@ -125,7 +142,7 @@ def post_request_openai(
     raise ValueError(f"Invalid response from OpenAI API.\n{response.text}")
 
 
-def parallel_apply(func: callable, series: Series, max_workers: int = 8, **kwargs) -> list:
+def parallel_apply(func: Callable, series: Series, max_workers: int = 8, **kwargs) -> list:
     func_with_kwargs = partial(func, **kwargs)
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         results = list(executor.map(func_with_kwargs, series))
@@ -144,7 +161,7 @@ def infer_json(column: Series) -> Series:
 
 def parse_json(value, column_name):
     # TODO: improve logic to detect JSON
-    if any(v in column_name for v in ["span", "prediction", "techniques", "result"]):
+    if any(v in column_name for v in ["span", "prediction", "techniques", "result", "attack_target"]):
         try:
             return json.loads(value)
         except (json.JSONDecodeError, TypeError):
@@ -152,15 +169,12 @@ def parse_json(value, column_name):
     return value
 
 
-def csv_batch_writer(batch: list[dict], filename):
-    """
-    Appends a single batch of dicts to a CSV.
-    Automatically handles header creation on the first call.
-    """
+def csv_batch_writer(batch: list[dict], filename: str | Path) -> None:
+    """Append a single batch of dicts to a CSV, writing a header on first call."""
     if not batch:
         return
-    # Check if we need to write a header (file doesn't exist or is empty)
-    file_exists = os.path.isfile(filename) and os.path.getsize(filename) > 0
+    filepath = Path(filename)
+    file_exists = filepath.is_file() and filepath.stat().st_size > 0
     fieldnames = batch[0].keys()
     with open(filename, mode="a", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
