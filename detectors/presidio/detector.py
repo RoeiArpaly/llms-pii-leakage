@@ -1,3 +1,8 @@
+"""Microsoft Presidio-based rule/regex PII detector.
+
+Wraps AnalyzerEngine with project-specific entity filtering, overlap resolution,
+IBAN validation, and optional custom recognizer support (e.g. fuzzy matching).
+"""
 from presidio_analyzer import AnalyzerEngine
 
 from constants import PII_ENTITIES
@@ -46,11 +51,13 @@ def presidio_pii_analyzer(
         text: str,
         recognizers: list = None,
         use_cache: bool = True,
+        _analyzer_override: AnalyzerEngine = None,
 ) -> list:
     if text is None:
         return []
 
-    analyzer = get_presidio_model(recognizers=recognizers, use_cache=use_cache)
+    has_custom_recognizers = bool(recognizers) or _analyzer_override is not None
+    analyzer = _analyzer_override or get_presidio_model(recognizers=recognizers, use_cache=use_cache)
     results = analyzer.analyze(text=text, language="en", score_threshold=0.3)
     # Format the results in equivalent format to the Presidio Data Generator
     relevant_results = [
@@ -65,7 +72,7 @@ def presidio_pii_analyzer(
         for result in results if result.entity_type in PII_ENTITIES
     ]
 
-    if recognizers:
+    if has_custom_recognizers:
         relevant_results = filter_results(results=relevant_results)
         relevant_results = [
             res for res in relevant_results if

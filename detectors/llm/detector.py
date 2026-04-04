@@ -1,31 +1,21 @@
-import yaml
+"""LLM-based PII detector using OpenAI's GPT models.
 
-from importlib.resources import files
-
+Sends text to an LLM with a structured JSON schema to detect PII spans.
+Optionally extracts logprobs for the pii_detected token to compute
+perplexity-based confidence scores.
+"""
 from constants import PII_ENTITIES
-from utils import post_request_openai
-
-
-_prompts = None
-
-
-def get_prompts():
-    global _prompts
-    if _prompts is None:
-        prompts_path = files("detectors").joinpath("prompts.yaml")
-        with prompts_path.open("r") as f:
-            _prompts = yaml.safe_load(f)
-    return _prompts
+from utils import (
+    load_prompts,
+    post_request_openai,
+)
 
 
 def llm_pii_detector(text: str, model: str = "gpt-4o-mini", logprobs: bool = False):
-    """
-    Detect PII in the LLM input.
-    """
     if text is None:
         return
 
-    content = get_prompts()["spans_detector"]
+    content = load_prompts("detectors.llm")["spans_detector"]
     pii_entities = list(PII_ENTITIES.values())
 
     json_schema = {

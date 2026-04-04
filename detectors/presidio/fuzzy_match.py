@@ -1,4 +1,12 @@
+"""Fuzzy-matching Presidio recognizers for adversarially modified PII.
+
+Wraps standard Presidio recognizers (credit card, IBAN, SSN, email) with
+regex fuzzy matching (substitutions, deletions) to detect PII values that
+have been lightly obfuscated.
+"""
 import regex as re
+
+from functools import lru_cache
 
 from presidio_analyzer import (
     Pattern,
@@ -10,9 +18,6 @@ from presidio_analyzer.predefined_recognizers import (
     IbanRecognizer,
     UsSsnRecognizer,
 )
-
-
-_fuzzy_recognizers = None
 
 
 def fuzzy_pii_recognizer(recognizers: list) -> list:
@@ -65,10 +70,9 @@ def fuzzy_pii_recognizer(recognizers: list) -> list:
     return fuzzy_recognizers
 
 
-def get_fuzzy_recognizers() -> list:
-    global _fuzzy_recognizers
-    if _fuzzy_recognizers is None:
-        recognizers = [
+@lru_cache(maxsize=1)
+def get_fuzzy_recognizers() -> tuple:
+    recognizers = [
             (
                 IbanRecognizer(), [
                     dict(deletions=1),
@@ -99,5 +103,4 @@ def get_fuzzy_recognizers() -> list:
                 ],
             ),
         ]
-        _fuzzy_recognizers = fuzzy_pii_recognizer(recognizers=recognizers)
-    return _fuzzy_recognizers
+    return fuzzy_pii_recognizer(recognizers=recognizers)
