@@ -1,15 +1,14 @@
-import yaml
+"""Neural prompt-to-prompt PII fuzzing via LLM rewriting.
 
-from importlib.resources import files
-
+Uses an LLM to rewrite text containing PII in ways that preserve human
+readability but evade automated PII detectors (emoji substitution, chunking,
+separator insertion, contextual rewording).
+"""
 from constants import PII_ENTITIES
-from utils import post_request_openai
-
-
-PROMPTS_PATH = files("data_manipulation.attacks.neural_prompt_to_prompt").joinpath("prompts.yaml")
-
-with PROMPTS_PATH.open("r") as f:
-    PROMPTS = yaml.safe_load(f)
+from utils import (
+    load_prompts,
+    post_request_openai,
+)
 
 
 def llm_pii_fuzzer(
@@ -24,9 +23,9 @@ def llm_pii_fuzzer(
     required_pii = ", ".join([f"'{v}'" for v in PII_ENTITIES.values()])
     pii_instructions = f"\nThose are the only relevant PII types for this task: {required_pii}."
 
-    content = PROMPTS["one_shot_rewrite"] + pii_instructions
+    content = load_prompts("data_manipulation.attacks.neural_prompt_to_prompt")["one_shot_rewrite"] + pii_instructions
     if few_shots:
-        content += PROMPTS["few_shot_rewrite"]
+        content += load_prompts("data_manipulation.attacks.neural_prompt_to_prompt")["few_shot_rewrite"]
 
     data = {
         "model": model,
