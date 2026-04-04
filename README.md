@@ -79,29 +79,18 @@ llms-pii-leakage
 ```
 
 ## Setup
-1. CD to the project directory
-    ```
-    cd <project_directory>
-    ```
+
+1. Install [uv](https://docs.astral.sh/uv/getting-started/installation/)
 
 2. Clone the project
     ```bash
     git clone https://github.com/{author}/llms-pii-leakage.git
+    cd llms-pii-leakage
     ```
 
-3. Install virtual environment
+3. Install dependencies
     ```bash
-    python3.9 -m venv venv
-    ```
-
-4. Activate the virtual environment
-    ```bash
-    source venv/bin/activate
-    ```
-
-5. Install requirements
-    ```bash
-    pip install -r requirements-dev.txt
+    uv sync
     ```
 
 ## Steps
