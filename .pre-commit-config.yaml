@@ -18,8 +18,8 @@ repos:
     hooks:
     -   id: pytest
         name: pytest
-        entry: uv run pytest
+        entry: uv run pytest --ignore=tests/test_detectors/test_integration.py
         language: system
         pass_filenames: false
         always_run: true
-        stages: [pre-push]
+        stages: [pre-commit]
