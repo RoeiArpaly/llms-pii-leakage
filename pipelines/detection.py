@@ -1,35 +1,9 @@
-"""Pipeline functions for dataset generation, PII detection, and prediction I/O.
-
-Provides three dataset-generation stages (baseline, fuzzy, fuzzy+adversarial),
-a multi-model PII detection pipeline with ensemble aggregation, and CSV
-serialization helpers.
-"""
-import random
+"""PII detection pipeline: detector dispatch, prediction I/O, batch orchestration."""
 import time
 from pathlib import Path
 
-from pandas import (
-    concat,
-    DataFrame,
-    json_normalize,
-    read_csv,
-    Series,
-)
-from constants import (
-    ADV_CONTENT_TECHNIQUES,
-    DATASET_COLS,
-    FUZZY_TECHNIQUES,
-)
-from data_generation.pii_generator import presidio_inject_pii
-from data_generation.llm_input_generator import (
-    generate_hard_negative,
-    generate_llm_input,
-)
-from data_manipulation.attacks.injection import (
-    adversarial_content,
-    pii_fuzzer,
-)
-from data_manipulation.attacks.neural_prompt_to_prompt.llm import llm_pii_fuzzer
+from pandas import concat, DataFrame, json_normalize, read_csv, Series
+
 from data_manipulation.defenses.preprocess import (
     defensive_preprocess,
     light_defensive_preprocess,
@@ -46,199 +20,16 @@ from detectors.guards import (
     wildguard_classify_pii_batch,
 )
 from detectors.llm import llm_pii_detector
-from detectors.presidio import (
-    get_fuzzy_recognizers,
-    presidio_pii_analyzer,
-)
+from detectors.presidio import get_fuzzy_recognizers, presidio_pii_analyzer
 from logger import logger
-from utils import (
-    cast_to_json,
-    infer_json,
-    parallel_apply,
-)
+from pipelines.generation import DATASET_PATH
+from utils import cast_to_json, infer_json, parallel_apply
 
-
-DATASET_PATH = Path("datasets/dataset.csv")
 PREDICTIONS_PATH = Path("datasets/predictions.csv")
 PREDICTIONS_DIR = Path("datasets/predictions")
 
 
-def _load_dataset() -> DataFrame:
-    return read_csv(DATASET_PATH).apply(infer_json)
-
-
-def _save_dataset(df: DataFrame):
-    df = df[DATASET_COLS]
-    df.apply(cast_to_json).to_csv(DATASET_PATH, index=False)
-
-
-def generate_baseline_dataset(n_samples: int, pii_proba: float, save_every_n: int = 100):
-    DATASET_PATH.parent.mkdir(parents=True, exist_ok=True)
-
-    baseline_cats = ["negative", "hard_negative", "positive"]
-
-    if DATASET_PATH.exists():
-        existing = _load_dataset()
-        baseline = existing[existing["category"].isin(baseline_cats)]
-        logger.info(f"Found existing dataset with {len(baseline)} baseline samples.")
-        n_samples = max(0, n_samples - len(baseline))
-    else:
-        existing = DataFrame()
-
-    from cli import Spinner
-    spinner = Spinner(f"Generating sample 0/{n_samples}")
-    spinner.start()
-    results = []
-    for i in range(n_samples):
-        contains_pii = random.random() < pii_proba
-        if contains_pii:
-            llm_input = generate_llm_input(contains_pii=True)
-            fake_record = presidio_inject_pii(text=llm_input)
-            results.append({
-                "category": "positive",
-                "llm_input": fake_record["text"],
-                "pii_spans": fake_record["spans"],
-            })
-        elif random.random() <= 0.1:
-            llm_input = generate_hard_negative()
-            results.append({
-                "category": "hard_negative",
-                "llm_input": llm_input,
-                "pii_spans": [],
-            })
-        else:
-            llm_input = generate_llm_input(contains_pii=False)
-            results.append({
-                "category": "negative",
-                "llm_input": llm_input,
-                "pii_spans": [],
-            })
-
-        spinner.update(f"Generating sample {i + 1}/{n_samples}")
-
-        should_save = (i + 1) % save_every_n == 0 or i + 1 == n_samples
-        if should_save:
-            partial = DataFrame(results)
-            if i + 1 == n_samples:
-                partial = partial.sort_values(
-                    by="pii_spans",
-                    key=lambda spans: spans.str.len().astype(bool),
-                    ascending=False,
-                ).reset_index(drop=True)
-                partial["uid"] = range(len(partial))
-                partial["input_id"] = partial["uid"]
-                partial["attack_target"] = None
-
-            if not existing.empty:
-                data = concat(objs=[existing, partial], ignore_index=True)
-            else:
-                data = partial
-
-            data.apply(cast_to_json).to_csv(DATASET_PATH, index=False)
-    spinner.stop()
-    logger.info("LLM input generation completed successfully")
-
-
-def generate_fuzzy_dataset():
-    dataset = _load_dataset()
-    baseline_pii = dataset[
-        (dataset["category"] == "positive")
-        & (dataset["uid"] == dataset["input_id"])
-    ].copy()
-    next_uid = dataset["uid"].max() + 1
-
-    datasets = []
-    for technique in FUZZY_TECHNIQUES:
-        _data = baseline_pii.copy()
-        _data["input_id"] = _data["uid"]
-        _data["category"] = "positive"
-        is_baseline = technique == ["baseline"]
-        _data["attack_target"] = _data.apply(
-            lambda _, t=technique: None if is_baseline else {"pii": t}, axis=1,
-        )
-        _data[["llm_input", "pii_spans"]] = _data.apply(
-            lambda row: pii_fuzzer(
-                llm_input=row["llm_input"],
-                spans=row["pii_spans"],
-                chosen_techniques=technique,
-            ),
-            axis=1,
-            result_type="expand",
-        )
-        datasets.append(_data)
-
-    fuzzy = concat(datasets, ignore_index=True)
-    fuzzy["uid"] = range(next_uid, next_uid + len(fuzzy))
-
-    combined = concat([dataset, fuzzy], ignore_index=True)
-    _save_dataset(combined)
-    logger.info("Fuzzy dataset generation completed successfully")
-
-
-def generate_fuzzy_adv_dataset():
-    dataset = _load_dataset()
-    # Fuzzy-derived rows: positive category with input_id != uid
-    fuzzy = dataset[
-        (dataset["category"] == "positive")
-        & (dataset["uid"] != dataset["input_id"])
-    ].copy()
-    next_uid = dataset["uid"].max() + 1
-
-    datasets = []
-    for technique in ADV_CONTENT_TECHNIQUES:
-        _data = fuzzy.copy()
-        _data["category"] = "positive"
-        _data["attack_target"] = _data["attack_target"].apply(
-            lambda target: {
-                "pii": (target if isinstance(target, dict) else {}).get("pii", []),
-                "context": technique,
-            },
-        )
-        # Drop rows where pii is empty — context attacks require a pii target
-        _data = _data[_data["attack_target"].apply(
-            lambda t: len(t.get("pii", [])) > 0,
-        )]
-        _data[["llm_input", "pii_spans"]] = _data.apply(
-            lambda row: adversarial_content(
-                llm_input=row["llm_input"],
-                spans=row["pii_spans"],
-                chosen_techniques=technique,
-            ),
-            axis=1,
-            result_type="expand",
-        )
-        datasets.append(_data)
-
-    # Neural Prompt-to-Prompt
-    technique = ["neural_prompt_to_prompt"]
-    baseline_pii = dataset[
-        (dataset["category"] == "positive")
-        & (dataset["uid"] == dataset["input_id"])
-    ].copy()
-    _data = baseline_pii.copy()
-    _data["input_id"] = _data["uid"]
-    _data[["llm_input", "pii_spans"]] = _data.apply(
-        lambda row: llm_pii_fuzzer(
-            llm_input=row["llm_input"],
-            spans=row["pii_spans"],
-            few_shots=False,
-        ),
-        axis=1,
-        result_type="expand",
-    )
-    _data["attack_target"] = _data.apply(
-        lambda _: {"pii": technique, "context": technique}, axis=1,
-    )
-    _data["category"] = "positive"
-    datasets.append(_data)
-
-    adv = concat(datasets, ignore_index=True)
-    adv["uid"] = range(next_uid, next_uid + len(adv))
-
-    combined = concat([dataset, adv], ignore_index=True)
-    _save_dataset(combined)
-    logger.info("Adversarial dataset generation completed successfully")
-
+# ── Detector dispatch table ─────────────────────────────────────────
 
 _DETECTOR_DISPATCH = {
     "presidio": lambda data, **_: data.apply(presidio_pii_analyzer),
@@ -247,7 +38,8 @@ _DETECTOR_DISPATCH = {
     ),
     **{
         name: (lambda data, _name=name, **_: Series(
-            gliner_pii_detector_batch(data.tolist(), model_name=_name), index=data.index,
+            gliner_pii_detector_batch(data.tolist(), model_name=_name),
+            index=data.index,
         ))
         for name in GLINER_MODELS
     },
@@ -275,9 +67,16 @@ _DETECTOR_DISPATCH = {
     "pii-shield": lambda data, **_: data.apply(_pii_shield_detect),
 }
 
+_SLM_MODELS = {
+    *LLAMA_GUARD_MODELS,
+    *QWEN_GUARD_MODELS,
+    "nemotron-content-safety-4b",
+    "wildguard-7b",
+    "gpt-4o-mini",
+}
+
 
 def _pii_shield_detect(text):
-    """Run PII Shield cascade on a single text."""
     from pii_shield import guard
     from detectors.guards.qwen_guard import classify_pii as qwen_classify
     result = guard(text, slm_fn=qwen_classify, slm_name="qwen-guard-0.6b")
@@ -288,30 +87,7 @@ def _pii_shield_detect(text):
     return []
 
 
-_SPAN_KEY_FIELDS = ("value", "start", "end", "type")
-
-
-def _deduplicate_spans(spans: list[dict]) -> list[dict]:
-    seen = set()
-    unique = []
-    for span in spans:
-        key = tuple(span.get(f) for f in _SPAN_KEY_FIELDS)
-        if key not in seen:
-            seen.add(key)
-            unique.append({f: span[f] for f in _SPAN_KEY_FIELDS if f in span})
-    return unique
-
-
-# Models that are LLM/SLM-based classifiers — they understand natural language
-# and are harmed by aggressive text normalization.
-_SLM_MODELS = {
-    *LLAMA_GUARD_MODELS,
-    *QWEN_GUARD_MODELS,
-    "nemotron-content-safety-4b",
-    "wildguard-7b",
-    "gpt-4o-mini",
-}
-
+# ── Prediction processing ───────────────────────────────────────────
 
 def process_predictions(
     data: DataFrame, model: str, logprobs: bool,
@@ -333,13 +109,13 @@ def process_predictions(
     return _DETECTOR_DISPATCH[base_model](input_col, logprobs=logprobs)
 
 
+# ── Prediction I/O ──────────────────────────────────────────────────
+
 def _model_predictions_path(model: str) -> Path:
-    """Per-model predictions file: datasets/predictions/<model>.csv"""
     return PREDICTIONS_DIR / f"{model}.csv"
 
 
 def _append_model_predictions(model: str, rows: list[dict]):
-    """Append prediction rows to the per-model CSV file."""
     if not rows:
         return
     PREDICTIONS_DIR.mkdir(parents=True, exist_ok=True)
@@ -352,15 +128,10 @@ def _append_model_predictions(model: str, rows: list[dict]):
 
 
 def _read_model_uids(model: str) -> set:
-    """Read UIDs already on disk for a model.
-
-    Checks the per-model CSV first, then falls back to predictions.csv.
-    """
     path = _model_predictions_path(model)
     if path.exists():
         try:
-            df = read_csv(path, usecols=["uid"])
-            return set(df["uid"].tolist())
+            return set(read_csv(path, usecols=["uid"])["uid"].tolist())
         except Exception:
             return set()
     if PREDICTIONS_PATH.exists():
@@ -373,34 +144,23 @@ def _read_model_uids(model: str) -> set:
 
 
 def _aggregate_predictions():
-    """Upsert all per-model CSVs into predictions.csv.
-
-    Reads the existing predictions.csv (if any), replaces models that have
-    a per-model file with the file's content, and keeps models that don't
-    have a per-model file unchanged.
-    """
     if not PREDICTIONS_DIR.exists():
         return
-
     model_files = list(PREDICTIONS_DIR.glob("*.csv"))
     if not model_files:
         return
 
-    # Read existing predictions (models without per-model files stay).
     existing = read_csv(PREDICTIONS_PATH) if PREDICTIONS_PATH.exists() else DataFrame()
 
-    # Build set of models being upserted from per-model files.
     new_parts = []
     upserted_models = set()
     for path in model_files:
         try:
-            part = read_csv(path)
-            new_parts.append(part)
+            new_parts.append(read_csv(path))
             upserted_models.add(path.stem)
         except Exception:
             logger.warning(f"Failed to read {path}, skipping")
 
-    # Keep rows from existing predictions for models NOT being upserted.
     if not existing.empty and upserted_models:
         kept = existing[~existing["model"].isin(upserted_models)]
     else:
@@ -416,7 +176,6 @@ def _aggregate_predictions():
 
 
 def _cleanup_prediction_parts():
-    """Remove per-model CSV files after successful aggregation."""
     if PREDICTIONS_DIR.exists():
         for f in PREDICTIONS_DIR.glob("*.csv"):
             f.unlink()
@@ -424,22 +183,11 @@ def _cleanup_prediction_parts():
         logger.info("Cleaned up per-model prediction files")
 
 
-def _verify_predictions(
-    det: dict,
-    checkpoint,
-    expected_uids: set,
-):
-    """Verify per-model prediction files against checkpoint state.
-
-    Reads each completed model's CSV and checks UIDs against the expected
-    set. Models with missing UIDs get their checkpoint reset so the pipeline
-    resumes only the missing rows.
-    """
+def _verify_predictions(det, checkpoint, expected_uids):
     completed = det.get("completed", [])
     if not completed:
         return
 
-    # Use presidio UIDs as reference if its file exists, else dataset UIDs.
     presidio_uids = _read_model_uids("presidio")
     reference_uids = presidio_uids if presidio_uids else expected_uids
 
@@ -450,7 +198,6 @@ def _verify_predictions(
         if not missing:
             continue
         completed.remove(model)
-        # Seed checkpoint with existing UIDs so pipeline resumes the gap.
         checkpoint.data["detection"]["in_progress"] = {
             "model": model,
             "processed_uids": sorted(model_uids),
@@ -465,10 +212,11 @@ def _verify_predictions(
             f"Verification: {model} has {have}/{total} UIDs, "
             f"{n_missing} missing — will resume"
         )
-
     checkpoint.data["detection"]["completed"] = completed
     checkpoint._save()
 
+
+# ── Main pipeline ───────────────────────────────────────────────────
 
 def pii_detection_pipeline(
     models: list[str],
@@ -483,44 +231,35 @@ def pii_detection_pipeline(
         print_model_start,
     )
 
-    dataset = _load_dataset()
+    dataset = read_csv(DATASET_PATH).apply(infer_json)
     total_rows = len(dataset)
     skipped_models = set()
     prev_base = None
 
-    expected_uids = set(dataset["uid"].tolist())
-
     if checkpoint:
         det = checkpoint.get_detection_state()
         skipped_models = set(det["skipped"].keys())
-        _verify_predictions(det, checkpoint, expected_uids)
+        _verify_predictions(det, checkpoint, set(dataset["uid"].tolist()))
 
-    # Upsert any existing per-model files into predictions.csv on startup.
     _aggregate_predictions()
 
     for idx, model in enumerate(models):
         base_model = model.removesuffix("-defend")
 
-        # Skip completed models
         if checkpoint and checkpoint.is_done(model):
             print_model_skip(model)
             prev_base = base_model
             continue
 
-        # Skip models marked as failed
         if model in skipped_models:
             prev_base = base_model
             continue
 
-        # Free memory when switching to a different base model.
         if prev_base is not None and base_model != prev_base:
             unload_models()
         prev_base = base_model
 
-        # Check for partially processed model (batch-level resume).
-        # Read UIDs already on disk for this model's file.
         done_uids = _read_model_uids(model)
-
         remaining = dataset[~dataset["uid"].isin(done_uids)] if done_uids else dataset
         n_remaining = len(remaining)
 
@@ -577,16 +316,12 @@ def pii_detection_pipeline(
                 perplexity = preds["perplexity"]
             else:
                 pred_spans = preds
-                perplexity = Series(
-                    [None] * len(preds), index=preds.index,
-                )
+                perplexity = Series([None] * len(preds), index=preds.index)
 
             rows = [
                 {
-                    "uid": uid,
-                    "model": model,
-                    "prediction": pred,
-                    "perplexity": perp,
+                    "uid": uid, "model": model,
+                    "prediction": pred, "perplexity": perp,
                 }
                 for uid, pred, perp in zip(
                     batch_df["uid"], pred_spans, perplexity,
@@ -611,8 +346,6 @@ def pii_detection_pipeline(
         _aggregate_predictions()
         print_model_done(model, elapsed)
 
-        # Proactively unload if the next model uses a different base,
-        # so memory is freed immediately instead of at next iteration.
         next_base = None
         for upcoming in models[idx + 1:]:
             if upcoming not in skipped_models:
@@ -621,13 +354,9 @@ def pii_detection_pipeline(
         if next_base is not None and next_base != base_model:
             unload_models()
 
-    # Final cleanup.
     unload_models()
-
-    # Final upsert.
     _aggregate_predictions()
 
-    # Only clean up per-model files when ALL configured models are done.
     from config import Config as _Cfg
     all_configured = set(_Cfg.MODELS)
     if checkpoint and all_configured <= (
