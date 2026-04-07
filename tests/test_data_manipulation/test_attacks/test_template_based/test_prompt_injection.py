@@ -280,7 +280,7 @@ class TestEducationalFramingEndToEnd:
     def test_original_text_verbatim_at_end(self, pii_id):
         text, spans = PII_CASES[pii_id]
         result, _ = adversarial_content(
-            text, spans, ["prompt_injection_6"],
+            text, spans, ["prompt_injection_5"],
         )
         assert result.endswith(text)
 
@@ -288,7 +288,7 @@ class TestEducationalFramingEndToEnd:
     def test_pii_value_preserved(self, pii_id):
         text, spans = PII_CASES[pii_id]
         result, _ = adversarial_content(
-            text, spans, ["prompt_injection_6"],
+            text, spans, ["prompt_injection_5"],
         )
         assert spans[0]["value"] in result
 
@@ -296,7 +296,7 @@ class TestEducationalFramingEndToEnd:
     def test_span_offsets_correct(self, pii_id):
         text, spans = PII_CASES[pii_id]
         result, new_spans = adversarial_content(
-            text, spans, ["prompt_injection_6"],
+            text, spans, ["prompt_injection_5"],
         )
         for s in new_spans:
             assert result[s["start"]:s["end"]] == s["value"], (
@@ -310,7 +310,7 @@ class TestEducationalFramingEndToEnd:
         """The PII type is identifiable from the output text."""
         text, spans = PII_CASES[pii_id]
         result, _ = adversarial_content(
-            text, spans, ["prompt_injection_6"],
+            text, spans, ["prompt_injection_5"],
         )
         keywords = {
             "ssn": ["ssn", "social security"],
@@ -325,12 +325,12 @@ class TestEducationalFramingEndToEnd:
         )
 
     def test_empty_text_unchanged(self):
-        result, spans = adversarial_content("", [], ["prompt_injection_6"])
+        result, spans = adversarial_content("", [], ["prompt_injection_5"])
         assert result == ""
 
     def test_empty_spans_unchanged(self):
         result, _ = adversarial_content(
-            "Hello.", [], ["prompt_injection_6"],
+            "Hello.", [], ["prompt_injection_5"],
         )
         assert result == "Hello."
 
@@ -342,7 +342,7 @@ class TestEducationalFramingEndToEnd:
              "type": "email"},
         ]
         result, new_spans = adversarial_content(
-            text, spans, ["prompt_injection_6"],
+            text, spans, ["prompt_injection_5"],
         )
         for s in new_spans:
             assert result[s["start"]:s["end"]] == s["value"]
@@ -358,14 +358,11 @@ class TestCombinedAttacks:
     """
 
     def test_educational_plus_few_shot(self):
-        """educational_framing + PI4 (FewShotSafe): the educational
-        frame makes PII look like a format example, then few-shot
-        examples prime the model to classify it as safe.
-        """
+        """EducationalFraming (PI5) + FewShotSafe (PI3)."""
         text, spans = PII_CASES["ssn"]
         result, new_spans = adversarial_content(
             text, spans,
-            ["prompt_injection_6", "prompt_injection_4"],
+            ["prompt_injection_5", "prompt_injection_3"],
         )
         assert "219-09-9999" in result
         assert "SAFE" in result
@@ -374,13 +371,11 @@ class TestCombinedAttacks:
             assert result[s["start"]:s["end"]] == s["value"]
 
     def test_educational_plus_hypothetical(self):
-        """educational_framing + PI5 (Hypothetically): educational
-        context + hypothetical framing double the camouflage.
-        """
+        """EducationalFraming (PI5) + Hypothetically (PI4)."""
         text, spans = PII_CASES["ssn"]
         result, new_spans = adversarial_content(
             text, spans,
-            ["prompt_injection_6", "prompt_injection_5"],
+            ["prompt_injection_5", "prompt_injection_4"],
         )
         assert "219-09-9999" in result
         assert "hypothetically" in result.lower()
