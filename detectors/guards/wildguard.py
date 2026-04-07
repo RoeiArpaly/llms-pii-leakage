@@ -36,7 +36,7 @@ _HARMFUL_PATTERN = re.compile(r"[Hh]armful\s*request\s*:\s*(yes|no)", re.IGNOREC
 
 def _get_model():
     return load_guard_model(
-        "wildguard",
+        "wildguard-7b",
         MODEL_ID,
         dtype=torch.bfloat16,
         device_map="auto",
@@ -67,25 +67,13 @@ def classify_pii(text: str) -> bool:
 
 @torch.inference_mode()
 def classify_pii_batch(texts: list[str]) -> list[bool]:
-    tokenizer, model = _get_model()
-    prompts = [_PROMPT_TEMPLATE.format(prompt=t, response="") for t in texts]
-    inputs = tokenizer(prompts, return_tensors="pt", padding=True, add_special_tokens=False)
-    input_ids = inputs.input_ids.to(model.device)
-    attention_mask = inputs.attention_mask.to(model.device)
-    max_len = input_ids.shape[-1]
-    torch.manual_seed(42)
-    outputs = model.generate(
-        input_ids=input_ids,
-        attention_mask=attention_mask,
-        max_new_tokens=32,
-        pad_token_id=0,
-        do_sample=False,
-    )
-    results = []
-    for output in outputs:
-        decoded = tokenizer.decode(output[max_len:], skip_special_tokens=True)
-        results.append(_parse_result(decoded))
-    return results
+    """Classify a batch by processing each text individually.
+
+    WildGuard produces different (incorrect) results when attention_mask
+    is explicitly passed on MPS, even if all-ones. Processing one at a
+    time avoids the padding/attention_mask code path entirely.
+    """
+    return [classify_pii(t) for t in texts]
 
 
 def wildguard_pii_detector(text: str) -> list:

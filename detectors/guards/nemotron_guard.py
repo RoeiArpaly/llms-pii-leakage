@@ -117,6 +117,7 @@ def classify_pii_batch(texts: list[str]) -> list[bool]:
         all_inputs.append(inputs["input_ids"][0])
 
     padded, attention_mask = pad_and_stack(all_inputs, processor.tokenizer.pad_token_id)
+    del all_inputs
     return generate_and_decode(
         model, processor, padded, attention_mask,
         max_new_tokens=64, parse_fn=_parse_result, log_prefix="Nemotron Guard",

@@ -81,6 +81,7 @@ def classify_pii_batch(
         for t in texts
     ]
     padded, attention_mask = pad_and_stack(all_inputs, tokenizer.pad_token_id)
+    del all_inputs
     return generate_and_decode(
         model, tokenizer, padded, attention_mask,
         max_new_tokens=128, parse_fn=_has_pii,

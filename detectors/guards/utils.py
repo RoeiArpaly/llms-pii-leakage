@@ -105,6 +105,7 @@ def pad_and_stack(
     return padded, attention_mask
 
 
+@torch.inference_mode()
 def generate_and_decode(
     model,
     tokenizer_or_processor,
@@ -141,10 +142,13 @@ def generate_and_decode(
 
     results = []
     for output in outputs:
-        generated = output[max_len:]
-        text = decode(generated, skip_special_tokens=True).strip()
+        text = decode(output[max_len:], skip_special_tokens=True).strip()
         logger.debug(f"{log_prefix} result: {text}")
         results.append(parse_fn(text))
+
+    del outputs, padded, attention_mask
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        torch.mps.empty_cache()
     return results
 
 
@@ -187,5 +191,6 @@ def guard_pii_detector_batch(
                 all_results[start + local_idx] = [
                     {"value": None, "start": None, "end": None, "type": "pii"},
                 ]
+        del flags
 
     return Series(all_results, index=data.index)

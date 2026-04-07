@@ -100,6 +100,7 @@ def classify_pii_batch(texts: list[str], model_name: str = "llama-guard-3-1b") -
     padded, attention_mask = pad_and_stack(
         all_inputs, tokenizer.pad_token_id,
     )
+    del all_inputs
     return generate_and_decode(
         model, tokenizer, padded, attention_mask,
         max_new_tokens=20, parse_fn=_parse_result, log_prefix="Llama Guard",
