@@ -103,11 +103,12 @@ def styled_table(df: DataFrame,
 
 # ── Section config ───────────────────────────────────────────────────────────
 
+_PERF_METRICS = ["F1", "Recall", "Precision"]
+
 DATA_SECTIONS = [
     {"id": "fuzzy", "title": "PII-Level Attacks",
      "key": "fuzzy",
      "index_col": "fuzzy_techniques",
-     "metric": "F1",
      "desc": "Impact of PII-level adversarial "
              "transformations (homoglyph, chunking, "
              "emojify, etc.) on detector recall."},
@@ -115,7 +116,6 @@ DATA_SECTIONS = [
      "title": "Content-Level Attacks",
      "key": "adv",
      "index_col": "adv_content_techniques",
-     "metric": "F1",
      "desc": "Impact of content-level attacks "
              "(supportive context, prompt injection, "
              "affixes) combined with PII-level "
@@ -167,7 +167,15 @@ def _build_views_for_split(
     df: DataFrame, metric: str, index_col: str | None,
 ) -> dict[str, str]:
     """Build table/heatmap/radar/line views for a df."""
-    views = {"table": styled_table(df)}
+    # Table: keep only Model, index_col, and the selected metric; sort by it
+    table_cols = ["Model"]
+    if index_col and index_col in df.columns:
+        table_cols.append(index_col)
+    table_cols.append(metric)
+    table_df = df[[c for c in table_cols if c in df.columns]].copy()
+    if metric in table_df.columns:
+        table_df = table_df.sort_values(metric, ascending=False)
+    views = {"table": styled_table(table_df)}
 
     if index_col and index_col in df.columns:
         fig = heatmap(df, metric, index_col)
@@ -196,7 +204,7 @@ def _build_views_for_split(
 def _render_perf_section_body(
     section: dict, df: DataFrame | None,
 ) -> str:
-    """Build per-view content, split into Base/Shield."""
+    """Build per-view content for each metric, split into Base/Shield."""
     desc = section.get("desc", "")
     desc_html = (
         f'<p class="section-desc">{desc}</p>'
@@ -218,63 +226,84 @@ def _render_perf_section_body(
             for v in _VIEW_TYPES
         )
 
-    metric = section["metric"]
     index_col = section["index_col"]
-
     base_df = df[~df["Model"].str.endswith("-defend")]
     shield_df = _strip_defend(
         df[df["Model"].str.endswith("-defend")],
     )
 
-    base_views = _build_views_for_split(
-        base_df, metric, index_col,
+    _BASE_LABEL = (
+        '<h4 style="margin:0.5rem 0 0.4rem;'
+        'font-size:0.85rem;'
+        'color:var(--text-muted)">Base Models</h4>'
     )
-    shield_views = _build_views_for_split(
-        shield_df, metric, index_col,
+    _SHIELD_LABEL = (
+        '<h4 style="margin:0.5rem 0 0.4rem;'
+        'font-size:0.85rem;'
+        'color:var(--text-muted)">Shield Models</h4>'
     )
-
-    # Determine which view types have content
-    available_types = set()
-    for vtype in _VIEW_TYPES:
-        if (base_views.get(vtype)
-                or shield_views.get(vtype)):
-            available_types.add(vtype)
 
     panels = []
-    for vtype in _VIEW_TYPES:
-        # Skip chart views that have no content
-        if vtype not in available_types:
-            continue
-        display = (
-            "block" if vtype == "table" else "none"
+    for metric in _PERF_METRICS:
+        base_views = _build_views_for_split(
+            base_df, metric, index_col,
         )
-        parts = [desc_html]
-
-        bv = base_views.get(vtype)
-        sv = shield_views.get(vtype)
-        if bv:
-            parts.append(
-                '<h4 style="margin:0.5rem 0 0.4rem;'
-                'font-size:0.85rem;'
-                'color:var(--text-muted)">'
-                'Base Models</h4>'
-            )
-            parts.append(bv)
-        if sv:
-            parts.append(
-                '<h4 style="margin:1rem 0 0.4rem;'
-                'font-size:0.85rem;'
-                'color:var(--text-muted)">'
-                'Shield Models</h4>'
-            )
-            parts.append(sv)
-
-        panels.append(
-            f'<div class="perf-view" '
-            f'data-perf-view="{vtype}" '
-            f'style="display:{display}">'
-            f'{"".join(parts)}</div>'
+        shield_views = _build_views_for_split(
+            shield_df, metric, index_col,
         )
+
+        available_types = set()
+        for vtype in _VIEW_TYPES:
+            if (base_views.get(vtype)
+                    or shield_views.get(vtype)):
+                available_types.add(vtype)
+
+        for vtype in _VIEW_TYPES:
+            if vtype not in available_types:
+                continue
+            is_default = (
+                vtype == "table"
+                and metric == _PERF_METRICS[0]
+            )
+            display = "block" if is_default else "none"
+
+            bv = base_views.get(vtype)
+            sv = shield_views.get(vtype)
+
+            if vtype == "table":
+                # Tables stacked vertically
+                parts = [desc_html]
+                if bv:
+                    parts.append(_BASE_LABEL + bv)
+                if sv:
+                    parts.append(_SHIELD_LABEL + sv)
+                content = "".join(parts)
+            else:
+                # Charts side by side
+                halves = []
+                if bv:
+                    halves.append(
+                        f'<div style="flex:1;min-width:0">'
+                        f'{_BASE_LABEL}{bv}</div>'
+                    )
+                if sv:
+                    halves.append(
+                        f'<div style="flex:1;min-width:0">'
+                        f'{_SHIELD_LABEL}{sv}</div>'
+                    )
+                content = (
+                    desc_html
+                    + f'<div style="display:flex;gap:1.5rem;'
+                    f'flex-wrap:wrap">{"".join(halves)}</div>'
+                )
+
+            panels.append(
+                f'<div class="perf-view" '
+                f'data-perf-view="{vtype}" '
+                f'data-perf-metric="{metric}" '
+                f'style="display:{display}">'
+                f'{content}</div>'
+            )
     return "".join(panels)
 
 
@@ -289,6 +318,21 @@ def render_performance_page(
         '<label class="toggle-label">'
         '<input type="checkbox" id="interactive-toggle"'
         ' checked> Interactive charts</label>'
+    )
+
+    # Metric toggle
+    metric_btns = []
+    for m in _PERF_METRICS:
+        active = " active" if m == _PERF_METRICS[0] else ""
+        metric_btns.append(
+            f'<button class="tab-btn perf-metric-btn'
+            f'{active}" data-perf-metric="{m}">'
+            f'{m}</button>'
+        )
+    metric_bar = (
+        f'<div class="view-bar" '
+        f'style="margin-bottom:0.8rem">'
+        f'{"".join(metric_btns)}</div>'
     )
 
     # Shared view bar
@@ -328,8 +372,10 @@ def render_performance_page(
         f'font-size:1.1rem;font-weight:600">'
         f'Detection Performance</h2>'
         f'{view_bar}</div>'
-        f'<div style="margin-top:0.4rem">'
-        f'{toggle}</div></div>'
+        f'<div style="display:flex;justify-content:'
+        f'space-between;align-items:center;'
+        f'margin-top:0.4rem">'
+        f'{metric_bar}{toggle}</div></div>'
         f'{"".join(cards)}'
         f'</div>'
     )
@@ -656,18 +702,69 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    /* ── Shared performance view switcher ── */
+    /* ── Performance metric + view switcher ── */
+    function getActivePerfMetric() {
+        var btn = document.querySelector('.perf-metric-btn.active');
+        return btn ? btn.getAttribute('data-perf-metric') : 'F1';
+    }
+    function getActivePerfView() {
+        var btn = document.querySelector('.perf-view-btn.active');
+        return btn ? btn.getAttribute('data-perf-target') : 'table';
+    }
+    function syncPerfPanels() {
+        var metric = getActivePerfMetric();
+        var view = getActivePerfView();
+        var allViews = document.querySelectorAll('.perf-view');
+        for (var j = 0; j < allViews.length; j++) {
+            var m = allViews[j].getAttribute('data-perf-metric') === metric;
+            var v = allViews[j].getAttribute('data-perf-view') === view;
+            allViews[j].style.display = (m && v) ? 'block' : 'none';
+        }
+        setTimeout(initPlotly, 100);
+    }
+
+    var perfMetricBtns = document.querySelectorAll('.perf-metric-btn');
+    for (var i = 0; i < perfMetricBtns.length; i++) {
+        perfMetricBtns[i].addEventListener('click', function() {
+            for (var j = 0; j < perfMetricBtns.length; j++) perfMetricBtns[j].classList.remove('active');
+            this.classList.add('active');
+            syncPerfPanels();
+        });
+    }
+
     var perfBtns = document.querySelectorAll('.perf-view-btn');
     for (var i = 0; i < perfBtns.length; i++) {
         perfBtns[i].addEventListener('click', function() {
-            var view = this.getAttribute('data-perf-target');
-            /* Update button states */
             for (var j = 0; j < perfBtns.length; j++) perfBtns[j].classList.remove('active');
             this.classList.add('active');
-            /* Toggle all perf-view panels across all cards */
-            var allViews = document.querySelectorAll('.perf-view');
-            for (var j = 0; j < allViews.length; j++) {
-                allViews[j].style.display = allViews[j].getAttribute('data-perf-view') === view ? 'block' : 'none';
+            syncPerfPanels();
+        });
+    }
+
+    /* ── FP Analysis tabs ── */
+    var fpBtns = document.querySelectorAll('.fp-tab');
+    for (var i = 0; i < fpBtns.length; i++) {
+        fpBtns[i].addEventListener('click', function() {
+            var target = this.getAttribute('data-fp-target');
+            for (var j = 0; j < fpBtns.length; j++) fpBtns[j].classList.remove('active');
+            this.classList.add('active');
+            var panels = document.querySelectorAll('.fp-panel');
+            for (var j = 0; j < panels.length; j++) {
+                panels[j].style.display = panels[j].getAttribute('data-fp-panel') === target ? 'block' : 'none';
+            }
+        });
+    }
+
+    /* ── Model Comparison metric toggle ── */
+    var compBtns = document.querySelectorAll('.comp-metric-btn');
+    for (var i = 0; i < compBtns.length; i++) {
+        compBtns[i].addEventListener('click', function() {
+            var metric = this.getAttribute('data-comp-metric');
+            for (var j = 0; j < compBtns.length; j++) compBtns[j].classList.remove('active');
+            this.classList.add('active');
+            var panels = document.querySelectorAll('.comp-panel');
+            for (var j = 0; j < panels.length; j++) {
+                panels[j].style.display = panels[j].getAttribute('data-comp-metric') === metric ? 'block' : 'none';
             }
             setTimeout(initPlotly, 100);
         });
@@ -812,14 +909,27 @@ document.addEventListener('DOMContentLoaded', function() {
 
         function renderSample(uid, sample, pred) {
             var vc = pred.r.toLowerCase();
+            var isDefend = curModel.indexOf('-defend') >= 0;
+            var isLight = models[curModel] && models[curModel].light;
+            var text, gt;
+            if (!isDefend) {
+                text = sample.x;
+                gt = sample.g;
+            } else if (isLight) {
+                text = sample.dl || sample.d || sample.x;
+                gt = sample.dlg || sample.dg || sample.g;
+            } else {
+                text = sample.d || sample.x;
+                gt = sample.dg || sample.g;
+            }
             var h = '<div class="insp-sample">';
             h += '<div class="insp-header">';
             h += '<span style="font-size:0.73rem;color:var(--text-muted)">Sample #' + uid + '</span>';
             h += '<span class="insp-badge insp-badge-' + vc + '">' + pred.r + '</span>';
             h += '</div>';
-            h += '<div class="insp-text">' + highlightText(sample.x, sample.g, pred.p) + '</div>';
+            h += '<div class="insp-text">' + highlightText(text, gt, pred.p) + '</div>';
             h += '<div class="insp-meta">';
-            h += formatSpans(sample.g, 'Expected', 'insp-meta-expected');
+            h += formatSpans(gt, 'Expected', 'insp-meta-expected');
             h += formatSpans(pred.p, 'Detected', 'insp-meta-detected');
             h += '</div></div>';
             return h;
@@ -833,12 +943,41 @@ document.addEventListener('DOMContentLoaded', function() {
             {segment: 'Direct + Indirect', label: 'Direct + Indirect Attack Positives', verdicts: ['FN', 'TP'], subLabels: {FN: 'False Negatives \u2014 PII missed', TP: 'True Positives \u2014 PII correctly detected'}}
         ];
 
+        var searchBox = document.getElementById('inspector-search');
+        var searchQuery = '';
+        if (searchBox) {
+            var debounce = null;
+            searchBox.addEventListener('input', function() {
+                clearTimeout(debounce);
+                debounce = setTimeout(function() {
+                    searchQuery = searchBox.value.toLowerCase().trim();
+                    renderInspector();
+                }, 250);
+            });
+        }
+
+        function matchesSearch(uid, sample, pred) {
+            if (!searchQuery) return true;
+            if (uid.toString().indexOf(searchQuery) >= 0) return true;
+            if (sample.x.toLowerCase().indexOf(searchQuery) >= 0) return true;
+            for (var i = 0; i < sample.g.length; i++) {
+                if ((sample.g[i].v || '').toLowerCase().indexOf(searchQuery) >= 0) return true;
+                if ((sample.g[i].t || '').toLowerCase().indexOf(searchQuery) >= 0) return true;
+            }
+            for (var i = 0; i < pred.p.length; i++) {
+                if ((pred.p[i].v || '').toLowerCase().indexOf(searchQuery) >= 0) return true;
+            }
+            return false;
+        }
+
+        /* Track expanded limits per sub-section */
+        var showLimits = {};
+
         function renderInspector() {
             var container = document.getElementById('inspector-sections');
             var preds = models[curModel] ? models[curModel].p : {};
             var uids = Object.keys(samples).sort(function(a,b){ return parseInt(a)-parseInt(b); });
 
-            /* Group samples */
             var grouped = {};
             for (var si = 0; si < sectionDefs.length; si++) {
                 var sd = sectionDefs[si];
@@ -850,6 +989,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 var s = samples[uid];
                 var p = preds[uid];
                 if (!p) continue;
+                if (!matchesSearch(uid, s, p)) continue;
                 if (grouped[s.c] && grouped[s.c][p.r]) {
                     grouped[s.c][p.r].push({uid: uid, sample: s, pred: p});
                 }
@@ -869,7 +1009,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 if (total === 0) continue;
 
-                html += '<div class="insp-section">';
+                var isOpen = searchQuery ? ' open' : '';
+                html += '<div class="insp-section' + isOpen + '">';
                 html += '<div class="insp-section-header" onclick="this.parentElement.classList.toggle(\'open\')">';
                 html += '<div style="display:flex;align-items:center;gap:0.5rem">';
                 html += '<span class="insp-section-chevron">\u25B6</span>';
@@ -885,19 +1026,44 @@ document.addEventListener('DOMContentLoaded', function() {
                     var v = sd.verdicts[vi];
                     var items = grp[v];
                     if (items.length === 0) continue;
+                    var limitKey = sd.segment + ':' + v + ':' + curModel;
+                    var limit = showLimits[limitKey] || 20;
+                    var pageSize = 20;
+                    var page = showLimits[limitKey] || 0;
+                    var totalPages = Math.ceil(items.length / pageSize);
+                    var start = page * pageSize;
+                    var end = Math.min(start + pageSize, items.length);
                     html += '<div class="insp-sub-header">' + sd.subLabels[v] + ' (' + items.length + ')</div>';
-                    var maxShow = 20;
-                    for (var i = 0; i < Math.min(items.length, maxShow); i++) {
+                    for (var i = start; i < end; i++) {
                         html += renderSample(items[i].uid, items[i].sample, items[i].pred);
                     }
-                    if (items.length > maxShow) {
-                        html += '<p style="color:var(--text-muted);font-size:0.8rem;text-align:center;margin:0.3rem 0">... and ' + (items.length - maxShow) + ' more</p>';
+                    if (totalPages > 1) {
+                        html += '<div style="display:flex;justify-content:center;align-items:center;gap:0.5rem;margin:0.5rem 0">';
+                        if (page > 0) {
+                            html += '<button class="insp-page-btn" data-key="' + limitKey + '" data-page="' + (page - 1) + '" style="padding:0.25rem 0.8rem;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text-muted);cursor:pointer;font-size:0.78rem">&laquo; Prev</button>';
+                        }
+                        html += '<span style="font-size:0.78rem;color:var(--text-muted)">Page ' + (page + 1) + ' / ' + totalPages + '</span>';
+                        if (page < totalPages - 1) {
+                            html += '<button class="insp-page-btn" data-key="' + limitKey + '" data-page="' + (page + 1) + '" style="padding:0.25rem 0.8rem;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text-muted);cursor:pointer;font-size:0.78rem">Next &raquo;</button>';
+                        }
+                        html += '</div>';
                     }
                 }
                 html += '</div></div>';
             }
 
             container.innerHTML = html;
+
+            /* Attach pagination handlers */
+            var pageBtns = container.querySelectorAll('.insp-page-btn');
+            for (var i = 0; i < pageBtns.length; i++) {
+                pageBtns[i].addEventListener('click', function() {
+                    var key = this.getAttribute('data-key');
+                    var pg = parseInt(this.getAttribute('data-page'));
+                    showLimits[key] = pg;
+                    renderInspector();
+                });
+            }
         }
 
         renderInspector();

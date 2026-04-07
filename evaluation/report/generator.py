@@ -225,11 +225,11 @@ def _build_overview(dataset: DataFrame) -> str:
     pii_bar = ""
     if pii_type_counts:
         pii_colors = [
-            "rgba(142,68,173,0.45)",
-            "rgba(46,134,193,0.45)",
-            "rgba(22,160,133,0.45)",
-            "rgba(212,172,13,0.45)",
-            "rgba(203,67,53,0.45)",
+            "rgba(102,178,102,0.55)",
+            "rgba(178,102,178,0.55)",
+            "rgba(102,178,178,0.55)",
+            "rgba(178,153,102,0.55)",
+            "rgba(153,102,153,0.55)",
         ]
         pii_total = sum(pii_type_counts.values())
         pii_segments = [
@@ -258,7 +258,12 @@ def _build_overview(dataset: DataFrame) -> str:
         f'Total Samples</span></div>'
     )
 
-    return f'{header}{dataset_bar}{pii_bar}'
+    data_card = (
+        f'<h3 style="margin:0 0 0.5rem;font-size:0.95rem">'
+        f'Data Card</h3>'
+        f'{header}{dataset_bar}{pii_bar}'
+    )
+    return data_card
 
 
 def _build_leaderboard() -> str | None:
@@ -371,9 +376,9 @@ def _build_leaderboard() -> str | None:
     if not rows:
         return None
 
-    from evaluation.report.config import model_sort_key
-
     df = DataFrame.from_records(rows)
+
+    from evaluation.report.config import model_sort_key
 
     base_df = df[~df["Model"].str.endswith("-defend")].copy()
     base_df["_ord"] = base_df["Model"].apply(model_sort_key)
@@ -429,7 +434,8 @@ def _build_leaderboard() -> str | None:
     )
 
 
-def _build_fp_analysis() -> DataFrame | None:
+def _build_fp_analysis() -> dict[str, DataFrame] | None:
+    """Build FP tables keyed by category: 'all', 'negative', 'hard_negative'."""
     if not PREDICTIONS_PATH.exists() or not DATASET_PATH.exists():
         return None
 
@@ -437,30 +443,143 @@ def _build_fp_analysis() -> DataFrame | None:
     predictions = read_csv(PREDICTIONS_PATH).apply(infer_json)
 
     neg_uids = dataset[dataset["category"].isin(["negative", "hard_negative"])]["uid"]
-    neg_preds = predictions[predictions["uid"].isin(neg_uids)]
+    neg_preds = predictions[predictions["uid"].isin(neg_uids)].merge(
+        dataset[["uid", "category"]], on="uid", how="left",
+    )
 
     if neg_preds.empty:
         return None
 
-    rows = []
-    for model in neg_preds["model"].unique():
-        model_preds = neg_preds[neg_preds["model"] == model]
-        n_total = len(model_preds)
-        n_fp = model_preds["prediction"].apply(
-            lambda x: len(x) > 0 if isinstance(x, list) else False
-        ).sum()
-        rows.append({
-            "Model": model,
-            "Samples": n_total,
-            "False Positives": int(n_fp),
-            "FP Rate": n_fp / n_total if n_total > 0 else 0,
-            "Precision": 1 - (n_fp / n_total) if n_total > 0 else 0,
-        })
+    def _fp_table(preds: DataFrame) -> DataFrame:
+        rows = []
+        for model in preds["model"].unique():
+            mp = preds[preds["model"] == model]
+            n_total = len(mp)
+            n_fp = mp["prediction"].apply(
+                lambda x: len(x) > 0 if isinstance(x, list) else False,
+            ).sum()
+            rows.append({
+                "Model": model,
+                "Samples": n_total,
+                "False Positives": int(n_fp),
+                "FP Rate": n_fp / n_total if n_total > 0 else 0,
+                "Precision": 1 - (n_fp / n_total) if n_total > 0 else 0,
+            })
+        result = DataFrame.from_records(rows)
+        return result.sort_values("Precision", ascending=False)
+
+    tables = {"all": _fp_table(neg_preds)}
+    for cat in ["negative", "hard_negative"]:
+        subset = neg_preds[neg_preds["category"] == cat]
+        if not subset.empty:
+            tables[cat] = _fp_table(subset)
+    return tables
+
+
+def _build_defense_delta() -> DataFrame | None:
+    """Build a table showing how defense affects each model's recall.
+
+    Columns: Model, Base Recall, Shield Recall, Delta.
+    """
+    if not PREDICTIONS_PATH.exists() or not DATASET_PATH.exists():
+        return None
 
     from evaluation.report.config import model_sort_key
+
+    dataset = read_csv(DATASET_PATH).apply(infer_json)
+    predictions = read_csv(PREDICTIONS_PATH).apply(infer_json)
+
+    merged = predictions.merge(
+        dataset[["uid", "category", "pii_spans"]], on="uid", how="left",
+    )
+    pos = merged[merged["category"] == "positive"]
+    pos = pos.copy()
+    pos["has_gt"] = pos["pii_spans"].apply(
+        lambda x: len(x) > 0 if isinstance(x, list) else False,
+    )
+    pos["has_pred"] = pos["prediction"].apply(
+        lambda x: len(x) > 0 if isinstance(x, list) else False,
+    )
+    pos["tp"] = pos["has_gt"] & pos["has_pred"]
+
+    recall_by_model = pos.groupby("model")["tp"].mean()
+
+    rows = []
+    for model in recall_by_model.index:
+        if model.endswith("-defend"):
+            continue
+        defend = f"{model}-defend"
+        base_r = recall_by_model.get(model)
+        defend_r = recall_by_model.get(defend)
+        if base_r is None:
+            continue
+        rows.append({
+            "Model": model,
+            "Base Recall": base_r,
+            "Shield Recall": defend_r if defend_r is not None else None,
+            "Delta": (defend_r - base_r) if defend_r is not None else None,
+        })
+
+    if not rows:
+        return None
+
     result = DataFrame.from_records(rows)
-    result["_order"] = result["Model"].apply(model_sort_key)
-    return result.sort_values("_order").drop(columns=["_order"])
+    result["_ord"] = result["Model"].apply(model_sort_key)
+    return result.sort_values("_ord").drop(columns=["_ord"])
+
+
+def _build_fp_samples() -> str | None:
+    """Build an HTML section showing which hard negative texts trigger FPs.
+
+    Groups by model, shows the actual text of each false positive.
+    """
+    if not PREDICTIONS_PATH.exists() or not DATASET_PATH.exists():
+        return None
+
+    dataset = read_csv(DATASET_PATH).apply(infer_json)
+    predictions = read_csv(PREDICTIONS_PATH).apply(infer_json)
+
+    hn = dataset[dataset["category"] == "hard_negative"]
+    if hn.empty:
+        return None
+
+    hn_preds = predictions[predictions["uid"].isin(hn["uid"])].merge(
+        hn[["uid", "llm_input"]], on="uid", how="left",
+    )
+    hn_preds["is_fp"] = hn_preds["prediction"].apply(
+        lambda x: len(x) > 0 if isinstance(x, list) else False,
+    )
+    fps = hn_preds[hn_preds["is_fp"]]
+    if fps.empty:
+        return None
+
+    html_parts = []
+    for model in sort_models(fps["model"].unique()):
+        model_fps = fps[fps["model"] == model]
+        items = []
+        for _, row in model_fps.iterrows():
+            text = row["llm_input"]
+            if isinstance(text, str):
+                escaped = (
+                    text[:120].replace("&", "&amp;")
+                    .replace("<", "&lt;").replace(">", "&gt;")
+                )
+                items.append(
+                    f'<li style="margin-bottom:0.3rem;font-size:0.8rem">'
+                    f'<code style="color:var(--text-muted)">#{row["uid"]}</code> '
+                    f'{escaped}{"..." if len(text) > 120 else ""}</li>'
+                )
+        html_parts.append(
+            f'<div style="margin-bottom:1rem">'
+            f'<strong style="font-size:0.85rem">'
+            f'{display_name(model)}</strong>'
+            f' <span style="color:var(--text-muted);font-size:0.78rem">'
+            f'({len(model_fps)} FPs)</span>'
+            f'<ul style="margin:0.3rem 0 0 1rem;padding:0">'
+            f'{"".join(items)}</ul></div>'
+        )
+
+    return "".join(html_parts)
 
 
 def _build_pii_type_analysis() -> dict[str, DataFrame] | None:
@@ -517,22 +636,31 @@ def _build_pii_type_analysis() -> dict[str, DataFrame] | None:
             for _, row in subset.iterrows():
                 gt_spans = row["pii_spans"] if isinstance(row["pii_spans"], list) else []
                 pred_spans = row["prediction"] if isinstance(row["prediction"], list) else []
+
+                # Guard models return value=None — treat any
+                # non-empty prediction as a binary detection hit.
+                has_any_pred = len(pred_spans) > 0
                 pred_values = [
-                    s.get("value", "") for s in pred_spans if isinstance(s, dict)
+                    s.get("value") for s in pred_spans if isinstance(s, dict)
                 ]
+                is_binary = all(v is None for v in pred_values)
                 matched = set()
 
                 for s in gt_spans:
                     if not isinstance(s, dict):
                         continue
                     pii_type = s.get("type", "unknown")
-                    gt_val = s.get("value", "")
-                    found = False
-                    for pi, pv in enumerate(pred_values):
-                        if pi not in matched and pv and (gt_val in pv or pv in gt_val):
-                            found = True
-                            matched.add(pi)
-                            break
+                    if is_binary:
+                        found = has_any_pred
+                    else:
+                        gt_val = s.get("value", "")
+                        found = False
+                        for pi, pv in enumerate(pred_values):
+                            if (pi not in matched and pv
+                                    and (gt_val in pv or pv in gt_val)):
+                                found = True
+                                matched.add(pi)
+                                break
                     bucket = type_tp if found else type_fn
                     bucket[pii_type] = bucket.get(pii_type, 0) + 1
 
@@ -663,13 +791,18 @@ def _build_inspector() -> str | None:
     dataset["segment"] = dataset.apply(_segment, axis=1)
 
     # Build samples dict (shared across models)
+    from data_manipulation.defenses.preprocess import (
+        defensive_preprocess,
+        light_defensive_preprocess,
+    )
+    from evaluation.report.span_locator import locate_span_in_defended
+
     samples = {}
     for _, r in dataset.iterrows():
         uid = int(r["uid"])
         gt = r["pii_spans"]
         if not isinstance(gt, list):
             gt = []
-        # Simplify spans for JSON
         gt_clean = [
             {"v": s.get("value", ""),
              "s": s.get("start"),
@@ -677,8 +810,42 @@ def _build_inspector() -> str | None:
              "t": s.get("type", "")}
             for s in gt if isinstance(s, dict)
         ]
+        raw = r["llm_input"] or ""
+        defended_full = defensive_preprocess(raw)
+        defended_light = light_defensive_preprocess(raw)
+
+        def _build_dg(defended_text):
+            spans = []
+            for s in gt:
+                if not isinstance(s, dict):
+                    continue
+                val = s.get("value", "")
+                typ = s.get("type", "")
+                orig_s = s.get("start")
+                orig_e = s.get("end")
+                raw_fragment = (
+                    raw[orig_s:orig_e]
+                    if orig_s is not None and orig_e is not None
+                    else val
+                )
+                start, end = locate_span_in_defended(
+                    raw_fragment, defended_text, original_value=val,
+                )
+                matched = (
+                    defended_text[start:end]
+                    if start is not None else val
+                )
+                spans.append(
+                    {"v": matched, "s": start, "e": end, "t": typ},
+                )
+            return spans
+
         samples[uid] = {
-            "x": r["llm_input"] or "",
+            "x": raw,
+            "d": defended_full,
+            "dl": defended_light,
+            "dg": _build_dg(defended_full),
+            "dlg": _build_dg(defended_light),
             "g": gt_clean,
             "c": r["segment"],
         }
@@ -719,10 +886,16 @@ def _build_inspector() -> str | None:
             }
         model_preds[model] = preds
 
+    from pipelines import _SLM_MODELS
+
     inspector_data = json.dumps({
         "s": samples,
         "m": {
-            m: {"d": display_name(m), "p": p}
+            m: {
+                "d": display_name(m),
+                "p": p,
+                "light": m.removesuffix("-defend") in _SLM_MODELS,
+            }
             for m, p in model_preds.items()
         },
     }, ensure_ascii=False)
@@ -731,7 +904,7 @@ def _build_inspector() -> str | None:
 
 
 def _build_comparison_charts(report_data: dict) -> str | None:
-    """Build grouped bar charts comparing models across attack categories."""
+    """Build grouped bar charts with metric toggle (F1 / Recall / Precision)."""
     from evaluation.visualizations.visualizations import grouped_bar_plotly
 
     metrics = ["F1", "Recall", "Precision"]
@@ -740,18 +913,20 @@ def _build_comparison_charts(report_data: dict) -> str | None:
         "adv": ("Content-Level Attacks", "adv_content_techniques"),
     }
 
-    html_parts = []
+    # Build charts grouped by metric — base & shield side by side
+    metric_panels: dict[str, list[str]] = {m: [] for m in metrics}
     chart_idx = 0
     for key, (title, group_col) in sections_by_key.items():
         df = report_data.get(key)
         if df is None or df.empty:
             continue
 
-        # Split into base and shield models
         base_df = df[~df["Model"].str.endswith("-defend")]
-        shield_df = df[df["Model"].str.endswith("-defend")]
+        shield_df = df[df["Model"].str.endswith("-defend")].copy()
+        shield_df["Model"] = shield_df["Model"].str.removesuffix("-defend")
 
         for metric in metrics:
+            halves = []
             for split_label, split_df in [
                 ("Base Models", base_df),
                 ("Shield Models", shield_df),
@@ -761,17 +936,50 @@ def _build_comparison_charts(report_data: dict) -> str | None:
                 pid = f"plotly-comp-{chart_idx}"
                 chart_idx += 1
                 pj = grouped_bar_plotly(split_df, metric, group_col)
-                html_parts.append(
-                    f'<h3 style="margin:1.5rem 0 0.3rem;font-size:0.9rem">'
-                    f'{metric} — {title} ({split_label})</h3>'
+                halves.append(
+                    f'<div style="flex:1;min-width:0">'
+                    f'<h4 style="margin:0 0 0.3rem;font-size:0.85rem;'
+                    f'color:var(--text-muted)">{split_label}</h4>'
                     f'<div class="chart-wrap" data-plotly-id="{pid}">'
                     f'<div class="chart-interactive" id="{pid}" '
-                    f'style="min-height:400px"></div>'
+                    f'style="min-height:350px"></div>'
                     f'<script type="application/json" class="plotly-spec" '
-                    f'data-target="{pid}">{pj}</script></div>'
+                    f'data-target="{pid}">{pj}</script></div></div>'
+                )
+            if halves:
+                metric_panels[metric].append(
+                    f'<h3 style="margin:1.5rem 0 0.3rem;font-size:0.9rem">'
+                    f'{title}</h3>'
+                    f'<div style="display:flex;gap:1.5rem;flex-wrap:wrap">'
+                    f'{"".join(halves)}</div>'
                 )
 
-    return "\n".join(html_parts) if html_parts else None
+    if not any(metric_panels.values()):
+        return None
+
+    # Metric toggle buttons
+    btns = []
+    for m in metrics:
+        active = " active" if m == metrics[0] else ""
+        btns.append(
+            f'<button class="tab-btn comp-metric-btn{active}" '
+            f'data-comp-metric="{m}">{m}</button>'
+        )
+    bar = (
+        f'<div class="view-bar" style="margin-bottom:0.8rem">'
+        f'{"".join(btns)}</div>'
+    )
+
+    # Metric panels
+    panels = []
+    for m in metrics:
+        display = "block" if m == metrics[0] else "none"
+        panels.append(
+            f'<div class="comp-panel" data-comp-metric="{m}" '
+            f'style="display:{display}">{"".join(metric_panels[m])}</div>'
+        )
+
+    return bar + "".join(panels)
 
 
 def generate_report(output_path: Path = None, open_browser: bool = True) -> Path:
@@ -796,7 +1004,7 @@ def generate_report(output_path: Path = None, open_browser: bool = True) -> Path
         if leaderboard_html:
             leaderboard_html = (
                 '<h3 style="margin:1.5rem 0 0.5rem;font-size:0.95rem">'
-                'Detection Leaderboard</h3>'
+                'Benchmarks</h3>'
                 '<p class="section-desc">Binary detection rate across dataset segments. '
                 'Recall measures how often PII is detected; Precision measures how '
                 'often negative samples are correctly ignored.</p>'
@@ -819,24 +1027,78 @@ def generate_report(output_path: Path = None, open_browser: bool = True) -> Path
         nav_items.append('<a class="nav-pill" data-page="performance">Performance</a>')
 
     # 3. False Positive Analysis
-    fp_df = _build_fp_analysis()
-    if fp_df is not None and not fp_df.empty:
-        fp_table = styled_table(
-            fp_df,
-            col_order=["Model", "Samples", "False Positives", "FP Rate", "Precision"],
-            pct_cols=["FP Rate", "Precision"],
-        )
+    fp_tables = _build_fp_analysis()
+    if fp_tables:
+        fp_col_order = ["Model", "Samples", "False Positives", "FP Rate", "Precision"]
+        fp_pct = ["FP Rate", "Precision"]
         fp_desc = (
-            '<p class="section-desc">False positive rate on negative and hard-negative '
-            'samples. A false positive is when the detector incorrectly flags clean '
-            'text as containing PII.</p>'
+            '<p class="section-desc">False positive rate — a false positive '
+            'is when the detector incorrectly flags clean text as containing PII.</p>'
         )
+        fp_tab_labels = {
+            "all": "All Negatives",
+            "negative": "Negatives",
+            "hard_negative": "Hard Negatives",
+        }
+        fp_tabs = []
+        fp_panels = []
+        for i, (key, label) in enumerate(fp_tab_labels.items()):
+            df = fp_tables.get(key)
+            if df is None or df.empty:
+                continue
+            active = " active" if i == 0 else ""
+            display = "block" if i == 0 else "none"
+            fp_tabs.append(
+                f'<button class="tab-btn fp-tab{active}" '
+                f'data-fp-target="{key}">{label}</button>'
+            )
+            fp_panels.append(
+                f'<div class="fp-panel" data-fp-panel="{key}" '
+                f'style="display:{display}">'
+                f'{styled_table(df, col_order=fp_col_order, pct_cols=fp_pct)}'
+                f'</div>'
+            )
+        fp_bar = (
+            f'<div class="view-bar" style="margin-bottom:0.8rem">'
+            f'{"".join(fp_tabs)}</div>'
+        )
+        fp_samples_html = _build_fp_samples() or ""
+        if fp_samples_html:
+            fp_samples_html = (
+                '<h4 style="margin:1.5rem 0 0.5rem;font-size:0.88rem">'
+                'Texts Triggering False Positives</h4>'
+                + fp_samples_html
+            )
+        fp_content = fp_desc + fp_bar + "".join(fp_panels) + fp_samples_html
         sections_html.append(render_static_section(
-            "fp-analysis", "False Positive Analysis", fp_desc + fp_table,
+            "fp-analysis", "False Positive Analysis", fp_content,
         ))
         nav_items.append('<a class="nav-pill" data-page="fp-analysis">FP Analysis</a>')
 
-    # 4. Model Comparison — grouped bar charts
+    # 4. Defense Effectiveness
+    delta_df = _build_defense_delta()
+    if delta_df is not None and not delta_df.empty:
+        delta_desc = (
+            '<p class="section-desc">'
+            'How defensive preprocessing affects each model\'s recall. '
+            'Positive delta means defense helps; negative means defense '
+            'hurts. Pattern-based detectors benefit from aggressive '
+            'normalization; SLMs use a lighter defense to preserve '
+            'natural language context.</p>'
+        )
+        delta_table = styled_table(
+            delta_df,
+            col_order=["Model", "Base Recall", "Shield Recall", "Delta"],
+            pct_cols=["Base Recall", "Shield Recall", "Delta"],
+        )
+        sections_html.append(render_static_section(
+            "defense", "Defense Effectiveness", delta_desc + delta_table,
+        ))
+        nav_items.append(
+            '<a class="nav-pill" data-page="defense">Defense</a>'
+        )
+
+    # 5. Model Comparison — grouped bar charts
     comparison_html = _build_comparison_charts(report_data)
     if comparison_html:
         comp_desc = (
@@ -975,7 +1237,18 @@ def generate_report(output_path: Path = None, open_browser: bool = True) -> Path
             'green</span>.</p>'
             '<div id="inspector-model-tabs" '
             'class="sub-nav" '
-            'style="margin-bottom:1rem"></div>'
+            'style="margin-bottom:0.8rem"></div>'
+            '<div style="margin-bottom:0.8rem">'
+            '<input type="text" id="inspector-search" '
+            'placeholder='
+            '"Search by uid, text, or PII value..." '
+            'style="width:100%;padding:0.5rem 0.8rem;'
+            'border:1px solid var(--border);'
+            'border-radius:var(--radius);'
+            'background:var(--bg);color:var(--text);'
+            'font-size:0.82rem;'
+            'font-family:var(--font-body);'
+            'outline:none" /></div>'
             '<div id="inspector-sections"></div>'
             f'<script type="application/json" '
             f'id="inspector-data">'
