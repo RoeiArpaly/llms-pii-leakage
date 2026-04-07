@@ -27,6 +27,7 @@ class CheckpointManager:
     def __init__(self, path: Path = CHECKPOINT_PATH):
         self.path = path
         self.data = self._load()
+        self._migrate()
 
     # ── persistence ──────────────────────────────────────────────────────
 
@@ -48,6 +49,12 @@ class CheckpointManager:
             return json.loads(self.path.read_text())
         except (json.JSONDecodeError, OSError):
             return _deep_copy(_EMPTY)
+
+    def _migrate(self):
+        """Convert old processed_uids list to processed_count int."""
+        ip = self.data.get("detection", {}).get("in_progress")
+        if ip and "processed_uids" in ip:
+            ip["processed_count"] = len(ip.pop("processed_uids"))
 
     def _save(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -98,7 +105,7 @@ class CheckpointManager:
     def start_model(self, model: str):
         self._det["in_progress"] = {
             "model": model,
-            "processed_uids": [],
+            "processed_count": 0,
         }
         self._save()
 
@@ -117,16 +124,11 @@ class CheckpointManager:
 
     # ── batch level ──────────────────────────────────────────────────────
 
-    def get_processed_uids(self, model: str) -> set:
+    def save_batch(self, model: str, count: int):
+        """Update the processed count for the in-progress model."""
         ip = self._det.get("in_progress")
         if ip and ip.get("model") == model:
-            return set(ip.get("processed_uids", []))
-        return set()
-
-    def save_batch(self, model: str, uids: list):
-        ip = self._det.get("in_progress")
-        if ip and ip.get("model") == model:
-            ip.setdefault("processed_uids", []).extend(uids)
+            ip["processed_count"] = ip.get("processed_count", 0) + count
             self._save()
 
     # ── status reporting ─────────────────────────────────────────────────
@@ -145,7 +147,10 @@ class CheckpointManager:
 
     def in_progress_count(self) -> int:
         ip = self._det.get("in_progress")
-        return len(ip.get("processed_uids", [])) if ip else 0
+        if not ip:
+            return 0
+        val = ip.get("processed_count", ip.get("processed_uids", 0))
+        return len(val) if isinstance(val, list) else val
 
 
 def _deep_copy(d: dict) -> dict:

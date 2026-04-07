@@ -30,7 +30,10 @@ from data_manipulation.attacks.injection import (
     pii_fuzzer,
 )
 from data_manipulation.attacks.neural_prompt_to_prompt.llm import llm_pii_fuzzer
-from data_manipulation.defenses.preprocess import defensive_preprocess
+from data_manipulation.defenses.preprocess import (
+    defensive_preprocess,
+    light_defensive_preprocess,
+)
 from detectors import unload_models
 from detectors.gliner import GLINER_MODELS, gliner_pii_detector_batch
 from detectors.guards import (
@@ -260,7 +263,7 @@ _DETECTOR_DISPATCH = {
     "nemotron-content-safety-4b": lambda data, **_: guard_pii_detector_batch(
         data, nemotron_classify_pii_batch,
     ),
-    "wildguard": lambda data, **_: guard_pii_detector_batch(
+    "wildguard-7b": lambda data, **_: guard_pii_detector_batch(
         data, wildguard_classify_pii_batch,
     ),
     **{
@@ -269,7 +272,20 @@ _DETECTOR_DISPATCH = {
         ))
         for name in QWEN_GUARD_MODELS
     },
+    "pii-shield": lambda data, **_: data.apply(_pii_shield_detect),
 }
+
+
+def _pii_shield_detect(text):
+    """Run PII Shield cascade on a single text."""
+    from pii_shield import guard
+    from detectors.guards.qwen_guard import classify_pii as qwen_classify
+    result = guard(text, slm_fn=qwen_classify, slm_name="qwen-guard-0.6b")
+    if result["detected"]:
+        return result.get("spans", [
+            {"value": None, "start": None, "end": None, "type": "pii"},
+        ])
+    return []
 
 
 _SPAN_KEY_FIELDS = ("value", "start", "end", "type")
@@ -286,6 +302,17 @@ def _deduplicate_spans(spans: list[dict]) -> list[dict]:
     return unique
 
 
+# Models that are LLM/SLM-based classifiers — they understand natural language
+# and are harmed by aggressive text normalization.
+_SLM_MODELS = {
+    *LLAMA_GUARD_MODELS,
+    *QWEN_GUARD_MODELS,
+    "nemotron-content-safety-4b",
+    "wildguard-7b",
+    "gpt-4o-mini",
+}
+
+
 def process_predictions(
     data: DataFrame, model: str, logprobs: bool,
 ) -> Series:
@@ -297,7 +324,12 @@ def process_predictions(
 
     input_col = data["llm_input"].copy()
     if defend:
-        input_col = input_col.apply(defensive_preprocess)
+        preprocess_fn = (
+            light_defensive_preprocess
+            if base_model in _SLM_MODELS
+            else defensive_preprocess
+        )
+        input_col = input_col.apply(preprocess_fn)
     return _DETECTOR_DISPATCH[base_model](input_col, logprobs=logprobs)
 
 
@@ -320,15 +352,24 @@ def _append_model_predictions(model: str, rows: list[dict]):
 
 
 def _read_model_uids(model: str) -> set:
-    """Read UIDs already on disk for a model."""
+    """Read UIDs already on disk for a model.
+
+    Checks the per-model CSV first, then falls back to predictions.csv.
+    """
     path = _model_predictions_path(model)
-    if not path.exists():
-        return set()
-    try:
-        df = read_csv(path, usecols=["uid"])
-        return set(df["uid"].tolist())
-    except Exception:
-        return set()
+    if path.exists():
+        try:
+            df = read_csv(path, usecols=["uid"])
+            return set(df["uid"].tolist())
+        except Exception:
+            return set()
+    if PREDICTIONS_PATH.exists():
+        try:
+            df = read_csv(PREDICTIONS_PATH, usecols=["uid", "model"])
+            return set(df.loc[df["model"] == model, "uid"].tolist())
+        except Exception:
+            return set()
+    return set()
 
 
 def _aggregate_predictions():
@@ -479,8 +520,6 @@ def pii_detection_pipeline(
         # Check for partially processed model (batch-level resume).
         # Read UIDs already on disk for this model's file.
         done_uids = _read_model_uids(model)
-        if checkpoint:
-            done_uids |= checkpoint.get_processed_uids(model)
 
         remaining = dataset[~dataset["uid"].isin(done_uids)] if done_uids else dataset
         n_remaining = len(remaining)
@@ -499,7 +538,7 @@ def pii_detection_pipeline(
         if checkpoint:
             checkpoint.start_model(model)
             if done_uids:
-                checkpoint.save_batch(model, list(done_uids))
+                checkpoint.save_batch(model, len(done_uids))
 
         spinner = Spinner(f"{model}  0/{n_remaining} rows")
         spinner.start()
@@ -554,13 +593,13 @@ def pii_detection_pipeline(
                 )
             ]
             _append_model_predictions(model, rows)
+            n_batch = len(rows)
+            del preds, pred_spans, perplexity, rows, batch_df
+
             if checkpoint:
-                checkpoint.save_batch(model, batch_df["uid"].tolist())
-
-            processed += len(batch_df)
+                checkpoint.save_batch(model, n_batch)
+            processed += n_batch
             spinner.update(f"{model}  {processed}/{n_remaining} rows")
-
-            del preds, pred_spans, perplexity, rows
 
         if failed:
             continue

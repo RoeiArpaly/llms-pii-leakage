@@ -170,9 +170,16 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
+/.flake8
+
 /datasets/*.csv
 /datasets/*.html
 /datasets/predictions/
 /datasets/archive/
 /datasets/.run_status
 /datasets/.checkpoint.json
+
+/evaluation/report/CLAUDE.md
+/CLAUDE.md
+/BACKLOG.md
+/INSIGHTS.md
