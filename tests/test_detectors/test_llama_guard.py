@@ -29,7 +29,9 @@ def mock_llama_guard(mocker):
 def _setup_generate(mock_tokenizer, mock_model, decoded_output: str):
     """Configure mocks so classify_pii returns based on decoded_output."""
     input_ids = torch.tensor([[1, 2, 3]])
-    mock_tokenizer.apply_chat_template.return_value = input_ids
+    mock_tokenizer.apply_chat_template.return_value = {
+        "input_ids": input_ids,
+    }
     mock_tokenizer.pad_token_id = 0
 
     output_tensor = torch.tensor([[1, 2, 3, 4, 5]])
@@ -77,7 +79,9 @@ class TestClassifyPiiBatch:
     def test_batch_mixed_results(self, mock_llama_guard):
         tokenizer, model = mock_llama_guard
         input_ids = torch.tensor([[1, 2, 3]])
-        tokenizer.apply_chat_template.return_value = input_ids
+        tokenizer.apply_chat_template.return_value = {
+            "input_ids": input_ids,
+        }
         tokenizer.pad_token_id = 0
 
         # Generate returns 2 outputs

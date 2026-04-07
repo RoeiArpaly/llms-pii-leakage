@@ -278,7 +278,7 @@ class TestWildGuardIntegration:
     def _cleanup_model(self):
         yield
         from detectors.guards.utils import _model_cache
-        _model_cache.pop("wildguard", None)
+        _model_cache.pop("wildguard-7b", None)
         _flush_ram()
 
     @pytest.mark.parametrize("pii_type", PII_SAMPLES)
@@ -286,7 +286,7 @@ class TestWildGuardIntegration:
         from detectors.guards.wildguard import wildguard_pii_detector
         text = PII_SAMPLES[pii_type]
         result = wildguard_pii_detector(text)
-        _log("wildguard", pii_type, text, result)
+        _log("wildguard-7b", pii_type, text, result)
         assert len(result) > 0, f"WildGuard missed {pii_type}"
         for span in result:
             assert span["value"] is None
@@ -296,14 +296,14 @@ class TestWildGuardIntegration:
     def test_safe_text(self, safe_text):
         from detectors.guards.wildguard import wildguard_pii_detector
         result = wildguard_pii_detector(safe_text)
-        _log("wildguard", "safe", safe_text, result)
+        _log("wildguard-7b", "safe", safe_text, result)
         assert result == []
 
     def test_batch(self):
         from detectors.guards.wildguard import classify_pii_batch
         texts = list(PII_SAMPLES.values())[:2]
         results = classify_pii_batch(texts)
-        _log("wildguard", "batch", str(texts), results)
+        _log("wildguard-7b", "batch", str(texts), results)
         assert len(results) == len(texts)
         assert all(isinstance(r, bool) for r in results)
 
