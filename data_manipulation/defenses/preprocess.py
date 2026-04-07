@@ -97,6 +97,19 @@ def transform_homoglyphs_to_alphabets(text: str, delimiter=":") -> dict:
     return {"text": new_text, "homoglyph_detected": text != new_text}
 
 
+def _strip_injected_separators(text: str) -> str:
+    """Strip characters likely injected between PII characters to fragment them.
+
+    Removes any non-alphanumeric, non-PII-structural character that sits
+    between two non-space characters. PII-structural characters (-, @, .,
+    (, ), +, space) are preserved because they appear in valid PII formats.
+    """
+    # Keep: letters (incl. accented), digits, PII-structural chars, whitespace
+    _KEEP = r"\p{L}0-9\s\-@.()+"
+    text = re.sub(rf"(?<=\S)[^{_KEEP}](?=\S)", "", text)
+    return text
+
+
 def remove_separators(text: str) -> str:
     """
     Replace unsupported separators with '-'.
@@ -128,10 +141,26 @@ _NUMBER_REVERSE_MAP = {
 def textual_number_to_numeric(text: str) -> str:
     """
     Convert textual numbers to numeric representation.
+    Handles both standalone words and words enclosed in delimiters.
     Example: "Hello one-two-three" -> "Hello 1-2-3"
+    Example: "(cero)(cinco)" -> "05"
     """
-    for word, number in _NUMBER_REVERSE_MAP.items():
-        text = re.sub(pattern=r"\b" + word + r"\b", repl=number, string=text)
+    sorted_words = sorted(
+        _NUMBER_REVERSE_MAP.keys(), key=len, reverse=True,
+    )
+    for word in sorted_words:
+        number = _NUMBER_REVERSE_MAP[word]
+        # Match word in delimiters: (cero) [cinco] {uno} -> digit
+        pattern_delimited = rf"[\(\[\{{]\s*{re.escape(word)}\s*[\)\]\}}]"
+        text = re.sub(
+            pattern=pattern_delimited, repl=number,
+            string=text, flags=re.IGNORECASE,
+        )
+        # Match standalone word
+        text = re.sub(
+            pattern=r"\b" + re.escape(word) + r"\b",
+            repl=number, string=text,
+        )
     return text
 
 
@@ -149,11 +178,16 @@ def textual_symbol_to_symbol(text: str) -> str:
 
     for symbol in sorted_words:
         word = WORD_SYMBOLS_MAP[symbol]
+        # Build a flexible pattern for multi-word names (e.g. "left parenthesis")
+        # that tolerates non-alpha junk between the words (e.g. "left: :parenthesis")
+        word_parts = word.split()
+        if len(word_parts) > 1:
+            flexible = r"[^a-zA-Z]*".join(re.escape(w) for w in word_parts)
+        else:
+            flexible = re.escape(word)
         # Pattern 1: Match and replace the word when it's enclosed in
         # parentheses, square brackets, or curly braces.
-        # This pattern replaces the entire enclosed structure with just the symbol.
-        # Examples: "(dash)" -> "-", "[dash]" -> "-", "{dash}" -> "-"
-        pattern_delimited = rf"[\(\[\{{]\s*{re.escape(word)}\s*[\)\]\}}]"
+        pattern_delimited = rf"[\(\[\{{]\s*{flexible}\s*[\)\]\}}]"
         text = re.sub(pattern=pattern_delimited, repl=symbol, string=text, flags=re.IGNORECASE)
         # Pattern 2: Match and replace the word when it appears standalone,
         # but NOT if it's part of a longer *alphabetic* word.
@@ -240,9 +274,48 @@ def sandwich_defense(text: str) -> str:
     return f"{upper_bun}{text}{lower_bun}"
 
 
+def _rejoin_chunks(text: str) -> str:
+    """Reverse chunking attacks: "abc" + "def" + "ghi" -> abcdefghi.
+
+    Only triggers on sequences of 3+ short quoted chunks joined by +.
+    This avoids stripping legitimate quoted text in prose.
+    """
+    # Match 3+ short chunks: "xx" + "yy" + "zz" (each chunk ≤10 chars)
+    chunk = r'"([^"]{1,10})"'
+    joiner = r'\s*\+\s*'
+    pattern = rf'{chunk}(?:{joiner}{chunk}){{2,}}'
+
+    def _merge(m):
+        # Extract all quoted groups from the full match
+        return re.sub(r'"\s*\+\s*"', "", m.group(0)).strip('"')
+
+    return re.sub(pattern, _merge, text)
+
+
+def light_defensive_preprocess(text: str) -> str:
+    """Light defense for SLM safety classifiers.
+
+    Only applies homoglyph reversal and chunk rejoining. Skips both
+    aggressive text normalization AND sandwich wrapping because:
+    - SLMs are fine-tuned safety classifiers that ignore prompt injections,
+      so the sandwich provides zero benefit.
+    - The sandwich's "user-provided content" framing makes SLMs more
+      suspicious, increasing false positives (measured: 14% → 34% on
+      hard negatives for Llama Guard).
+    """
+    result = transform_homoglyphs_to_alphabets(text=text, delimiter="|" * 15)
+    new_text = re.sub(r"\|{15}([\w_]+)\|{15}", lambda m: m[1].replace("_", " ").title(), result["text"])
+    new_text = "".join(new_text.split("|" * 15))
+    new_text = _rejoin_chunks(new_text)
+    return new_text
+
+
 def defensive_preprocess(text: str, include_sandwich: bool = True) -> str:
     """
-    Defensive preprocessing by applying Standardization, Sanitization, and Prompt Injection Defense.
+    Full defense for pattern-based detectors (Presidio, GLiNER).
+
+    Applies aggressive normalization: homoglyph reversal, separator stripping,
+    number/symbol word reversal, placeholder removal, and sandwich wrapping.
     """
     rand_n = random.randint(10, 20)  # Random delimiter length to avoid delimiter attacks
     delimiter = "|" * rand_n
@@ -258,7 +331,8 @@ def defensive_preprocess(text: str, include_sandwich: bool = True) -> str:
     )
     new_text = "".join(formatted_text.split(delimiter))
     new_text = re.sub(pattern=r"\s+", repl=" ", string=new_text)  # Collapse whitespace
-    new_text = re.sub(pattern=r"(.)\1{3,}", repl=r"\1", string=new_text)  # Remove char repetition
+    new_text = _strip_injected_separators(new_text)
+    new_text = _rejoin_chunks(new_text)
     new_text = textual_number_to_numeric(new_text)
     new_text = textual_symbol_to_symbol(new_text)
     new_text = remove_placeholders(new_text)
