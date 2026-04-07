@@ -78,12 +78,15 @@ _SLM_MODELS = {
 
 def _pii_shield_detect(text):
     from config import Config
-    from detectors.guards.slm_detector import slm_pii_detector
+    from detectors.guards.qwen_guard import classify_pii
+    from functools import partial
     from pii_shield import guard
     result = guard(
         text,
         perplexity_threshold=Config.PERPLEXITY_THRESHOLD,
-        slm_detector=slm_pii_detector,
+        slm_detector=partial(
+            classify_pii, model_name="qwen-guard-0.6b", logprobs=True,
+        ),
     )
     if result["detected"]:
         return result.get("spans", [

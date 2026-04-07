@@ -48,8 +48,15 @@ def _has_pii(content: str) -> bool:
 
 
 @torch.inference_mode()
-def classify_pii(text: str, model_name: str = "qwen-guard-4b") -> bool:
-    """Classify whether text contains PII using Qwen3Guard-Gen."""
+def classify_pii(
+    text: str, model_name: str = "qwen-guard-4b", logprobs: bool = False,
+) -> bool | dict:
+    """Classify whether text contains PII using Qwen3Guard-Gen.
+
+    When logprobs=False (default), returns a bool.
+    When logprobs=True, returns a dict with pii_detected, spans,
+    and perplexity (derived from the classification token logprob).
+    """
     tokenizer, model = _get_model(model_name)
 
     messages = [{"role": "user", "content": text}]
@@ -57,8 +64,42 @@ def classify_pii(text: str, model_name: str = "qwen-guard-4b") -> bool:
     inputs = tokenizer([prompt], return_tensors="pt").to(model.device)
 
     torch.manual_seed(42)
-    generated_ids = model.generate(**inputs, max_new_tokens=128, do_sample=False)
-    output_ids = generated_ids[0][inputs.input_ids.shape[-1]:]
+    outputs = model.generate(
+        **inputs, max_new_tokens=128, do_sample=False,
+        output_scores=logprobs, return_dict_in_generate=logprobs,
+    )
+
+    if logprobs:
+        import math
+        import torch.nn.functional as F
+        gen_ids = outputs.sequences[0][inputs.input_ids.shape[-1]:]
+        content = tokenizer.decode(gen_ids, skip_special_tokens=True)
+        pii_detected = _has_pii(content)
+
+        # Perplexity from the 3rd token (classification: Safe/Cont/Uns)
+        perplexity = 1.0
+        cls_idx = 2
+        if len(outputs.scores) > cls_idx:
+            probs = F.softmax(outputs.scores[cls_idx], dim=-1)
+            token_id = outputs.sequences[
+                0, inputs.input_ids.shape[-1] + cls_idx
+            ]
+            perplexity = math.exp(-torch.log(probs[0, token_id]).item())
+
+        spans = []
+        if pii_detected:
+            spans = [
+                {"value": None, "start": None, "end": None, "type": "pii"},
+            ]
+        del outputs
+        logger.debug(f"Qwen Guard: {content.strip()}, ppl={perplexity:.2f}")
+        return {
+            "pii_detected": pii_detected,
+            "spans": spans,
+            "perplexity": perplexity,
+        }
+
+    output_ids = outputs[0][inputs.input_ids.shape[-1]:]
     content = tokenizer.decode(output_ids, skip_special_tokens=True)
     logger.debug(f"Qwen Guard result: {content}")
     return _has_pii(content)
