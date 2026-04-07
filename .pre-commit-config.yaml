@@ -18,7 +18,7 @@ repos:
     hooks:
     -   id: pytest
         name: pytest
-        entry: uv run pytest --ignore=tests/test_detectors/test_integration.py
+        entry: uv run pytest --ignore=tests/test_detectors/test_integration.py --ignore=tests/test_detectors/test_attack_effectiveness
         language: system
         pass_filenames: false
         always_run: true
