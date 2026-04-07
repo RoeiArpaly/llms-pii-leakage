@@ -50,9 +50,9 @@ DISPLAY_NAMES = {
     "supportive_context_prompt_injection_1": "Context + PI I",
     "supportive_context_prompt_injection_2": "Context + PI II",
     "supportive_context_affix_1_prompt_injection_2": "Context + Affix I + PI II",
-    "educational_framing": "Educational Framing",
-    "educational_framing_prompt_injection_4": "Educational + FewShot",
-    "educational_framing_prompt_injection_5": "Educational + Hypothetical",
+    "prompt_injection_5": "Educational Framing",
+    "prompt_injection_5_prompt_injection_3": "Educational + FewShot",
+    "prompt_injection_5_prompt_injection_4": "Educational + Hypothetical",
     # PII types
     "credit_card_number": "Credit Card",
     "iban": "IBAN",

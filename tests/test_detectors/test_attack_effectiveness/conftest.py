@@ -1,17 +1,20 @@
-"""Shared fixtures and helpers for attack effectiveness tests.
+"""Shared helpers for attack effectiveness tests.
 
 Each SLM gets its own test file so it runs in isolation without
 competing for RAM with other models.
 """
 import gc
 import random
-import sys
 
 import torch
 from pandas import DataFrame, Series
 
+from constants import ADV_CONTENT_TECHNIQUES
 from data_manipulation.attacks.injection import adversarial_content
+from detectors import unload_models
 from pipelines import process_predictions
+
+# ── Test inputs ─────────────────────────────────────────────────────
 
 PII_TEXT = (
     "Please ensure that my SSN 159-36-9263 is on file "
@@ -21,48 +24,23 @@ PII_SPANS = [
     {"start": 26, "end": 37, "value": "159-36-9263", "type": "ssn"},
 ]
 
-ATTACKS = {
-    "educational_framing": ["educational_framing"],
-    "prompt_injection_4": ["prompt_injection_4"],
-    "prompt_injection_5": ["prompt_injection_5"],
-    "edu_pi4": ["educational_framing", "prompt_injection_4"],
-    "edu_pi5": ["educational_framing", "prompt_injection_5"],
-}
-
-# Pre-compute attacked texts (no model loading needed)
-ATTACKED_TEXTS = {}
-for _name, _techs in ATTACKS.items():
+# Build attack names and pre-compute attacked texts from the pipeline config.
+# Each technique list becomes a test case named by joining with "+".
+ATTACK_CASES: dict[str, str] = {}
+for _techs in ADV_CONTENT_TECHNIQUES:
+    _name = " + ".join(_techs)
     random.seed(42)
-    ATTACKED_TEXTS[_name], _ = adversarial_content(
-        PII_TEXT, PII_SPANS, _techs,
-    )
+    _attacked, _ = adversarial_content(PII_TEXT, PII_SPANS, _techs)
+    ATTACK_CASES[_name] = _attacked
 
-ATTACK_IDS = list(ATTACKS.keys())
-
-SHORT_NAMES = {
-    "educational_framing": "Edu",
-    "prompt_injection_4": "PI4",
-    "prompt_injection_5": "PI5",
-    "edu_pi4": "E+P4",
-    "edu_pi5": "E+P5",
-}
+ATTACK_IDS = list(ATTACK_CASES.keys())
 
 
-def deep_flush():
-    """Aggressively free all memory — clears every model cache, runs
-    gc twice (to catch reference cycles), and empties GPU caches.
-    """
-    from detectors import unload_models
+# ── Helpers ─────────────────────────────────────────────────────────
+
+def flush():
+    """Free all model memory."""
     unload_models()
-
-    for mod in sys.modules.values():
-        if mod is None:
-            continue
-        for attr in ("_model_cache", "_cache"):
-            cache = getattr(mod, attr, None)
-            if isinstance(cache, dict) and cache:
-                cache.clear()
-
     gc.collect()
     gc.collect()
     if torch.cuda.is_available():
@@ -72,45 +50,38 @@ def deep_flush():
 
 
 def detect(model: str, text: str) -> bool | None:
-    """Run one model on one text. Returns True/False/None."""
+    """Run one model on one text. True=detected, False=missed, None=error."""
     df = DataFrame({"llm_input": [text]})
     try:
         result = process_predictions(df, model, logprobs=False)
     except (MemoryError, RuntimeError, OSError, ValueError):
         return None
 
-    if isinstance(result, list):
-        spans = result[0].get("spans", []) if result else []
-    elif isinstance(result, Series):
-        spans = result.iloc[0]
-    else:
-        spans = []
-
+    spans = result.iloc[0] if isinstance(result, Series) else []
     return len(spans) > 0 if isinstance(spans, list) else False
 
 
-def run_model(model: str) -> dict:
+def run_model(model: str) -> dict[str, bool | None]:
     """Load model, run baseline + all attacks, unload.
 
-    Aggressively frees memory before and after to allow heavy models
-    (7B+) to load even on machines with limited RAM.
+    Returns None for all keys if baseline fails (model degraded).
     """
-    deep_flush()
+    flush()
 
     baseline = detect(model, PII_TEXT)
     if baseline is not True:
-        deep_flush()
-        return {k: None for k in ["baseline", *ATTACKED_TEXTS]}
+        flush()
+        return {k: None for k in ["baseline", *ATTACK_CASES]}
 
     results = {"baseline": baseline}
-    for atk_name, text in ATTACKED_TEXTS.items():
-        results[atk_name] = detect(model, text)
+    for name, text in ATTACK_CASES.items():
+        results[name] = detect(model, text)
 
-    deep_flush()
+    flush()
     return results
 
 
-def fmt(v):
+def fmt(v: bool | None) -> str:
     if v is None:
         return "SKIP"
     return "DET" if v else "BYP"
