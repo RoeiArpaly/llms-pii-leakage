@@ -1,43 +1,55 @@
 """PII Shield: cascading defense framework for PII detection.
 
 Applies defensive preprocessing, then cascades through Presidio, GLiNER,
-fuzzy Presidio, LLM-based detection, and perplexity checking. Returns
+fuzzy Presidio, SLM-based detection, and perplexity checking. Returns
 on the first detector that finds PII.
+
+Cascade order:
+    1. Presidio (rule-based, ~0ms)
+    2. GLiNER (NER transformer, ~10ms)
+    3. Presidio-Fuzzy (rule-based with fuzzy recognizers, ~1ms)
+    4. SLM guard (binary classification + perplexity, ~100ms)
+    5. Perplexity threshold check (catches uncertain "safe" predictions)
 """
 from data_manipulation.attacks.template_based.affix import adversarial_affix
-from data_manipulation.defenses.preprocess import defensive_preprocess
+from data_manipulation.defenses.preprocess import (
+    defensive_preprocess,
+    light_defensive_preprocess,
+)
 from detectors.gliner import gliner_pii_detector
-from detectors.llm import llm_pii_detector
 from detectors.presidio import (
     get_fuzzy_recognizers,
     presidio_pii_analyzer,
 )
 
 
-def guard(text: str, perplexity_threshold: float) -> dict:
-    """
-    Description
-    -----------
-    This function analyzes the provided text for Personally Identifiable Information (PII).
-    It employs a multi-layered approach to PII detection by applying the prevention module followed
-    by the detection module.
-
-    The detection module is cascading through various detection methods, including
-    Presidio, GLiNER, fuzzy matching with Presidio, and a Large Language Model (LLM).
-    It returns the detected PII spans or perplexity score
-    if any PII is found. If no PII is detected, it returns None.
+def guard(
+    text: str,
+    perplexity_threshold: float,
+    slm_detector=None,
+) -> dict:
+    """Cascading PII detection with multi-tier defense.
 
     Parameters
     ----------
-    text: str
+    text
         The text to analyze for PII.
-    perplexity_threshold: float
-        The threshold for perplexity to consider PII detected.
+    perplexity_threshold
+        If the SLM classifies text as safe but with perplexity above
+        this threshold, the text is flagged as suspicious PII.
+    slm_detector
+        SLM detector function with signature (text) -> dict containing:
+        - pii_detected (bool): whether PII was found
+        - spans (list): detected PII spans
+        - perplexity (float): model uncertainty (higher = less confident)
+        If None, the SLM and perplexity steps are skipped.
 
     Returns
     -------
     dict
     """
+    if not text:
+        return {"detected": False}
     # Defensive preprocess
     preprocessed_text = defensive_preprocess(text=text)
     # Presidio
@@ -58,13 +70,22 @@ def guard(text: str, perplexity_threshold: float) -> dict:
     fuzzy_spans = presidio_pii_analyzer(text=preprocessed_text, recognizers=recognizers)
     if fuzzy_spans:
         return {"detected": True, "detector": "presidio-fuzzy", "spans": fuzzy_spans}
-    # LLM
-    predictions = llm_pii_detector(text=preprocessed_text, logprobs=True)
-    llm_spans = predictions["spans"]
-    if llm_spans:
-        return {"detected": True, "detector": "llm", "spans": llm_spans}
-    # Perplexity
-    perplexity = predictions["perplexity"] or 1
-    if perplexity > perplexity_threshold:
-        return {"detected": True, "detector": "perplexity", "perplexity": perplexity}
+    if slm_detector is not None:
+        light_text = light_defensive_preprocess(text=text)
+        result = slm_detector(light_text)
+        if result["pii_detected"]:
+            return {
+                "detected": True,
+                "detector": "slm",
+                "spans": result["spans"],
+                "perplexity": result.get("perplexity"),
+            }
+        # Perplexity
+        perplexity = result.get("perplexity") or 0
+        if perplexity > perplexity_threshold:
+            return {
+                "detected": True,
+                "detector": "perplexity",
+                "perplexity": perplexity,
+            }
     return {"detected": False}

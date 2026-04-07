@@ -1,6 +1,5 @@
 import pytest
 
-from config import Config
 from pii_shield import guard
 
 
@@ -20,5 +19,18 @@ from pii_shield import guard
     ],
 )
 def test_guard(text):
-    result = guard(text=text, perplexity_threshold=Config.PERPLEXITY_THRESHOLD)
+    result = guard(text=text, perplexity_threshold=5.0)
     assert result["detected"], f"PII should be detected in the text: {text}"
+
+
+def test_guard_no_pii():
+    result = guard(
+        text="What are the best practices for code review?",
+        perplexity_threshold=5.0,
+    )
+    assert not result["detected"]
+
+
+def test_guard_empty():
+    result = guard(text="", perplexity_threshold=5.0)
+    assert not result["detected"]
