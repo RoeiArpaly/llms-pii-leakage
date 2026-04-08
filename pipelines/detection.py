@@ -268,6 +268,7 @@ def pii_detection_pipeline(
     models: list[str],
     logprobs: bool = False,
     checkpoint=None,
+    sample_n: int | None = None,
 ):
     from cli import (
         Spinner,
@@ -278,6 +279,19 @@ def pii_detection_pipeline(
     )
 
     dataset = read_csv(DATASET_PATH).apply(infer_json)
+
+    if sample_n is not None and sample_n < len(dataset):
+        dataset = (
+            dataset
+            .groupby("category", group_keys=False)
+            .apply(lambda g: g.sample(
+                n=min(len(g), max(1, round(sample_n * len(g) / len(dataset)))),
+                random_state=42,
+            ))
+            .reset_index(drop=True)
+        )
+        logger.info(f"Sampled {len(dataset)} rows from dataset (--sample {sample_n})")
+
     total_rows = len(dataset)
     skipped_models = set()
     prev_base = None

@@ -380,6 +380,9 @@ def _build_leaderboard() -> str | None:
 
     from evaluation.report.config import model_sort_key
 
+    # Exclude pii-shield — it gets its own card
+    df = df[df["Model"] != "pii-shield"]
+
     base_df = df[~df["Model"].str.endswith("-defend")].copy()
     base_df["_ord"] = base_df["Model"].apply(model_sort_key)
     base_df = base_df.sort_values("_ord").drop(columns=["_ord"])
@@ -434,6 +437,154 @@ def _build_leaderboard() -> str | None:
     )
 
 
+def _build_shield_card() -> str | None:
+    """Build a dedicated PII Shield summary card with cascade tier breakdown."""
+    if not PREDICTIONS_PATH.exists() or not DATASET_PATH.exists():
+        return None
+
+    predictions = read_csv(PREDICTIONS_PATH).apply(infer_json)
+    shield_rows = predictions[predictions["model"] == "pii-shield"]
+    if shield_rows.empty:
+        return None
+
+    dataset = read_csv(DATASET_PATH).apply(infer_json)
+    merged = shield_rows.merge(
+        dataset[["uid", "category", "pii_spans"]], on="uid", how="left",
+    )
+
+    # Overall metrics
+    pos = merged[merged["category"] == "positive"]
+    neg = merged[merged["category"].isin(["negative", "hard_negative"])]
+
+    total_pos = pos["pii_spans"].apply(
+        lambda s: len(s) > 0 if isinstance(s, list) else False,
+    ).sum()
+    total_tp = pos.apply(
+        lambda r: (
+            len(r["pii_spans"]) > 0 and len(r["prediction"]) > 0
+        ) if (
+            isinstance(r["pii_spans"], list)
+            and isinstance(r["prediction"], list)
+        ) else False, axis=1,
+    ).sum()
+    total_neg_count = len(neg)
+    total_tn = neg["prediction"].apply(
+        lambda p: len(p) == 0 if isinstance(p, list) else True,
+    ).sum()
+
+    recall = total_tp / total_pos if total_pos > 0 else 0.0
+    fp = total_neg_count - total_tn
+    prec = total_tp / (total_tp + fp) if (total_tp + fp) > 0 else 0.0
+    f1 = 2 * prec * recall / (prec + recall) if (prec + recall) > 0 else 0.0
+
+    # Cascade tier breakdown — which tier caught detections
+    detected = shield_rows[shield_rows["prediction"].apply(
+        lambda p: len(p) > 0 if isinstance(p, list) else False,
+    )]
+    n_detected = len(detected)
+
+    tier_counts = {}
+    if "detector" in detected.columns and n_detected > 0:
+        tier_counts = detected["detector"].value_counts().to_dict()
+
+    # Tier bar segments
+    tier_segments = []
+    tier_colors = [
+        "rgba(69,117,180,0.6)",
+        "rgba(116,173,209,0.6)",
+        "rgba(102,178,102,0.6)",
+        "rgba(178,153,102,0.6)",
+        "rgba(253,174,97,0.6)",
+    ]
+    from evaluation.shield_eval import SHIELD_CASCADE
+    for i, tier in enumerate(SHIELD_CASCADE):
+        count = tier_counts.get(tier, 0)
+        if count > 0:
+            tier_segments.append((
+                display_name(tier.removesuffix("-defend")),
+                count,
+                tier_colors[i % len(tier_colors)],
+            ))
+
+    tier_bar_html = ""
+    if tier_segments and n_detected > 0:
+        segs = ""
+        for label, count, color in tier_segments:
+            pct = count / n_detected * 100
+            segs += (
+                f'<div title="{label}: {count} ({pct:.1f}%)" '
+                f'style="width:{pct}%;background:{color};'
+                f'height:100%;display:flex;align-items:center;'
+                f'justify-content:center;font-size:0.7rem;'
+                f'color:#333;font-weight:500;overflow:hidden;'
+                f'white-space:nowrap">'
+                f'{pct:.0f}%</div>'
+            )
+        legend = " ".join(
+            f'<span style="display:inline-flex;align-items:center;gap:3px">'
+            f'<span style="width:10px;height:10px;border-radius:2px;'
+            f'background:{c};display:inline-block"></span>'
+            f'<span>{lbl}</span> <strong>{cnt}</strong></span>'
+            for lbl, cnt, c in tier_segments
+        )
+        tier_bar_html = (
+            f'<div style="margin-top:0.8rem">'
+            f'<span style="font-size:0.82rem;color:var(--text-muted)">'
+            f'Cascade Breakdown ({n_detected} detections)</span>'
+            f'<div style="display:flex;border-radius:4px;overflow:hidden;'
+            f'height:24px;margin:0.3rem 0">{segs}</div>'
+            f'<div style="font-size:0.75rem;color:var(--text-muted);'
+            f'margin-top:0.2rem;display:flex;flex-wrap:wrap;gap:0.6rem">'
+            f'{legend}</div>'
+            f'</div>'
+        )
+
+    # Stat boxes
+    stats = [
+        ("F1", f"{f1:.1%}"),
+        ("Recall", f"{recall:.1%}"),
+        ("Precision", f"{prec:.1%}"),
+        ("Tiers", str(len(tier_segments))),
+    ]
+    stat_boxes = ""
+    for label, value in stats:
+        stat_boxes += (
+            f'<div style="text-align:center;padding:0.6rem 0.4rem">'
+            f'<div style="font-size:1.4rem;font-weight:700;'
+            f'color:var(--accent);font-family:var(--font-heading);'
+            f'line-height:1.2">{value}</div>'
+            f'<div style="font-size:0.75rem;color:var(--text-muted);'
+            f'margin-top:0.15rem">{label}</div>'
+            f'</div>'
+        )
+
+    return (
+        f'<div style="margin-top:1.5rem;border:1px solid var(--border);'
+        f'border-radius:var(--radius);padding:1rem 1.2rem;'
+        f'background:var(--card-bg)">'
+        f'<div style="display:flex;align-items:center;gap:0.5rem;'
+        f'margin-bottom:0.5rem">'
+        f'<svg width="20" height="22" viewBox="0 0 24 28" '
+        f'xmlns="http://www.w3.org/2000/svg">'
+        f'<path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 '
+        f'5.16-1.26 9-6.45 9-12V5L12 1z" '
+        f'stroke="var(--accent)" stroke-width="1.5" '
+        f'fill="var(--accent)" fill-opacity="0.15"/></svg>'
+        f'<h3 style="margin:0;font-size:0.95rem">PII Shield</h3>'
+        f'<span style="font-size:0.75rem;color:var(--text-muted)">'
+        f'Cascading Defense</span>'
+        f'</div>'
+        f'<p style="font-size:0.78rem;color:var(--text-muted);'
+        f'margin:0 0 0.5rem;line-height:1.4">'
+        f'Multi-tier cascade that checks each detector in order and '
+        f'returns on the first detection. Uses defend-preprocessed inputs.</p>'
+        f'<div style="display:grid;grid-template-columns:repeat(4,1fr);'
+        f'gap:0.5rem">{stat_boxes}</div>'
+        f'{tier_bar_html}'
+        f'</div>'
+    )
+
+
 def _build_fp_analysis() -> dict[str, DataFrame] | None:
     """Build FP tables keyed by category: 'all', 'negative', 'hard_negative'."""
     if not PREDICTIONS_PATH.exists() or not DATASET_PATH.exists():
@@ -441,6 +592,9 @@ def _build_fp_analysis() -> dict[str, DataFrame] | None:
 
     dataset = read_csv(DATASET_PATH).apply(infer_json)
     predictions = read_csv(PREDICTIONS_PATH).apply(infer_json)
+
+    # Exclude pii-shield — it has its own summary card
+    predictions = predictions[predictions["model"] != "pii-shield"]
 
     neg_uids = dataset[dataset["category"].isin(["negative", "hard_negative"])]["uid"]
     neg_preds = predictions[predictions["uid"].isin(neg_uids)].merge(
@@ -551,6 +705,7 @@ def _build_fp_samples() -> str | None:
 
     dataset = read_csv(DATASET_PATH).apply(infer_json)
     predictions = read_csv(PREDICTIONS_PATH).apply(infer_json)
+    predictions = predictions[predictions["model"] != "pii-shield"]
 
     hn = dataset[dataset["category"] == "hard_negative"]
     if hn.empty:
@@ -796,6 +951,7 @@ def _build_inspector() -> str | None:
 
     dataset = read_csv(DATASET_PATH).apply(infer_json)
     predictions = read_csv(PREDICTIONS_PATH).apply(infer_json)
+    predictions = predictions[predictions["model"] != "pii-shield"]
 
     if predictions.empty:
         return None
@@ -1039,8 +1195,10 @@ def generate_report(output_path: Path = None, open_browser: bool = True) -> Path
                 'often negative samples are correctly ignored.</p>'
                 + leaderboard_html
             )
+        shield_card_html = _build_shield_card() or ""
         sections_html.append(render_static_section(
-            "overview", "Dataset Overview", overview_html + leaderboard_html,
+            "overview", "Dataset Overview",
+            overview_html + leaderboard_html + shield_card_html,
         ))
         nav_items.append('<a class="nav-pill" data-page="overview">Overview</a>')
 

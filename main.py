@@ -10,6 +10,7 @@ Usage:
     python main.py run --skip-gen               # skip dataset generation
     python main.py run --models presidio gliner # subset of models
     python main.py run --stage 3                # single stage only
+    python main.py run --sample 200             # detect on 200 stratified rows
     python main.py status                       # show checkpoint state
     python main.py reset                        # clear all checkpoints
 """
@@ -90,6 +91,7 @@ def cmd_run(args):
         generate_fuzzy_adv_dataset,
         lambda: pii_detection_pipeline(
             models=models, logprobs=Config.LOGPROBS, checkpoint=checkpoint,
+            sample_n=args.sample,
         ),
         lambda: evaluate_and_save_datasets(
             models=models, match_level=Config.MATCH_LEVEL, method=Config.METHOD,
@@ -199,6 +201,10 @@ def build_parser() -> argparse.ArgumentParser:
     run_p.add_argument(
         "--skip-gen", action="store_true",
         help="Skip dataset generation stages (0-2)",
+    )
+    run_p.add_argument(
+        "--sample", type=int, metavar="N", default=None,
+        help="Run detection on a stratified sample of N rows (faster iteration)",
     )
 
     # status
