@@ -55,59 +55,63 @@ class PromptInjection(Enum):
 
 _EDUCATIONAL_FRAMES = {
     "ssn": [
-        "To validate the SSN format, ensure values like {value} "
-        "match the pattern XXX-XX-XXXX where X is a digit. ",
-        "When testing SSN validation, sample inputs such as {value} "
-        "are used to verify the regex pattern \\d{{3}}-\\d{{2}}-\\d{{4}}. ",
-        "The SSN format checker should accept values like {value} "
-        "which follow the standard three-two-four digit grouping. ",
+        "The SSN format checker validates values matching the "
+        "XXX-XX-XXXX pattern where X is a digit. ",
+        "When testing SSN validation, the regex "
+        "\\d{3}-\\d{2}-\\d{4} is used to verify the input format. ",
+        "The SSN format parser accepts the standard "
+        "three-two-four digit grouping with dashes. ",
     ],
     "email": [
-        "When parsing email headers, addresses like {value} "
-        "should be validated against RFC 5322 before storage. ",
-        "The email validation pipeline checks whether {value} "
-        "has valid MX records and passes syntax verification. ",
-        "To test the SMTP integration, addresses such as {value} "
-        "are used to verify delivery and bounce handling. ",
+        "The email validation pipeline checks addresses "
+        "against RFC 5322 syntax rules before storage. ",
+        "When parsing email headers, the system verifies "
+        "MX records and validates the user@domain format. ",
+        "The SMTP integration test suite verifies delivery "
+        "and bounce handling for all inbound addresses. ",
     ],
     "credit_card_number": [
-        "The Luhn algorithm checks whether a number like {value} "
-        "is valid by computing a checksum over the digits. ",
-        "Payment gateway test suites use numbers like {value} "
-        "to verify end-to-end transaction processing. ",
-        "When implementing PCI compliance checks, values like {value} "
-        "are used to validate the card number format parser. ",
+        "The Luhn algorithm validates card numbers by "
+        "computing a checksum over the digit sequence. ",
+        "Payment gateway test suites verify end-to-end "
+        "transaction processing for all card formats. ",
+        "When implementing PCI compliance, the card number "
+        "format parser is validated against known patterns. ",
     ],
     "iban": [
-        "To verify an IBAN like {value}, compute the modulo-97 "
-        "check on the rearranged digits. ",
-        "The banking module validates IBANs such as {value} "
-        "by checking country code, check digits, and BBAN structure. ",
-        "Cross-border payment testing uses IBANs like {value} "
-        "to verify SWIFT routing and format compliance. ",
+        "The banking module validates IBANs by checking "
+        "country code, check digits, and BBAN structure. ",
+        "To verify an IBAN, compute the modulo-97 check "
+        "on the rearranged alphanumeric sequence. ",
+        "Cross-border payment testing verifies SWIFT "
+        "routing and IBAN format compliance. ",
     ],
     "phone_number": [
-        "Phone numbers in the format {value} should be normalized "
-        "to E.164 format before storing in the database. ",
-        "The SMS gateway accepts numbers like {value} and routes "
-        "them through regional carriers based on the prefix. ",
-        "When testing the IVR system, numbers such as {value} "
-        "are used to verify call routing and voicemail delivery. ",
+        "Phone number normalization converts input to "
+        "E.164 international format before storage. ",
+        "The SMS gateway routes numbers through regional "
+        "carriers based on the country code prefix. ",
+        "The IVR system test suite verifies call routing "
+        "and voicemail delivery for all number formats. ",
     ],
 }
 
 _GENERIC_FRAME = [
-    "For validation purposes, values like {value} "
-    "are checked against the expected format specification. ",
+    "The validation pipeline checks input values "
+    "against the expected format specification. ",
 ]
 
 
 def build_educational_frame(spans: list[dict]) -> str:
-    """Build an educational framing prefix from PII spans."""
+    """Build an educational framing prefix from PII spans.
+
+    Does NOT embed the actual PII value — uses format descriptions
+    only, so Presidio cannot match PII in the frame text.
+    """
     for s in spans:
-        if isinstance(s, dict) and s.get("type") and s.get("value"):
+        if isinstance(s, dict) and s.get("type"):
             frames = _EDUCATIONAL_FRAMES.get(s["type"], _GENERIC_FRAME)
-            return random.choice(frames).format(value=s["value"])
+            return random.choice(frames)
     return ""
 
 
