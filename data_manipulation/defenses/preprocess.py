@@ -111,17 +111,28 @@ def _strip_injected_separators(text: str) -> str:
 
 
 def remove_separators(text: str) -> str:
-    """
-    Replace unsupported separators with '-'.
-    Collapse repeated allowed separators.
-    Remove quotes and clean whitespace.
+    """Normalize separators for PII detection.
+
+    - Commas, colons, semicolons → spaces (preserves NER token boundaries
+      around PII values like "name, 803-54-1242, and contact")
+    - Quotes removed
+    - Other unsupported chars → dashes (reverses attack separators)
+    - Plus sign preserved (appears in phone numbers like +1-293-926-6036)
+    - Collapse repeated separators and whitespace
     """
     # Remove quotes
     text = text.replace('"', "")
-    # Replace unsupported characters with '-'
-    allowed_separators = r"\-@.() "  # space is included
+    # Commas, colons, semicolons → spaces (not dashes) to preserve
+    # NER token boundaries around PII (e.g. "name, 803-54-1242, and")
+    text = re.sub(pattern=r"[,;:]", repl=" ", string=text)
+    # Other unsupported characters → dashes (except + at word start
+    # which appears in phone numbers like +1-293-926-6036)
+    allowed_separators = r"\-@.()+ "
     text = re.sub(pattern=rf"[^\w{allowed_separators}]", repl="-", string=text)
-    # Collapse multiple occurrences of allowed separators
+    # " + " between spaces is a concatenation operator → dash
+    # (preserves +1 in phone numbers since there's no space before +)
+    text = re.sub(pattern=r" \+ ", repl="-", string=text)
+    # Collapse repeated allowed separators
     text = re.sub(pattern=r"([\-@.() ])\1+", repl=r"\1", string=text)
     # Replace multiple spaces with single space
     text = re.sub(pattern=r"\s+", repl=" ", string=text)

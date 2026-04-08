@@ -134,6 +134,13 @@ def test_remove_placeholders(input_text, expected_output):
         """,
         "My Credit Card is 413-771-193-548-2232"
     ),
+    # Commas/colons before PII must become spaces, not dashes,
+    # to preserve NER token boundaries.
+    ("Your full name, 803-54-1242, and contact", "Your full name 803-54-1242 and contact"),
+    ("Contact number: 310.580.2368.", "Contact number 310.580.2368."),
+    ("Expenditures: 4533148643409967912.", "Expenditures 4533148643409967912."),
+    # Plus sign in phone numbers must be preserved.
+    ("Call me at +1-293-926-6036.", "Call me at +1-293-926-6036."),
 ])
 def test_remove_separators(input_text, expected_output):
     result = remove_separators(input_text)
