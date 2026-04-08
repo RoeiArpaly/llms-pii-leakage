@@ -407,6 +407,9 @@ def pii_detection_pipeline(
     unload_models()
     _aggregate_predictions()
 
+    # Compute PII Shield results from per-model predictions
+    _compute_shield_predictions()
+
     from config import Config as _Cfg
     all_configured = set(_Cfg.MODELS)
     if checkpoint and all_configured <= (
@@ -415,3 +418,26 @@ def pii_detection_pipeline(
     ):
         _cleanup_prediction_parts()
     logger.info(f"Predictions saved to {PREDICTIONS_PATH}")
+
+
+def _compute_shield_predictions():
+    """Compute and append PII Shield cascade results."""
+    from evaluation.shield_eval import compute_shield_predictions
+
+    if not PREDICTIONS_PATH.exists():
+        return
+
+    shield_df = compute_shield_predictions(
+        predictions_path=str(PREDICTIONS_PATH),
+    )
+    if shield_df.empty:
+        return
+
+    # Remove old shield rows and append new ones
+    existing = read_csv(PREDICTIONS_PATH)
+    existing = existing[existing["model"] != "pii-shield"]
+    merged = concat(
+        [existing, shield_df.apply(cast_to_json)], ignore_index=True,
+    )
+    merged.to_csv(PREDICTIONS_PATH, index=False)
+    logger.info(f"PII Shield: {len(shield_df)} predictions appended")
