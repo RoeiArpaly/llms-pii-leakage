@@ -108,12 +108,17 @@ def process_predictions(
 
     input_col = data["llm_input"].copy()
     if defend:
-        preprocess_fn = (
-            light_defensive_preprocess
-            if base_model in _SLM_MODELS
-            else defensive_preprocess
-        )
-        input_col = input_col.apply(preprocess_fn)
+        if base_model in _SLM_MODELS:
+            # SLMs: light normalization, no sandwich (they ignore injections)
+            input_col = input_col.apply(light_defensive_preprocess)
+        elif base_model in GLINER_MODELS:
+            # NER: full normalization but no sandwich (noise dilutes NER signal)
+            input_col = input_col.apply(
+                lambda t: defensive_preprocess(t, include_sandwich=False),
+            )
+        else:
+            # Presidio: full normalization + sandwich
+            input_col = input_col.apply(defensive_preprocess)
     return _DETECTOR_DISPATCH[base_model](input_col, logprobs=logprobs)
 
 
