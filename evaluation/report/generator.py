@@ -504,6 +504,16 @@ def _build_defense_delta() -> DataFrame | None:
 
     recall_by_model = pos.groupby("model")["tp"].mean()
 
+    # Latency: median ms per sample (if available)
+    has_latency = "latency_ms" in predictions.columns
+    latency_by_model = {}
+    if has_latency:
+        lat = predictions.dropna(subset=["latency_ms"])
+        if not lat.empty:
+            latency_by_model = (
+                lat.groupby("model")["latency_ms"].median().to_dict()
+            )
+
     rows = []
     for model in recall_by_model.index:
         if model.endswith("-defend"):
@@ -513,12 +523,15 @@ def _build_defense_delta() -> DataFrame | None:
         defend_r = recall_by_model.get(defend)
         if base_r is None:
             continue
-        rows.append({
+        row = {
             "Model": model,
             "Base Recall": base_r,
             "Shield Recall": defend_r if defend_r is not None else None,
             "Delta": (defend_r - base_r) if defend_r is not None else None,
-        })
+        }
+        if latency_by_model:
+            row["Latency (ms)"] = latency_by_model.get(model)
+        rows.append(row)
 
     if not rows:
         return None
@@ -1102,9 +1115,12 @@ def generate_report(output_path: Path = None, open_browser: bool = True) -> Path
             'normalization; SLMs use a lighter defense to preserve '
             'natural language context.</p>'
         )
+        col_order = ["Model", "Base Recall", "Shield Recall", "Delta"]
+        if "Latency (ms)" in delta_df.columns:
+            col_order.append("Latency (ms)")
         delta_table = styled_table(
             delta_df,
-            col_order=["Model", "Base Recall", "Shield Recall", "Delta"],
+            col_order=col_order,
             pct_cols=["Base Recall", "Shield Recall", "Delta"],
         )
         sections_html.append(render_static_section(

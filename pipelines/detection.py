@@ -336,9 +336,11 @@ def pii_detection_pipeline(
             batch_df = remaining.iloc[batch_start:batch_start + batch_size]
 
             try:
+                batch_t0 = time.time()
                 preds = process_predictions(
                     data=batch_df, model=model, logprobs=logprobs,
                 )
+                batch_elapsed = time.time() - batch_t0
             except Exception as e:
                 spinner.stop()
                 reason = str(e).split("\n")[0][:80]
@@ -364,10 +366,12 @@ def pii_detection_pipeline(
                 pred_spans = preds
                 perplexity = Series([None] * len(preds), index=preds.index)
 
+            ms_per_sample = round(batch_elapsed / len(batch_df) * 1000, 1)
             rows = [
                 {
                     "uid": uid, "model": model,
                     "prediction": pred, "perplexity": perp,
+                    "latency_ms": ms_per_sample,
                 }
                 for uid, pred, perp in zip(
                     batch_df["uid"], pred_spans, perplexity,
