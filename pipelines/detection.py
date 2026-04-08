@@ -60,13 +60,20 @@ _DETECTOR_DISPATCH = {
         data, wildguard_classify_pii_batch,
     ),
     **{
-        name: (lambda data, _name=name, **_: guard_pii_detector_batch(
-            data, qwen_guard_classify_pii_batch, model_name=_name,
+        name: (lambda data, _name=name, logprobs=False, **_: (
+            _qwen_guard_with_logprobs(data, _name)
+            if logprobs
+            else guard_pii_detector_batch(
+                data, qwen_guard_classify_pii_batch, model_name=_name,
+            )
         ))
         for name in QWEN_GUARD_MODELS
     },
     "pii-shield": lambda data, **_: data.apply(_pii_shield_detect),
 }
+
+# Models that support logprobs/perplexity output.
+_LOGPROB_MODELS = {"gpt-4o-mini", *QWEN_GUARD_MODELS}
 
 _SLM_MODELS = {
     *LLAMA_GUARD_MODELS,
@@ -75,6 +82,19 @@ _SLM_MODELS = {
     "wildguard-7b",
     "gpt-4o-mini",
 }
+
+
+def _qwen_guard_with_logprobs(data: Series, model_name: str) -> list:
+    """Run Qwen Guard per-text with logprobs to get perplexity scores."""
+    from detectors.guards.qwen_guard import classify_pii
+    results = []
+    for text in data:
+        r = classify_pii(text, model_name=model_name, logprobs=True)
+        results.append({
+            "spans": r["spans"],
+            "perplexity": r["perplexity"],
+        })
+    return results
 
 
 def _pii_shield_detect(text):
@@ -128,7 +148,11 @@ def process_predictions(
         else:
             # Presidio: full normalization + sandwich
             input_col = input_col.apply(defensive_preprocess)
-    return _DETECTOR_DISPATCH[base_model](input_col, logprobs=logprobs)
+    # For models supporting logprobs, call per-text with logprobs=True
+    # to get perplexity scores alongside detection results.
+    if logprobs and base_model in _LOGPROB_MODELS:
+        return _DETECTOR_DISPATCH[base_model](input_col, logprobs=True)
+    return _DETECTOR_DISPATCH[base_model](input_col, logprobs=False)
 
 
 # ── Prediction I/O ──────────────────────────────────────────────────

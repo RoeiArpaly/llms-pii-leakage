@@ -714,7 +714,6 @@ def _build_perplexity_charts() -> dict[str, str] | None:
     if has_perp.empty:
         return None
 
-    thresholds = np.arange(1, 1.000005, 0.00000001)
     chosen = Config.PERPLEXITY_THRESHOLD
     charts: dict[str, str] = {}
 
@@ -727,6 +726,23 @@ def _build_perplexity_charts() -> dict[str, str] | None:
         merged = merged.dropna(subset=["perplexity"])
         if merged.empty:
             continue
+
+        # Adaptive threshold range based on actual perplexity values
+        ppl_min = merged["perplexity"].min()
+        ppl_max = merged["perplexity"].max()
+        ppl_range = ppl_max - ppl_min
+        if ppl_range < 0.001:
+            # Very narrow range (e.g. GPT-4o-mini near 1.0)
+            thresholds = np.arange(
+                ppl_min, ppl_max + 0.000001, 0.00000001,
+            )
+        else:
+            # Wider range (e.g. Qwen Guard 1.0-2.1)
+            thresholds = np.linspace(
+                max(1.0, ppl_min - 0.1),
+                ppl_max + 0.1,
+                500,
+            )
 
         merged["y_true"] = merged["pii_spans"].apply(
             lambda x: (
