@@ -6,6 +6,7 @@ from pandas import concat, DataFrame, json_normalize, read_csv, Series
 
 from data_manipulation.defenses.preprocess import (
     defensive_preprocess,
+    is_suspicious,
     light_defensive_preprocess,
 )
 from detectors import unload_models
@@ -109,8 +110,16 @@ def process_predictions(
     input_col = data["llm_input"].copy()
     if defend:
         if base_model in _SLM_MODELS:
-            # SLMs: light normalization, no sandwich (they ignore injections)
-            input_col = input_col.apply(light_defensive_preprocess)
+            # SLMs: light normalization by default. If character anomaly
+            # detection flags the input as suspicious (homoglyphs, emoji,
+            # zero-width chars), apply full normalization without sandwich.
+            input_col = input_col.apply(
+                lambda t: (
+                    defensive_preprocess(t, include_sandwich=False)
+                    if is_suspicious(t)
+                    else light_defensive_preprocess(t)
+                ),
+            )
         elif base_model in GLINER_MODELS:
             # NER: full normalization but no sandwich (noise dilutes NER signal)
             input_col = input_col.apply(
