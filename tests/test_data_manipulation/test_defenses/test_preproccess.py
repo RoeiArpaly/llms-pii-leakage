@@ -37,7 +37,7 @@ def test_mapping(key, mapping):
     ("Contact me at 𝓉𝑒𝓈𝓉@𝑒𝓍𝒶𝓂𝓅𝓁𝑒.𝒸𝑜𝓂", "Contact me at test@example.com"),
     ("Work Email: ✉️ 𝘢𝘭𝘪𝘤𝘦@𝘤𝘰𝘮𝘱𝘢𝘯𝘺.𝘤𝘰𝘮", "Work Email: :envelope: alice@company.com"),
     ("📨 Send mail to 🆄🆂🅴🆁@🆈🅰🅷🅾🅾.🅲🅾🅼", ":incoming_envelope: Send mail to USER@YAHOO.COM"),
-    ("My email is: ԛβаｒｒетт＠ехамрӏе．пет", "My email is: qbarrett＠example.net"),
+    ("My email is: ԛβаｒｒетт＠ехамрӏе．пет", "My email is: qbarrett@example.net"),
 
     # Phone Numbers
     ("Call me at ①②③-④⑤⑥-⑦⑧⑨⓪", "Call me at 123-456-7890"),
@@ -173,3 +173,32 @@ def test_text_to_numeric(input_text, expected_output):
 def test_textual_symbol_to_symbol(input_text, expected_output):
     result = textual_symbol_to_symbol(input_text)
     assert result == expected_output
+
+
+# ── @ variant recovery through full pipeline ────────────────────────
+
+@pytest.mark.parametrize("at_char, label", [
+    ("@", "standard"),
+    ("\uFF20", "fullwidth"),
+    ("\uAA5C", "homoglyph"),
+    ("\U0001F300", "emoji"),
+    ("\uFE6B", "small form"),
+])
+def test_at_sign_variants_recovered(at_char, label):
+    """All known @ substitutions must recover to user@domain.com."""
+    text = f"Send to user{at_char}domain.com please."
+    defended = defensive_preprocess(text, include_sandwich=False)
+    assert "user@domain.com" in defended, (
+        f"@ variant '{label}' (U+{ord(at_char):04X}) not recovered: "
+        f"{defended!r}"
+    )
+
+
+@pytest.mark.parametrize("wrapper", ["(at)", "[at]", "{at}"])
+def test_at_word_forms_recovered(wrapper):
+    """Word forms of @ in all delimiter styles must recover."""
+    text = f"Send to user{wrapper}domain.com please."
+    defended = defensive_preprocess(text, include_sandwich=False)
+    assert "user@domain.com" in defended, (
+        f"'{wrapper}' not recovered: {defended!r}"
+    )

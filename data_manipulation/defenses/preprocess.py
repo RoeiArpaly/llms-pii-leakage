@@ -72,6 +72,12 @@ mappings = {  # Check hex of letter by using: hex(ord("Ⓐ"))
     "emoji_clock_faces": mapping_helper(0x1F550, 12, [str(i + 1) for i in range(12)]),  # 🕐-🕟
     "emoji_enclosed_alphabet": {v: k for k, v in ALPHABET_EMOJI_MAP.items()},
     "emoji_symbols": {v: k for k, v in SYMBOL_EMOJI_MAP.items()},
+
+    # Additional @ variants not in the attack homoglyph map
+    "at_sign_variants": {
+        "\uFF20": "@",  # ＠ fullwidth commercial at
+        "\uFE6B": "@",  # ﹫ small form variant
+    },
 }
 
 # Emojis that can't be mapped to a single character
@@ -101,11 +107,13 @@ def _strip_injected_separators(text: str) -> str:
     """Strip characters likely injected between PII characters to fragment them.
 
     Removes any non-alphanumeric, non-PII-structural character that sits
-    between two non-space characters. PII-structural characters (-, @, .,
-    (, ), +, space) are preserved because they appear in valid PII formats.
+    between two non-space characters. Preserved characters:
+    - PII structural: - @ . ( ) + [ ] { }
+    - Letters (incl. accented), digits, whitespace
+    Brackets/braces are kept because textual_symbol_to_symbol needs them
+    for patterns like [at] → @ and (dot) → .
     """
-    # Keep: letters (incl. accented), digits, PII-structural chars, whitespace
-    _KEEP = r"\p{L}0-9\s\-@.()+"
+    _KEEP = r"\p{L}0-9\s\-@.()+\[\]{}"
     text = re.sub(rf"(?<=\S)[^{_KEEP}](?=\S)", "", text)
     return text
 
