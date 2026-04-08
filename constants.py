@@ -41,6 +41,8 @@ ADV_CONTENT_TECHNIQUES: list[list] = [
     ["supportive_context", "prompt_injection_1"],
     ["supportive_context", "prompt_injection_2"],
     ["supportive_context", "affix_1", "prompt_injection_2"],
+    ["supportive_context", "affix_2", "prompt_injection_3"],
+    ["supportive_context", "affix_2", "prompt_injection_5"],
     ["supportive_context", "prompt_injection_3"],
     ["supportive_context", "prompt_injection_4"],
     ["supportive_context", "prompt_injection_5"],

@@ -366,20 +366,42 @@ class TestEducationalFramingEndToEnd:
 
 
 class TestCombinedAttacks:
-    """Educational framing composes with other prompt injections.
-    Each technique is applied in sequence — PI5 prepends its frame,
-    then the next PI prepends its static prefix on top.
+    """Prompt injections combine with supportive_context and affixes,
+    never with other prompt injections (only one PI per attack chain).
     """
 
-    def test_educational_plus_few_shot(self):
-        """PI5 (educational) + PI3 (FewShotSafe)."""
+    def test_context_plus_educational(self):
+        """supportive_context + PI5 (educational framing).
+
+        supportive_context replaces PII labels (e.g. "SSN" → 🪪),
+        then PI5 prepends an educational frame.
+        """
         text, spans = PII_CASES["ssn"]
         result, new_spans = adversarial_content(
             text, spans,
-            ["prompt_injection_5", "prompt_injection_3"],
+            ["supportive_context", "prompt_injection_5"],
+        )
+        assert "219-09-9999" in result
+        for s in new_spans:
+            assert result[s["start"]:s["end"]] == s["value"]
+
+    def test_context_plus_affix_plus_few_shot(self):
+        """supportive_context + affix_2 + PI3 (FewShotSafe)."""
+        text, spans = PII_CASES["ssn"]
+        result, new_spans = adversarial_content(
+            text, spans,
+            ["supportive_context", "affix_2", "prompt_injection_3"],
         )
         assert "219-09-9999" in result
         assert "SAFE" in result
-        assert text in result
         for s in new_spans:
             assert result[s["start"]:s["end"]] == s["value"]
+
+    def test_combination_preserves_pii_count(self):
+        """Combined attacks must not duplicate PII values."""
+        text, spans = PII_CASES["email"]
+        result, _ = adversarial_content(
+            text, spans,
+            ["supportive_context", "prompt_injection_5"],
+        )
+        assert result.count("john@test.com") == 1
