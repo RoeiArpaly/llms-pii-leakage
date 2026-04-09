@@ -481,6 +481,31 @@ body {
 .sub-tab.active {
     background: var(--accent); color: white; border-color: var(--accent);
 }
+.sub-nav .tab-separator {
+    width: 1px; align-self: stretch; background: var(--border); margin: 0 0.35rem;
+}
+.sub-tab.meta-model {
+    border-style: dashed; position: relative;
+    border-color: #4a148c; color: #4a148c;
+}
+.sub-tab.meta-model::after {
+    content: "CASCADE"; font-size: 0.5rem; font-weight: 700; letter-spacing: 0.04em;
+    position: absolute; top: -0.45rem; right: 0.3rem;
+    background: #4a148c; color: #fff; padding: 0 0.25rem; border-radius: 2px;
+    line-height: 1.2;
+}
+.sub-tab.meta-model:hover { border-color: #4a148c; color: #4a148c; }
+.sub-tab.meta-model.active {
+    background: #4a148c; color: #fff; border-color: #4a148c; border-style: solid;
+}
+[data-theme="dark"] .sub-tab.meta-model {
+    border-color: #b388ff; color: #b388ff;
+}
+[data-theme="dark"] .sub-tab.meta-model::after { background: #7c4dff; }
+[data-theme="dark"] .sub-tab.meta-model:hover { border-color: #b388ff; color: #b388ff; }
+[data-theme="dark"] .sub-tab.meta-model.active {
+    background: #7c4dff; color: #fff; border-color: #7c4dff; border-style: solid;
+}
 
 /* ── View bar (table/heatmap/radar/line tabs) ── */
 .view-bar {

@@ -1315,8 +1315,13 @@ def generate_report(output_path: Path = None, open_browser: bool = True) -> Path
             active = " active" if midx == 0 else ""
             display = "block" if midx == 0 else "none"
             safe_id = model.replace(".", "-")
+            is_meta = model == "pii-shield"
+            if is_meta:
+                model_tabs.append('<span class="tab-separator"></span>')
+            meta_cls = " meta-model" if is_meta else ""
             model_tabs.append(
-                f'<button class="sub-tab{active}" data-sub="pii-{safe_id}">'
+                f'<button class="sub-tab{active}{meta_cls}"'
+                f' data-sub="pii-{safe_id}">'
                 f'{display_name(model)}</button>'
             )
             pid = f"plotly-pii-{safe_id}"
