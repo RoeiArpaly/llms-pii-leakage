@@ -8,15 +8,18 @@ Cascade (hardcoded, not derived from Config.MODELS):
     1. Presidio (defend)
     2. Presidio-Fuzzy (defend)
     3. GLiNER (defend)
-    4. GLiNER-NV (defend)
-    5. Qwen Guard 0.6B (defend)
+    4. Qwen Guard 0.6B (defend)
 
 This avoids re-running models — it uses the predictions already in
 predictions.csv. Tiers that don't have predictions are skipped.
 """
 from pandas import DataFrame, read_csv
 
+from detectors.validators import validate_pii_spans
 from utils import infer_json
+
+# Tiers whose predictions pass through the validation layer.
+_VALIDATED_TIERS = {"gliner-defend", "gliner-nvidia-defend"}
 
 # Hardcoded cascade order. The shield tries each in order and returns
 # on the first detection. Only -defend variants are used (with
@@ -25,7 +28,6 @@ SHIELD_CASCADE = [
     "presidio-defend",
     "presidio-fuzzy-defend",
     "gliner-defend",
-    "gliner-nvidia-defend",
     "qwen-guard-0.6b-defend",
 ]
 
@@ -56,9 +58,17 @@ def compute_shield_predictions(
     detections = {}
     for m in cascade:
         m_preds = predictions[predictions["model"] == m].set_index("uid")
-        detections[m] = m_preds["prediction"].apply(
-            lambda x: len(x) > 0 if isinstance(x, list) else False,
-        )
+        if m in _VALIDATED_TIERS:
+            detections[m] = m_preds["prediction"].apply(
+                lambda x: (
+                    len(validate_pii_spans(x)) > 0
+                    if isinstance(x, list) else False
+                ),
+            )
+        else:
+            detections[m] = m_preds["prediction"].apply(
+                lambda x: len(x) > 0 if isinstance(x, list) else False,
+            )
 
     rows = []
     for uid in uids:
@@ -76,6 +86,8 @@ def compute_shield_predictions(
                 & (predictions["model"] == detector)
             ].iloc[0]
             spans = m_row["prediction"]
+            if detector in _VALIDATED_TIERS and isinstance(spans, list):
+                spans = validate_pii_spans(spans)
             perp = m_row.get("perplexity")
         else:
             spans = []
