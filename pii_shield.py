@@ -21,11 +21,13 @@ from detectors.presidio import (
     get_fuzzy_recognizers,
     presidio_pii_analyzer,
 )
+from detectors.validators import validate_pii_spans
 
 
 def guard(
     text: str,
     perplexity_threshold: float,
+    gliner_threshold: float = 0.5,
     slm_detector=None,
 ) -> dict:
     """Cascading PII detection with multi-tier defense.
@@ -37,6 +39,8 @@ def guard(
     perplexity_threshold
         If the SLM classifies text as safe but with perplexity above
         this threshold, the text is flagged as suspicious PII.
+    gliner_threshold
+        Minimum confidence score for GLiNER detections (default 0.5).
     slm_detector
         SLM detector function with signature (text) -> dict containing:
         - pii_detected (bool): whether PII was found
@@ -62,7 +66,10 @@ def guard(
             llm_input=preprocessed_text, spans=presidio_spans, adv_affix=adv_affix, prefix=prefix,
         )
     # GLiNER
-    gliner_spans = gliner_pii_detector(text=preprocessed_text)
+    gliner_spans = gliner_pii_detector(
+        text=preprocessed_text, threshold=gliner_threshold,
+    )
+    gliner_spans = validate_pii_spans(gliner_spans)
     if gliner_spans:
         return {"detected": True, "detector": "gliner", "spans": gliner_spans}
     # Fuzzy Presidio
