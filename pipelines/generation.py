@@ -1,16 +1,38 @@
 """Dataset generation stages: baseline, fuzzy (PII-level), adversarial (content-level)."""
 import random
+
+from concurrent.futures import (
+    ThreadPoolExecutor,
+    as_completed,
+)
 from pathlib import Path
 
-from pandas import concat, DataFrame, read_csv
+from pandas import (
+    concat,
+    DataFrame,
+    read_csv,
+)
 
-from constants import ADV_CONTENT_TECHNIQUES, DATASET_COLS, FUZZY_TECHNIQUES
-from data_generation.llm_input_generator import generate_hard_negative, generate_llm_input
+from constants import (
+    ADV_CONTENT_TECHNIQUES,
+    DATASET_COLS,
+    FUZZY_TECHNIQUES,
+)
+from data_generation.llm_input_generator import (
+    generate_hard_negative,
+    generate_llm_input,
+)
 from data_generation.pii_generator import presidio_inject_pii
-from data_manipulation.attacks.injection import adversarial_content, pii_fuzzer
+from data_manipulation.attacks.injection import (
+    adversarial_content,
+    pii_fuzzer,
+)
 from data_manipulation.attacks.neural_prompt_to_prompt.llm import llm_pii_fuzzer
 from logger import logger
-from utils import cast_to_json, infer_json
+from utils import (
+    cast_to_json,
+    infer_json,
+)
 
 DATASET_PATH = Path("datasets/dataset.csv")
 
@@ -128,62 +150,69 @@ def generate_fuzzy_dataset():
     logger.info("Fuzzy dataset generation completed successfully")
 
 
-def generate_fuzzy_adv_dataset():
+def generate_fuzzy_adv_dataset(max_workers: int = 8):
     dataset = _load_dataset()
     fuzzy = dataset[
         (dataset["category"] == "positive")
         & (dataset["uid"] != dataset["input_id"])
-    ].copy()
+    ]
     next_uid = dataset["uid"].max() + 1
 
-    datasets = []
-    for technique in ADV_CONTENT_TECHNIQUES:
-        _data = fuzzy.copy()
-        _data["category"] = "positive"
-        _data["attack_target"] = _data["attack_target"].apply(
-            lambda target: {
-                "pii": (target if isinstance(target, dict) else {}).get("pii", []),
-                "context": technique,
-            },
-        )
-        _data = _data[_data["attack_target"].apply(
-            lambda t: len(t.get("pii", [])) > 0,
-        )]
-        _data[["llm_input", "pii_spans"]] = _data.apply(
-            lambda row: adversarial_content(
+    # Pre-filter to rows that have PII attacks (avoid per-technique filtering)
+    fuzzy_with_pii = fuzzy[fuzzy["attack_target"].apply(
+        lambda t: isinstance(t, dict) and len(t.get("pii", [])) > 0,
+    )]
+
+    # Build all content-attack rows in a single pass over the data
+    rows = []
+    for _, row in fuzzy_with_pii.iterrows():
+        pii_techniques = row["attack_target"]["pii"]
+        for technique in ADV_CONTENT_TECHNIQUES:
+            text, spans = adversarial_content(
                 llm_input=row["llm_input"],
                 spans=row["pii_spans"],
                 chosen_techniques=technique,
-            ),
-            axis=1,
-            result_type="expand",
-        )
-        datasets.append(_data)
+            )
+            rows.append({
+                "uid": 0,
+                "input_id": row["input_id"],
+                "category": "positive",
+                "attack_target": {"pii": pii_techniques, "context": technique},
+                "llm_input": text,
+                "pii_spans": spans,
+            })
 
-    # Neural Prompt-to-Prompt
-    technique = ["neural_prompt_to_prompt"]
+    # Neural Prompt-to-Prompt (LLM-based — parallelized)
     baseline_pii = dataset[
         (dataset["category"] == "positive")
         & (dataset["uid"] == dataset["input_id"])
-    ].copy()
-    _data = baseline_pii.copy()
-    _data["input_id"] = _data["uid"]
-    _data[["llm_input", "pii_spans"]] = _data.apply(
-        lambda row: llm_pii_fuzzer(
+    ]
+    technique = ["neural_prompt_to_prompt"]
+
+    def _neural_fuzz(row):
+        text, spans = llm_pii_fuzzer(
             llm_input=row["llm_input"],
             spans=row["pii_spans"],
             few_shots=False,
-        ),
-        axis=1,
-        result_type="expand",
-    )
-    _data["attack_target"] = _data.apply(
-        lambda _: {"pii": technique, "context": technique}, axis=1,
-    )
-    _data["category"] = "positive"
-    datasets.append(_data)
+        )
+        return {
+            "uid": 0,
+            "input_id": row["uid"],
+            "category": "positive",
+            "attack_target": {"pii": technique, "context": technique},
+            "llm_input": text,
+            "pii_spans": spans,
+        }
 
-    adv = concat(datasets, ignore_index=True)
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [
+            executor.submit(_neural_fuzz, row)
+            for _, row in baseline_pii.iterrows()
+        ]
+        for future in as_completed(futures):
+            rows.append(future.result())
+
+    adv = DataFrame(rows)
     adv["uid"] = range(next_uid, next_uid + len(adv))
 
     combined = concat([dataset, adv], ignore_index=True)
