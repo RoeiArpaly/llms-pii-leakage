@@ -13,9 +13,9 @@ from checkpoint import CheckpointManager
 
 BANNER = """\
 \033[36m╔══════════════════════════════════════════╗
-║\033[0m\033[1m         PII Detection Pipeline          \033[0m\033[36m║
-║\033[0m         ─────────────────────           \033[36m║
-║\033[0m  Adversarial PII Detector Evaluation    \033[36m║
+║\033[0m\033[1m         PII Detection Pipeline           \033[0m\033[36m║
+║\033[0m         ─────────────────────            \033[36m║
+║\033[0m  Adversarial PII Detector Evaluation     \033[36m║
 ╚══════════════════════════════════════════╝\033[0m"""
 
 _DONE = "\033[32m✓\033[0m"
