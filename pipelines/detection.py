@@ -105,6 +105,7 @@ def _pii_shield_detect(text):
     result = guard(
         text,
         perplexity_threshold=Config.PERPLEXITY_THRESHOLD,
+        gliner_threshold=Config.GLINER_THRESHOLD,
         slm_detector=partial(
             classify_pii, model_name="qwen-guard-0.6b", logprobs=True,
         ),
@@ -141,9 +142,15 @@ def process_predictions(
                 ),
             )
         elif base_model in GLINER_MODELS:
-            # NER: full normalization but no sandwich (noise dilutes NER signal)
+            # NER: light normalization by default. Full normalization
+            # (without sandwich) only when input looks suspicious —
+            # unconditional preprocessing degrades clean-input detection.
             input_col = input_col.apply(
-                lambda t: defensive_preprocess(t, include_sandwich=False),
+                lambda t: (
+                    defensive_preprocess(t, include_sandwich=False)
+                    if is_suspicious(t)
+                    else light_defensive_preprocess(t)
+                ),
             )
         else:
             # Presidio: full normalization + sandwich

@@ -19,12 +19,15 @@ def get_presidio_model(recognizers: list = None, use_cache: bool = True) -> Anal
     model = "presidio"
     if recognizers:
         model = "presidio-defend"
-    if _models[model] is None or not use_cache:
-        _models[model] = AnalyzerEngine(supported_languages=["en"])
-        if recognizers:
-            for recognizer in recognizers:
-                _models[model].registry.add_recognizer(recognizer)
-    return _models[model]
+    if _models[model] is not None and use_cache:
+        return _models[model]
+    engine = AnalyzerEngine(supported_languages=["en"])
+    if recognizers:
+        for recognizer in recognizers:
+            engine.registry.add_recognizer(recognizer)
+    if use_cache:
+        _models[model] = engine
+    return engine
 
 
 def filter_results(results):
