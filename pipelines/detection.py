@@ -83,6 +83,10 @@ _SLM_MODELS = {
     "gpt-4o-mini",
 }
 
+# Models that use conditional is_suspicious() gating (Strategy B).
+# Presidio uses unconditional full preprocessing (Strategy A).
+_CONDITIONAL_DEFEND_MODELS = _SLM_MODELS | set(GLINER_MODELS)
+
 
 def _qwen_guard_with_logprobs(data: Series, model_name: str) -> list:
     """Run Qwen Guard per-text with logprobs to get perplexity scores."""
@@ -130,31 +134,24 @@ def process_predictions(
 
     input_col = data["llm_input"].copy()
     if defend:
-        if base_model in _SLM_MODELS:
-            # SLMs: light normalization by default. If character anomaly
-            # detection flags the input as suspicious (homoglyphs, emoji,
-            # zero-width chars), apply full normalization without sandwich.
-            input_col = input_col.apply(
-                lambda t: (
-                    defensive_preprocess(t, include_sandwich=False)
-                    if is_suspicious(t)
-                    else light_defensive_preprocess(t)
-                ),
-            )
-        elif base_model in GLINER_MODELS:
-            # NER: light normalization by default. Full normalization
-            # (without sandwich) only when input looks suspicious —
-            # unconditional preprocessing degrades clean-input detection.
-            input_col = input_col.apply(
-                lambda t: (
-                    defensive_preprocess(t, include_sandwich=False)
-                    if is_suspicious(t)
-                    else light_defensive_preprocess(t)
-                ),
-            )
+        if base_model in _CONDITIONAL_DEFEND_MODELS:
+            # NER/SLM: use pre-computed column if available, else compute
+            if "_defended_ner_slm" in data.columns:
+                input_col = data["_defended_ner_slm"].copy()
+            else:
+                input_col = input_col.apply(
+                    lambda t: (
+                        defensive_preprocess(t, include_sandwich=False)
+                        if is_suspicious(t)
+                        else light_defensive_preprocess(t)
+                    ),
+                )
         else:
-            # Presidio: full normalization + sandwich
-            input_col = input_col.apply(defensive_preprocess)
+            # Presidio: use pre-computed column if available, else compute
+            if "_defended_presidio" in data.columns:
+                input_col = data["_defended_presidio"].copy()
+            else:
+                input_col = input_col.apply(defensive_preprocess)
     # For models supporting logprobs, call per-text with logprobs=True
     # to get perplexity scores alongside detection results.
     if logprobs and base_model in _LOGPROB_MODELS:
@@ -269,6 +266,74 @@ def _verify_predictions(det, checkpoint, expected_uids):
     checkpoint._save()
 
 
+# ── Preprocessing pre-computation ──────────────────────────────────
+
+def _precompute_defense_columns(dataset: DataFrame, models: list[str]):
+    """Pre-compute defensive preprocessing once, shared across all defend models.
+
+    Two strategies:
+      A (Presidio): unconditional full preprocess with sandwich
+      B (NER/SLM): is_suspicious() gate → full (no sandwich) or light
+    """
+    defend_models = [m for m in models if m.endswith("-defend")]
+    if not defend_models:
+        return
+
+    bases = {m.removesuffix("-defend") for m in defend_models}
+    need_b = bool(bases & _CONDITIONAL_DEFEND_MODELS)
+    need_a = bool(bases - _CONDITIONAL_DEFEND_MODELS)
+
+    if need_b:
+        suspicious = dataset["llm_input"].apply(is_suspicious)
+        dataset["_defended_ner_slm"] = dataset["llm_input"].combine(
+            suspicious,
+            lambda t, s: (
+                defensive_preprocess(t, include_sandwich=False)
+                if s else light_defensive_preprocess(t)
+            ),
+        )
+        logger.info("Pre-computed NER/SLM defense preprocessing")
+
+    if need_a:
+        dataset["_defended_presidio"] = dataset["llm_input"].apply(
+            defensive_preprocess,
+        )
+        logger.info("Pre-computed Presidio defense preprocessing")
+
+
+def _cleanup_defense_columns(dataset: DataFrame):
+    for col in ("_defended_ner_slm", "_defended_presidio"):
+        if col in dataset.columns:
+            dataset.drop(columns=col, inplace=True)
+
+
+# ── Paired inference helpers ───────────────────────────────────────
+
+def _collect_batch_rows(
+    batch_df: DataFrame, model: str, preds, batch_elapsed: float,
+) -> list[dict]:
+    """Extract prediction rows from detector output."""
+    if isinstance(preds, list):
+        preds = json_normalize(preds)
+        pred_spans = preds["spans"]
+        perplexity = preds["perplexity"]
+    else:
+        pred_spans = preds
+        perplexity = Series([None] * len(preds), index=preds.index)
+
+    ms_per_sample = round(batch_elapsed / len(batch_df) * 1000, 1)
+    return [
+        {
+            "uid": uid, "model": model,
+            "prediction": pred, "perplexity": perp,
+            "latency_ms": ms_per_sample,
+        }
+        for uid, pred, perp in zip(
+            batch_df["uid"], pred_spans, perplexity,
+        )
+    ]
+
+
 # ── Main pipeline ───────────────────────────────────────────────────
 
 def pii_detection_pipeline(
@@ -299,8 +364,12 @@ def pii_detection_pipeline(
         )
         logger.info(f"Sampled {len(dataset)} rows from dataset (--sample {sample_n})")
 
+    # Pre-compute defensive preprocessing (shared across all defend models)
+    _precompute_defense_columns(dataset, models)
+
     total_rows = len(dataset)
     skipped_models = set()
+    paired_done = set()  # defend models already processed via pairing
     prev_base = None
 
     if checkpoint:
@@ -312,6 +381,7 @@ def pii_detection_pipeline(
 
     for idx, model in enumerate(models):
         base_model = model.removesuffix("-defend")
+        is_defend = model.endswith("-defend")
 
         if checkpoint and checkpoint.is_done(model):
             print_model_skip(model)
@@ -322,18 +392,49 @@ def pii_detection_pipeline(
             prev_base = base_model
             continue
 
+        # Skip defend models already completed via paired inference
+        if model in paired_done:
+            prev_base = base_model
+            continue
+
         if prev_base is not None and base_model != prev_base:
             unload_models()
         prev_base = base_model
+
+        # Check if we can pair this base model with its defend variant
+        defend_model = f"{base_model}-defend"
+        pair_defend = (
+            not is_defend
+            and defend_model in models
+            and defend_model not in skipped_models
+            and defend_model not in paired_done
+            and (not checkpoint or not checkpoint.is_done(defend_model))
+        )
 
         done_uids = _read_model_uids(model)
         remaining = dataset[~dataset["uid"].isin(done_uids)] if done_uids else dataset
         n_remaining = len(remaining)
 
+        # For paired inference, also check defend model's progress
+        if pair_defend:
+            defend_done_uids = _read_model_uids(defend_model)
+        else:
+            defend_done_uids = set()
+
         if n_remaining == 0:
             if checkpoint:
                 checkpoint.complete_model(model)
             print_model_done(model, 0)
+            if pair_defend:
+                defend_remaining = (
+                    dataset[~dataset["uid"].isin(defend_done_uids)]
+                    if defend_done_uids else dataset
+                )
+                if len(defend_remaining) == 0:
+                    if checkpoint:
+                        checkpoint.complete_model(defend_model)
+                    print_model_done(defend_model, 0)
+                    paired_done.add(defend_model)
             continue
 
         if done_uids:
@@ -346,7 +447,11 @@ def pii_detection_pipeline(
             if done_uids:
                 checkpoint.save_batch(model, len(done_uids))
 
-        spinner = Spinner(f"{model}  0/{n_remaining} rows")
+        label = (
+            f"{model} + {defend_model}" if pair_defend
+            else model
+        )
+        spinner = Spinner(f"{label}  0/{n_remaining} rows")
         spinner.start()
         start_time = time.time()
         processed = 0
@@ -366,46 +471,61 @@ def pii_detection_pipeline(
                 spinner.stop()
                 reason = str(e).split("\n")[0][:80]
                 logger.warning(f"Skipping {model}: {e}")
-                skipped_models.update([base_model, f"{base_model}-defend"])
+                skipped_models.update([base_model, defend_model])
                 if checkpoint:
                     checkpoint.skip_model(model, reason)
-                    paired = (
-                        f"{base_model}-defend"
-                        if not model.endswith("-defend") else base_model
-                    )
-                    checkpoint.skip_model(paired, f"paired with {model}")
+                    checkpoint.skip_model(defend_model, f"paired with {model}")
                 unload_models()
                 print_model_skipped(model, reason)
                 failed = True
                 break
 
-            if isinstance(preds, list):
-                preds = json_normalize(preds)
-                pred_spans = preds["spans"]
-                perplexity = preds["perplexity"]
-            else:
-                pred_spans = preds
-                perplexity = Series([None] * len(preds), index=preds.index)
-
-            ms_per_sample = round(batch_elapsed / len(batch_df) * 1000, 1)
-            rows = [
-                {
-                    "uid": uid, "model": model,
-                    "prediction": pred, "perplexity": perp,
-                    "latency_ms": ms_per_sample,
-                }
-                for uid, pred, perp in zip(
-                    batch_df["uid"], pred_spans, perplexity,
-                )
-            ]
+            rows = _collect_batch_rows(batch_df, model, preds, batch_elapsed)
             _append_model_predictions(model, rows)
             n_batch = len(rows)
-            del preds, pred_spans, perplexity, rows, batch_df
+            del preds
+
+            # Paired defend inference on the same batch
+            if pair_defend:
+                # Only process UIDs not already done for defend
+                if defend_done_uids:
+                    defend_batch = batch_df[
+                        ~batch_df["uid"].isin(defend_done_uids)
+                    ]
+                else:
+                    defend_batch = batch_df
+                if not defend_batch.empty:
+                    try:
+                        d_t0 = time.time()
+                        d_preds = process_predictions(
+                            data=defend_batch, model=defend_model,
+                            logprobs=logprobs,
+                        )
+                        d_elapsed = time.time() - d_t0
+                    except Exception as e:
+                        spinner.stop()
+                        reason = str(e).split("\n")[0][:80]
+                        logger.warning(f"Skipping {defend_model}: {e}")
+                        skipped_models.add(defend_model)
+                        if checkpoint:
+                            checkpoint.skip_model(
+                                defend_model, f"failed: {reason}",
+                            )
+                        pair_defend = False
+                        # Continue with base model processing
+                    else:
+                        d_rows = _collect_batch_rows(
+                            defend_batch, defend_model, d_preds, d_elapsed,
+                        )
+                        _append_model_predictions(defend_model, d_rows)
+                        del d_preds, d_rows
+
+            del rows, batch_df
 
             if checkpoint:
                 checkpoint.save_batch(model, n_batch)
             processed += n_batch
-            spinner.update(f"{model}  {processed}/{n_remaining} rows")
+            spinner.update(f"{label}  {processed}/{n_remaining} rows")
 
         if failed:
             continue
@@ -414,17 +534,25 @@ def pii_detection_pipeline(
         elapsed = round(time.time() - start_time, 1)
         if checkpoint:
             checkpoint.complete_model(model)
+        if pair_defend:
+            if checkpoint:
+                checkpoint.complete_model(defend_model)
+            paired_done.add(defend_model)
+            print_model_done(f"{model} + {defend_model}", elapsed)
+        else:
+            print_model_done(model, elapsed)
         _aggregate_predictions()
-        print_model_done(model, elapsed)
 
         next_base = None
         for upcoming in models[idx + 1:]:
-            if upcoming not in skipped_models:
+            if (upcoming not in skipped_models
+                    and upcoming not in paired_done):
                 next_base = upcoming.removesuffix("-defend")
                 break
         if next_base is not None and next_base != base_model:
             unload_models()
 
+    _cleanup_defense_columns(dataset)
     unload_models()
     _aggregate_predictions()
 

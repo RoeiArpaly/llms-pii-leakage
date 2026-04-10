@@ -42,6 +42,22 @@ DATASET_PATH = Path("datasets/dataset.csv")
 PREDICTIONS_PATH = Path("datasets/predictions.csv")
 
 
+def _load_report_dataset() -> DataFrame:
+    """Load dataset filtered to UIDs present in predictions.
+
+    When the pipeline ran with --sample, predictions cover a subset of the
+    dataset. Filtering ensures overview stats match the evaluated data.
+    """
+    if not DATASET_PATH.exists():
+        return DataFrame()
+    dataset = read_csv(DATASET_PATH).apply(infer_json)
+    if PREDICTIONS_PATH.exists():
+        pred_uids = set(read_csv(PREDICTIONS_PATH, usecols=["uid"])["uid"])
+        if len(pred_uids) < len(dataset):
+            dataset = dataset[dataset["uid"].isin(pred_uids)]
+    return dataset
+
+
 def _compute_aggregated_scores(data: DataFrame, groupby_cols: list[str] = None) -> DataFrame:
     if groupby_cols:
         data = data.groupby(groupby_cols)[SPANS_METRICS].sum().reset_index()
@@ -61,7 +77,7 @@ def _compute_report_data() -> dict[str, DataFrame]:
 
     from evaluation import spans_scorer
 
-    dataset = read_csv(DATASET_PATH).apply(infer_json)
+    dataset = _load_report_dataset()
     predictions = read_csv(PREDICTIONS_PATH).apply(infer_json)
 
     data = predictions.merge(
@@ -271,7 +287,7 @@ def _build_leaderboard() -> str | None:
     if not PREDICTIONS_PATH.exists() or not DATASET_PATH.exists():
         return None
 
-    dataset = read_csv(DATASET_PATH).apply(infer_json)
+    dataset = _load_report_dataset()
     predictions = read_csv(PREDICTIONS_PATH).apply(infer_json)
 
     merged = predictions.merge(
@@ -447,7 +463,7 @@ def _build_shield_card() -> str | None:
     if shield_rows.empty:
         return None
 
-    dataset = read_csv(DATASET_PATH).apply(infer_json)
+    dataset = _load_report_dataset()
     merged = shield_rows.merge(
         dataset[["uid", "category", "pii_spans"]], on="uid", how="left",
     )
@@ -590,7 +606,7 @@ def _build_fp_analysis() -> dict[str, DataFrame] | None:
     if not PREDICTIONS_PATH.exists() or not DATASET_PATH.exists():
         return None
 
-    dataset = read_csv(DATASET_PATH).apply(infer_json)
+    dataset = _load_report_dataset()
     predictions = read_csv(PREDICTIONS_PATH).apply(infer_json)
 
     # Exclude pii-shield — it has its own summary card
@@ -640,7 +656,7 @@ def _build_defense_delta() -> DataFrame | None:
 
     from evaluation.report.config import model_sort_key
 
-    dataset = read_csv(DATASET_PATH).apply(infer_json)
+    dataset = _load_report_dataset()
     predictions = read_csv(PREDICTIONS_PATH).apply(infer_json)
 
     merged = predictions.merge(
@@ -703,7 +719,7 @@ def _build_fp_samples() -> str | None:
     if not PREDICTIONS_PATH.exists() or not DATASET_PATH.exists():
         return None
 
-    dataset = read_csv(DATASET_PATH).apply(infer_json)
+    dataset = _load_report_dataset()
     predictions = read_csv(PREDICTIONS_PATH).apply(infer_json)
     predictions = predictions[predictions["model"] != "pii-shield"]
 
@@ -759,7 +775,7 @@ def _build_pii_type_analysis() -> dict[str, DataFrame] | None:
     if not PREDICTIONS_PATH.exists() or not DATASET_PATH.exists():
         return None
 
-    dataset = read_csv(DATASET_PATH).apply(infer_json)
+    dataset = _load_report_dataset()
     predictions = read_csv(PREDICTIONS_PATH).apply(infer_json)
 
     positive = dataset[dataset["category"] == "positive"]
@@ -872,7 +888,7 @@ def _build_perplexity_charts() -> dict[str, str] | None:
     if not PREDICTIONS_PATH.exists() or not DATASET_PATH.exists():
         return None
 
-    dataset = read_csv(DATASET_PATH).apply(infer_json)
+    dataset = _load_report_dataset()
     predictions = read_csv(PREDICTIONS_PATH).apply(infer_json)
 
     if "perplexity" not in predictions.columns:
@@ -949,7 +965,7 @@ def _build_inspector() -> str | None:
     if not PREDICTIONS_PATH.exists() or not DATASET_PATH.exists():
         return None
 
-    dataset = read_csv(DATASET_PATH).apply(infer_json)
+    dataset = _load_report_dataset()
     predictions = read_csv(PREDICTIONS_PATH).apply(infer_json)
     predictions = predictions[predictions["model"] != "pii-shield"]
 
@@ -1174,10 +1190,7 @@ def generate_report(output_path: Path = None, open_browser: bool = True) -> Path
         output_path = DATASET_PATH.parent / "report.html"
 
     report_data = _compute_report_data()
-    dataset = (
-        read_csv(DATASET_PATH).apply(infer_json) if DATASET_PATH.exists()
-        else DataFrame()
-    )
+    dataset = _load_report_dataset()
 
     sections_html = []
     nav_items = []
