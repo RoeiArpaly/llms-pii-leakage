@@ -12,15 +12,22 @@ from data_manipulation.defenses.preprocess import (
 from detectors import unload_models
 from detectors.gliner import GLINER_MODELS, gliner_pii_detector_batch
 from detectors.guards import (
+    GRANITE_GUARDIAN_MODELS,
     LLAMA_GUARD_MODELS,
     QWEN_GUARD_MODELS,
+    granite_guardian_classify_pii_batch,
     guard_pii_detector_batch,
     llama_guard_classify_pii_batch,
     nemotron_classify_pii_batch,
     qwen_guard_classify_pii_batch,
     wildguard_classify_pii_batch,
 )
-from detectors.llm import llm_pii_detector
+from detectors.llm import (
+    LLAMA_LLM_MODELS,
+    llama_pii_detector,
+    llama_pii_detector_batch,
+    llm_pii_detector,
+)
 from detectors.presidio import get_fuzzy_recognizers, presidio_pii_analyzer
 from logger import logger
 from pipelines.generation import DATASET_PATH
@@ -69,15 +76,35 @@ _DETECTOR_DISPATCH = {
         ))
         for name in QWEN_GUARD_MODELS
     },
+    **{
+        name: (lambda data, _name=name, **_: guard_pii_detector_batch(
+            data, granite_guardian_classify_pii_batch, model_name=_name,
+        ))
+        for name in GRANITE_GUARDIAN_MODELS
+    },
+    **{
+        name: (lambda data, _name=name, logprobs=False, **_: (
+            _llama_llm_with_logprobs(data, _name)
+            if logprobs
+            else Series(
+                llama_pii_detector_batch(data.tolist(), model_name=_name),
+                index=data.index,
+            )
+        ))
+        for name in LLAMA_LLM_MODELS
+    },
     "pii-shield": lambda data, **_: data.apply(_pii_shield_detect),
 }
 
 # Models that support logprobs/perplexity output.
-_LOGPROB_MODELS = {"gpt-4o-mini", *QWEN_GUARD_MODELS}
+_LOGPROB_MODELS = {
+    "gpt-4o-mini", *QWEN_GUARD_MODELS, *LLAMA_LLM_MODELS,
+}
 
 _SLM_MODELS = {
     *LLAMA_GUARD_MODELS,
     *QWEN_GUARD_MODELS,
+    *GRANITE_GUARDIAN_MODELS,
     "nemotron-content-safety-4b",
     "wildguard-7b",
     "gpt-4o-mini",
@@ -85,7 +112,7 @@ _SLM_MODELS = {
 
 # Models that use conditional is_suspicious() gating (Strategy B).
 # Presidio uses unconditional full preprocessing (Strategy A).
-_CONDITIONAL_DEFEND_MODELS = _SLM_MODELS | set(GLINER_MODELS)
+_CONDITIONAL_DEFEND_MODELS = _SLM_MODELS | set(GLINER_MODELS) | set(LLAMA_LLM_MODELS)
 
 
 def _qwen_guard_with_logprobs(data: Series, model_name: str) -> list:
@@ -99,6 +126,14 @@ def _qwen_guard_with_logprobs(data: Series, model_name: str) -> list:
             "perplexity": r["perplexity"],
         })
     return results
+
+
+def _llama_llm_with_logprobs(data: Series, model_name: str) -> list:
+    """Run Llama LLM per-text with logprobs to get perplexity scores."""
+    return [
+        llama_pii_detector(text, model_name=model_name, logprobs=True)
+        for text in data
+    ]
 
 
 def _pii_shield_detect(text):
@@ -353,15 +388,34 @@ def pii_detection_pipeline(
     dataset = read_csv(DATASET_PATH).apply(infer_json)
 
     if sample_n is not None and sample_n < len(dataset):
-        dataset = (
-            dataset
-            .groupby("category", group_keys=False)
-            .apply(lambda g: g.sample(
-                n=min(len(g), max(1, round(sample_n * len(g) / len(dataset)))),
-                random_state=42,
-            ))
-            .reset_index(drop=True)
+        # Always keep all clean positives (no attacks). Sample the rest
+        # (attacked positives, negatives, hard negatives) to fill up to
+        # sample_n, stratified proportionally by category.
+        is_clean_pos = (
+            (dataset["category"] == "positive")
+            & dataset["attack_target"].apply(
+                lambda t: not isinstance(t, dict) or not t,
+            )
         )
+        clean_pos = dataset[is_clean_pos]
+        rest = dataset[~is_clean_pos]
+        rest_n = max(0, sample_n - len(clean_pos))
+        if rest_n < len(rest):
+            rest = (
+                rest
+                .groupby("category", group_keys=False)
+                .apply(
+                    lambda g: g.sample(
+                        n=min(len(g), max(1, round(
+                            rest_n * len(g) / len(rest),
+                        ))),
+                        random_state=42,
+                    ).index.to_series(),
+                    include_groups=False,
+                )
+            )
+            rest = dataset.loc[rest]
+        dataset = concat([clean_pos, rest], ignore_index=True)
         logger.info(f"Sampled {len(dataset)} rows from dataset (--sample {sample_n})")
 
     # Pre-compute defensive preprocessing (shared across all defend models)

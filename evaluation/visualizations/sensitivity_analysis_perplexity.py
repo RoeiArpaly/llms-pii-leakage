@@ -26,16 +26,8 @@ def _sweep_metrics(y_true, perplexity, thresholds, include_prec=False):
     precisions = []
     for thr in thresholds:
         y_pred = (perplexity > thr).astype(int)
-        cm = confusion_matrix(y_true, y_pred)
-        if cm.shape != (2, 2):
-            tn = fp = fn = tp = 0
-            if len(y_true) > 0:
-                if all(y_true == 0):
-                    tn = len(y_true)
-                else:
-                    tp = len(y_true)
-        else:
-            tn, fp, fn, tp = cm.ravel()
+        cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
+        tn, fp, fn, tp = cm.ravel()
 
         tpr = tp / (tp + fn) if (tp + fn) > 0 else 0.0
         tprs.append(tpr)

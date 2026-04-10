@@ -22,6 +22,12 @@ from detectors.guards.utils import (
     load_guard_model,
     pad_and_stack,
 )
+from detectors.guards.granite_guardian import (
+    GRANITE_GUARDIAN_MODELS,
+    classify_pii as granite_guardian_classify_pii,
+    classify_pii_batch as granite_guardian_classify_pii_batch,
+    granite_guardian_pii_detector,
+)
 from detectors.guards.wildguard import (
     classify_pii as wildguard_classify_pii,
     classify_pii_batch as wildguard_classify_pii_batch,
@@ -48,4 +54,8 @@ __all__ = [
     "wildguard_classify_pii",
     "wildguard_classify_pii_batch",
     "wildguard_pii_detector",
+    "GRANITE_GUARDIAN_MODELS",
+    "granite_guardian_classify_pii",
+    "granite_guardian_classify_pii_batch",
+    "granite_guardian_pii_detector",
 ]

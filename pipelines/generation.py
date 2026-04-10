@@ -13,6 +13,7 @@ from pandas import (
     read_csv,
 )
 
+from config import Config
 from constants import (
     ADV_CONTENT_TECHNIQUES,
     DATASET_COLS,
@@ -183,34 +184,36 @@ def generate_fuzzy_adv_dataset(max_workers: int = 8):
             })
 
     # Neural Prompt-to-Prompt (LLM-based — parallelized)
-    baseline_pii = dataset[
-        (dataset["category"] == "positive")
-        & (dataset["uid"] == dataset["input_id"])
-    ]
-    technique = ["neural_prompt_to_prompt"]
-
-    def _neural_fuzz(row):
-        text, spans = llm_pii_fuzzer(
-            llm_input=row["llm_input"],
-            spans=row["pii_spans"],
-            few_shots=False,
-        )
-        return {
-            "uid": 0,
-            "input_id": row["uid"],
-            "category": "positive",
-            "attack_target": {"pii": technique, "context": technique},
-            "llm_input": text,
-            "pii_spans": spans,
-        }
-
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [
-            executor.submit(_neural_fuzz, row)
-            for _, row in baseline_pii.iterrows()
+    # Requires a real LLM; skip when MOCK_LLM is enabled.
+    if not Config.MOCK_LLM:
+        baseline_pii = dataset[
+            (dataset["category"] == "positive")
+            & (dataset["uid"] == dataset["input_id"])
         ]
-        for future in as_completed(futures):
-            rows.append(future.result())
+        technique = ["neural_prompt_to_prompt"]
+
+        def _neural_fuzz(row):
+            text, spans = llm_pii_fuzzer(
+                llm_input=row["llm_input"],
+                spans=row["pii_spans"],
+                few_shots=False,
+            )
+            return {
+                "uid": 0,
+                "input_id": row["uid"],
+                "category": "positive",
+                "attack_target": {"pii": technique, "context": technique},
+                "llm_input": text,
+                "pii_spans": spans,
+            }
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [
+                executor.submit(_neural_fuzz, row)
+                for _, row in baseline_pii.iterrows()
+            ]
+            for future in as_completed(futures):
+                rows.append(future.result())
 
     adv = DataFrame(rows)
     adv["uid"] = range(next_uid, next_uid + len(adv))

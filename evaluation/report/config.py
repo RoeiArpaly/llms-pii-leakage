@@ -28,6 +28,10 @@ DISPLAY_NAMES = {
     "qwen-guard-0.6b-defend": "Qwen Guard 0.6B + Shield",
     "qwen-guard-4b": "Qwen Guard 4B",
     "qwen-guard-4b-defend": "Qwen Guard 4B + Shield",
+    "granite-guardian-8b": "Granite Guardian 8B",
+    "granite-guardian-8b-defend": "Granite Guardian 8B + Shield",
+    "llama-3.2-1b": "Llama 3.2 1B",
+    "llama-3.2-1b-defend": "Llama 3.2 1B + Shield",
     "pii-shield": "PII Shield",
     # Categories
     "negative": "Negative",
@@ -92,6 +96,10 @@ MODEL_COLORS = {
     "qwen-guard-0.6b-defend":    "#f5b041",
     "qwen-guard-4b":             "#d35400",
     "qwen-guard-4b-defend":      "#eb984e",
+    "granite-guardian-8b":       "#1b5e20",
+    "granite-guardian-8b-defend": "#4caf50",
+    "llama-3.2-1b":              "#c62828",
+    "llama-3.2-1b-defend":       "#ef5350",
 }
 
 MODEL_MARKERS = {
@@ -107,6 +115,8 @@ MODEL_MARKERS = {
     "nemotron-content-safety-4b": "+", "nemotron-content-safety-4b-defend": "+",
     "qwen-guard-0.6b": "d", "qwen-guard-0.6b-defend": "d",
     "qwen-guard-4b": "8", "qwen-guard-4b-defend": "8",
+    "granite-guardian-8b": "P", "granite-guardian-8b-defend": "P",
+    "llama-3.2-1b": "X", "llama-3.2-1b-defend": "X",
 }
 
 MODEL_LINESTYLES = {
@@ -122,6 +132,8 @@ MODEL_LINESTYLES = {
     "nemotron-content-safety-4b": "-.", "nemotron-content-safety-4b-defend": ":",
     "qwen-guard-0.6b": "-", "qwen-guard-0.6b-defend": "--",
     "qwen-guard-4b": "-.", "qwen-guard-4b-defend": ":",
+    "granite-guardian-8b": "-", "granite-guardian-8b-defend": "--",
+    "llama-3.2-1b": "-", "llama-3.2-1b-defend": "--",
 }
 
 # Canonical ordering: Presidio → GLiNER → SLMs (small→large) → LLMs
@@ -136,6 +148,8 @@ _BASE_MODEL_ORDER = [
     "nemotron-content-safety-4b",
     "qwen-guard-0.6b",
     "qwen-guard-4b",
+    "granite-guardian-8b",
+    "llama-3.2-1b",
     "gpt-4o-mini",
     "pii-shield",
 ]

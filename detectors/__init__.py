@@ -29,15 +29,19 @@ def unload_models():
     # Import caches lazily to avoid triggering heavy module loads
     # (torch, transformers, gliner) at package import time.
     from detectors.guards import utils as guard_utils
+    from detectors.guards import granite_guardian
     from detectors.guards import qwen_guard
     from detectors.guards import nemotron_guard
     from detectors.gliner import detector as gliner_det
+    from detectors.llm import llama_local
 
     for cache in [
         guard_utils._model_cache,
+        granite_guardian._model_cache,
         qwen_guard._model_cache,
         nemotron_guard._cache,
         gliner_det._model_cache,
+        llama_local._model_cache,
     ]:
         cache.clear()
 

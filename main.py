@@ -7,7 +7,7 @@ Usage:
     python main.py                              # run / resume
     python main.py run                          # same
     python main.py run --force                  # fresh start
-    python main.py run --skip-gen               # skip dataset generation
+    python main.py run --skip-gen               # skip baseline generation
     python main.py run --models presidio gliner # subset of models
     python main.py run --stage 3                # single stage only
     python main.py run --sample 200             # detect on 200 stratified rows
@@ -101,12 +101,12 @@ def cmd_run(args):
 
     last_completed = checkpoint.stage
 
-    # --skip-gen: skip stages 0-2
+    # --skip-gen: skip baseline generation only (reuse existing dataset)
     if args.skip_gen:
         if not DATASET_PATH.exists():
             print(f"  \033[31mError:\033[0m --skip-gen requires {DATASET_PATH} to exist")
             sys.exit(1)
-        last_completed = max(last_completed, 2)
+        last_completed = max(last_completed, 0)
 
     # --stage N: run only that stage, ignoring checkpoint for it
     if args.stage is not None:
@@ -200,7 +200,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run_p.add_argument(
         "--skip-gen", action="store_true",
-        help="Skip dataset generation stages (0-2)",
+        help="Skip baseline generation (stage 0), reuse existing dataset",
     )
     run_p.add_argument(
         "--sample", type=int, metavar="N", default=None,
