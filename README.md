@@ -31,8 +31,9 @@ llms-pii-leakage
 │
 ├── detectors/
 │   ├── gliner/                # GLiNER transformer NER detectors
-│   ├── guards/                # SLM guard models (Qwen, Llama, Granite, etc.)
-│   ├── llm/                   # LLM-based detectors (GPT-4o-mini, Llama 3.2)
+│   ├── guards/                # SLM guard models (Qwen, Llama Guard, Granite, WildGuard, Nemotron)
+│   ├── llm/                   # LLM-based detectors (GPT-4o-mini via API)
+│   ├── slm/                   # Instruction-tuned SLM detectors (Llama 3.2 1B)
 │   ├── presidio/              # Rule-based Presidio + fuzzy matching
 │   └── validators.py          # Post-detection PII span validators
 │
@@ -48,13 +49,14 @@ llms-pii-leakage
 │   ├── checkpoint.py          # Atomic JSON checkpoint manager
 │   ├── cli.py                 # CLI display helpers + spinner
 │   ├── detection.py           # PII detection pipeline + batching
-│   └── generation.py          # Dataset generation stages
+│   ├── generation.py          # Dataset generation stages
+│   └── runner.py              # Stage orchestration + archiving
 │
 ├── utils/
 │   ├── api.py                 # OpenAI API client + retry logic
 │   ├── data.py                # CSV/JSON serialization helpers
 │   ├── parallel.py            # Parallel execution for I/O-bound calls
-│   ├── perplexity.py          # Perplexity calculation + logprob extraction
+│   ├── perplexity.py          # Perplexity calculation
 │   └── prompts.py             # YAML prompt loading
 │
 ├── tests/

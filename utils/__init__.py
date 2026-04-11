@@ -9,8 +9,5 @@ from utils.data import (  # noqa: F401
     infer_json,
 )
 from utils.parallel import parallel_apply  # noqa: F401
-from utils.perplexity import (  # noqa: F401
-    calculate_perplexity,
-    filter_pii_logprobs,
-)
+from utils.perplexity import calculate_perplexity  # noqa: F401
 from utils.prompts import load_prompts  # noqa: F401

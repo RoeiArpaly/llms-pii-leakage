@@ -13,11 +13,12 @@ for _name in ("transformers", "huggingface_hub"):
 import torch  # noqa: E402
 
 from detectors.guards.utils import (  # noqa: E402
+    classify_with_logprobs,
     guard_pii_detector,
     load_guard_model,
     pad_and_stack,
 )
-from logger import logger  # noqa: E402
+
 
 GRANITE_GUARDIAN_MODELS = {
     "granite-guardian-8b": "ibm-granite/granite-guardian-3.3-8b",
@@ -65,9 +66,6 @@ def classify_pii(
     When logprobs=True, returns a dict with pii_detected, spans,
     and perplexity (from the yes/no score token logprob).
     """
-    import math
-    import torch.nn.functional as F
-
     tokenizer, model = _get_model(model_name)
 
     messages = [{"role": "user", "content": text}]
@@ -89,39 +87,14 @@ def classify_pii(
     )
 
     if logprobs:
-        gen_ids = outputs.sequences[0][input_len:]
-        content = tokenizer.decode(gen_ids, skip_special_tokens=True)
-        pii_detected = _parse_result(content)
-
-        # Extract perplexity from the yes/no score token
-        perplexity = 1.0
-        tokens = [tokenizer.decode([tid]) for tid in gen_ids]
-        for i, tok in enumerate(tokens):
-            if tok.strip().lower() in ("yes", "no"):
-                probs = F.softmax(outputs.scores[i], dim=-1)
-                token_id = gen_ids[i]
-                perplexity = math.exp(
-                    -torch.log(probs[0, token_id]).item(),
-                )
-                break
-
-        spans = []
-        if pii_detected:
-            spans = [
-                {"value": None, "start": None, "end": None, "type": "pii"},
-            ]
-        del outputs
-        return {
-            "pii_detected": pii_detected,
-            "spans": spans,
-            "perplexity": perplexity,
-        }
+        return classify_with_logprobs(
+            outputs, input_len, tokenizer, _parse_result,
+            token_index=None,
+        )
 
     gen_ids = outputs[0][input_len:]
     content = tokenizer.decode(gen_ids, skip_special_tokens=True)
-    result = _parse_result(content)
-    logger.debug(f"Granite Guardian: {content.strip()} → {result}")
-    return result
+    return _parse_result(content)
 
 
 @torch.inference_mode()

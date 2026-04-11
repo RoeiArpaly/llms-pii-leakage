@@ -11,11 +11,12 @@ import torch
 from transformers import AutoProcessor, Gemma3ForConditionalGeneration
 
 from detectors.guards.utils import (
+    classify_with_logprobs,
     generate_and_decode,
     guard_pii_detector,
     pad_and_stack,
 )
-from logger import logger
+
 
 MODEL_ID = "nvidia/Nemotron-Content-Safety-Reasoning-4B"
 
@@ -99,38 +100,13 @@ def classify_pii(text: str, logprobs: bool = False) -> bool | dict:
     )
 
     if logprobs:
-        import math
-        import torch.nn.functional as F
-
-        gen_ids = output.sequences[0][input_ids.shape[-1]:]
-        result_text = processor.decode(
-            gen_ids, skip_special_tokens=True,
-        ).strip()
-        pii_detected = _parse_result(result_text)
-
-        # Perplexity from first generated token
-        perplexity = 1.0
-        if output.scores:
-            probs = F.softmax(output.scores[0], dim=-1)
-            token_id = gen_ids[0]
-            perplexity = math.exp(-torch.log(probs[0, token_id]).item())
-
-        spans = []
-        if pii_detected:
-            spans = [
-                {"value": None, "start": None, "end": None, "type": "pii"},
-            ]
-        del output
-        return {
-            "pii_detected": pii_detected,
-            "spans": spans,
-            "perplexity": perplexity,
-        }
+        return classify_with_logprobs(
+            output, input_ids.shape[-1], processor, _parse_result,
+        )
 
     result = processor.decode(
         output[0][input_ids.shape[-1]:], skip_special_tokens=True,
     ).strip()
-    logger.debug(f"Nemotron Guard result: {result}")
     return _parse_result(result)
 
 

@@ -11,12 +11,13 @@ for _name in ("transformers", "huggingface_hub"):
 import torch  # noqa: E402
 
 from detectors.guards.utils import (
+    classify_with_logprobs,
     generate_and_decode,
     guard_pii_detector,
     load_guard_model,
     pad_and_stack,
 )
-from logger import logger
+
 
 QWEN_GUARD_MODELS = {
     "qwen-guard-0.6b": "Qwen/Qwen3Guard-Gen-0.6B",
@@ -63,38 +64,13 @@ def classify_pii(
     )
 
     if logprobs:
-        import math
-        import torch.nn.functional as F
-        gen_ids = outputs.sequences[0][inputs.input_ids.shape[-1]:]
-        content = tokenizer.decode(gen_ids, skip_special_tokens=True)
-        pii_detected = _has_pii(content)
-
-        # Perplexity from the 3rd token (classification: Safe/Cont/Uns)
-        perplexity = 1.0
-        cls_idx = 2
-        if len(outputs.scores) > cls_idx:
-            probs = F.softmax(outputs.scores[cls_idx], dim=-1)
-            token_id = outputs.sequences[
-                0, inputs.input_ids.shape[-1] + cls_idx
-            ]
-            perplexity = math.exp(-torch.log(probs[0, token_id]).item())
-
-        spans = []
-        if pii_detected:
-            spans = [
-                {"value": None, "start": None, "end": None, "type": "pii"},
-            ]
-        del outputs
-        logger.debug(f"Qwen Guard: {content.strip()}, ppl={perplexity:.2f}")
-        return {
-            "pii_detected": pii_detected,
-            "spans": spans,
-            "perplexity": perplexity,
-        }
+        return classify_with_logprobs(
+            outputs, inputs.input_ids.shape[-1],
+            tokenizer, _has_pii, token_index=2,
+        )
 
     output_ids = outputs[0][inputs.input_ids.shape[-1]:]
     content = tokenizer.decode(output_ids, skip_special_tokens=True)
-    logger.debug(f"Qwen Guard result: {content}")
     return _has_pii(content)
 
 

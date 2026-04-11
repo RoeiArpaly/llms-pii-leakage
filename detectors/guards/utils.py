@@ -152,6 +152,57 @@ def generate_and_decode(
     return results
 
 
+_PII_SPAN = {"value": None, "start": None, "end": None, "type": "pii"}
+
+
+def classify_with_logprobs(
+    outputs, input_len: int, tokenizer, parse_fn,
+    token_index: int = 0,
+) -> dict:
+    """Extract classification result + perplexity from generation output.
+
+    Shared by all guard/SLM detectors. Decodes the generated text,
+    applies parse_fn for the binary result, and computes perplexity
+    from the logprob of the token at token_index.
+
+    For models where the classification token position varies (e.g.
+    Granite Guardian's yes/no after <score>), pass token_index=None
+    to search for the first yes/no token.
+    """
+    import math
+    import torch.nn.functional as F
+
+    gen_ids = outputs.sequences[0][input_len:]
+    content = tokenizer.decode(gen_ids, skip_special_tokens=True)
+    pii_detected = parse_fn(content)
+
+    perplexity = 1.0
+    if outputs.scores:
+        if token_index is None:
+            # Search for yes/no token dynamically
+            tokens = [tokenizer.decode([tid]) for tid in gen_ids]
+            for i, tok in enumerate(tokens):
+                if tok.strip().lower() in ("yes", "no"):
+                    token_index = i
+                    break
+            if token_index is None:
+                token_index = 0
+
+        if token_index < len(outputs.scores):
+            probs = F.softmax(outputs.scores[token_index], dim=-1)
+            token_id = gen_ids[token_index]
+            perplexity = math.exp(
+                -torch.log(probs[0, token_id]).item(),
+            )
+
+    del outputs
+    return {
+        "pii_detected": pii_detected,
+        "spans": [_PII_SPAN.copy()] if pii_detected else [],
+        "perplexity": perplexity,
+    }
+
+
 def guard_pii_detector(text: str, classifier: Callable, **kwargs) -> list:
     """Guard-based PII detector for message-level classifiers.
 

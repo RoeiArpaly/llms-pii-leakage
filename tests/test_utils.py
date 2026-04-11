@@ -1,8 +1,8 @@
 import pandas as pd
 import pytest
 
+from detectors.llm.detector import filter_pii_logprobs
 from utils import (
-    filter_pii_logprobs,
     parallel_apply,
     post_request_openai,
 )

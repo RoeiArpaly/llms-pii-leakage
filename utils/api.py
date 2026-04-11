@@ -8,10 +8,8 @@ import requests
 
 from config import Config
 from logger import logger
-from utils.perplexity import (
-    calculate_perplexity,
-    filter_pii_logprobs,
-)
+from utils.perplexity import calculate_perplexity
+
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
@@ -81,6 +79,7 @@ def post_request_openai(
         perplexity = None
         if logprobs:
             logprobs_content = content.get("logprobs", {}).get("content", {})
+            from detectors.llm.detector import filter_pii_logprobs
             pii_logprobs = filter_pii_logprobs(logprobs_content=logprobs_content)
             perplexity = calculate_perplexity(logprobs=pii_logprobs)
         try:

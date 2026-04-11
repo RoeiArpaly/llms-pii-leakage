@@ -9,6 +9,7 @@ import re
 import torch
 
 from detectors.guards.utils import (
+    classify_with_logprobs,
     generate_and_decode,
     guard_pii_detector,
     guard_pii_detector_batch,
@@ -88,31 +89,9 @@ def classify_pii(
     )
 
     if logprobs:
-        import math
-        import torch.nn.functional as F
-
-        gen_ids = output.sequences[0][input_ids.shape[-1]:]
-        result_text = tokenizer.decode(gen_ids, skip_special_tokens=True).strip()
-        pii_detected = _parse_result(result_text)
-
-        # First generated token is "safe" or "unsafe"
-        perplexity = 1.0
-        if output.scores:
-            probs = F.softmax(output.scores[0], dim=-1)
-            token_id = gen_ids[0]
-            perplexity = math.exp(-torch.log(probs[0, token_id]).item())
-
-        spans = []
-        if pii_detected:
-            spans = [
-                {"value": None, "start": None, "end": None, "type": "pii"},
-            ]
-        del output
-        return {
-            "pii_detected": pii_detected,
-            "spans": spans,
-            "perplexity": perplexity,
-        }
+        return classify_with_logprobs(
+            output, input_ids.shape[-1], tokenizer, _parse_result,
+        )
 
     result = tokenizer.decode(
         output[0][input_ids.shape[-1]:],
