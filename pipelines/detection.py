@@ -2,7 +2,13 @@
 import time
 from pathlib import Path
 
-from pandas import concat, DataFrame, json_normalize, read_csv, Series
+from pandas import (
+    concat,
+    DataFrame,
+    json_normalize,
+    read_csv,
+    Series,
+)
 
 from data_manipulation.defenses.preprocess import (
     defensive_preprocess,
@@ -10,7 +16,10 @@ from data_manipulation.defenses.preprocess import (
     light_defensive_preprocess,
 )
 from detectors import unload_models
-from detectors.gliner import GLINER_MODELS, gliner_pii_detector_batch
+from detectors.gliner import (
+    GLINER_MODELS,
+    gliner_pii_detector_batch,
+)
 from detectors.guards import (
     GRANITE_GUARDIAN_MODELS,
     LLAMA_GUARD_MODELS,
@@ -22,16 +31,22 @@ from detectors.guards import (
     qwen_guard_classify_pii_batch,
     wildguard_classify_pii_batch,
 )
-from detectors.llm import (
-    LLAMA_LLM_MODELS,
-    llama_pii_detector,
-    llama_pii_detector_batch,
-    llm_pii_detector,
+from detectors.llm import llm_pii_detector
+from detectors.slm import (
+    LLAMA_SLM_MODELS,
+    classify_pii_batch as llama_slm_classify_pii_batch,
 )
-from detectors.presidio import get_fuzzy_recognizers, presidio_pii_analyzer
+from detectors.presidio import (
+    get_fuzzy_recognizers,
+    presidio_pii_analyzer,
+)
 from logger import logger
 from pipelines.generation import DATASET_PATH
-from utils import cast_to_json, infer_json, parallel_apply
+from utils import (
+    cast_to_json,
+    infer_json,
+    parallel_apply,
+)
 
 PREDICTIONS_PATH = Path("datasets/predictions.csv")
 PREDICTIONS_DIR = Path("datasets/predictions")
@@ -55,16 +70,24 @@ _DETECTOR_DISPATCH = {
         func=llm_pii_detector, series=data, logprobs=logprobs,
     ),
     **{
-        name: (lambda data, _name=name, **_: guard_pii_detector_batch(
-            data, llama_guard_classify_pii_batch, model_name=_name,
+        name: (lambda data, _name=name, logprobs=False, **_: (
+            _llama_guard_with_logprobs(data, _name)
+            if logprobs
+            else guard_pii_detector_batch(
+                data, llama_guard_classify_pii_batch, model_name=_name,
+            )
         ))
         for name in LLAMA_GUARD_MODELS
     },
-    "nemotron-content-safety-4b": lambda data, **_: guard_pii_detector_batch(
-        data, nemotron_classify_pii_batch,
+    "nemotron-content-safety-4b": lambda data, logprobs=False, **_: (
+        _nemotron_with_logprobs(data)
+        if logprobs
+        else guard_pii_detector_batch(data, nemotron_classify_pii_batch)
     ),
-    "wildguard-7b": lambda data, **_: guard_pii_detector_batch(
-        data, wildguard_classify_pii_batch,
+    "wildguard-7b": lambda data, logprobs=False, **_: (
+        _wildguard_with_logprobs(data)
+        if logprobs
+        else guard_pii_detector_batch(data, wildguard_classify_pii_batch)
     ),
     **{
         name: (lambda data, _name=name, logprobs=False, **_: (
@@ -77,34 +100,44 @@ _DETECTOR_DISPATCH = {
         for name in QWEN_GUARD_MODELS
     },
     **{
-        name: (lambda data, _name=name, **_: guard_pii_detector_batch(
-            data, granite_guardian_classify_pii_batch, model_name=_name,
+        name: (lambda data, _name=name, logprobs=False, **_: (
+            _granite_guardian_with_logprobs(data, _name)
+            if logprobs
+            else guard_pii_detector_batch(
+                data, granite_guardian_classify_pii_batch, model_name=_name,
+            )
         ))
         for name in GRANITE_GUARDIAN_MODELS
     },
     **{
         name: (lambda data, _name=name, logprobs=False, **_: (
-            _llama_llm_with_logprobs(data, _name)
+            _llama_slm_with_logprobs(data, _name)
             if logprobs
-            else Series(
-                llama_pii_detector_batch(data.tolist(), model_name=_name),
-                index=data.index,
+            else guard_pii_detector_batch(
+                data, llama_slm_classify_pii_batch, model_name=_name,
             )
         ))
-        for name in LLAMA_LLM_MODELS
+        for name in LLAMA_SLM_MODELS
     },
     "pii-shield": lambda data, **_: data.apply(_pii_shield_detect),
 }
 
 # Models that support logprobs/perplexity output.
 _LOGPROB_MODELS = {
-    "gpt-4o-mini", *QWEN_GUARD_MODELS, *LLAMA_LLM_MODELS,
+    "gpt-4o-mini",
+    *LLAMA_GUARD_MODELS,
+    *QWEN_GUARD_MODELS,
+    *GRANITE_GUARDIAN_MODELS,
+    "nemotron-content-safety-4b",
+    "wildguard-7b",
+    *LLAMA_SLM_MODELS,
 }
 
 _SLM_MODELS = {
     *LLAMA_GUARD_MODELS,
     *QWEN_GUARD_MODELS,
     *GRANITE_GUARDIAN_MODELS,
+    *LLAMA_SLM_MODELS,
     "nemotron-content-safety-4b",
     "wildguard-7b",
     "gpt-4o-mini",
@@ -112,7 +145,7 @@ _SLM_MODELS = {
 
 # Models that use conditional is_suspicious() gating (Strategy B).
 # Presidio uses unconditional full preprocessing (Strategy A).
-_CONDITIONAL_DEFEND_MODELS = _SLM_MODELS | set(GLINER_MODELS) | set(LLAMA_LLM_MODELS)
+_CONDITIONAL_DEFEND_MODELS = _SLM_MODELS | set(GLINER_MODELS)
 
 
 def _qwen_guard_with_logprobs(data: Series, model_name: str) -> list:
@@ -128,11 +161,58 @@ def _qwen_guard_with_logprobs(data: Series, model_name: str) -> list:
     return results
 
 
-def _llama_llm_with_logprobs(data: Series, model_name: str) -> list:
-    """Run Llama LLM per-text with logprobs to get perplexity scores."""
+def _llama_guard_with_logprobs(data: Series, model_name: str) -> list:
+    """Run Llama Guard per-text with logprobs for perplexity."""
+    from detectors.guards.llama_guard import classify_pii as lg_classify
     return [
-        llama_pii_detector(text, model_name=model_name, logprobs=True)
-        for text in data
+        {"spans": r["spans"], "perplexity": r["perplexity"]}
+        for r in (
+            lg_classify(text, model_name=model_name, logprobs=True)
+            for text in data
+        )
+    ]
+
+
+def _nemotron_with_logprobs(data: Series) -> list:
+    """Run Nemotron per-text with logprobs for perplexity."""
+    from detectors.guards.nemotron_guard import classify_pii as nm_classify
+    return [
+        {"spans": r["spans"], "perplexity": r["perplexity"]}
+        for r in (nm_classify(text, logprobs=True) for text in data)
+    ]
+
+
+def _wildguard_with_logprobs(data: Series) -> list:
+    """Run WildGuard per-text with logprobs for perplexity."""
+    from detectors.guards.wildguard import classify_pii as wg_classify
+    return [
+        {"spans": r["spans"], "perplexity": r["perplexity"]}
+        for r in (wg_classify(text, logprobs=True) for text in data)
+    ]
+
+
+def _granite_guardian_with_logprobs(data: Series, model_name: str) -> list:
+    """Run Granite Guardian per-text with logprobs for perplexity."""
+    from detectors.guards.granite_guardian import classify_pii as gg_classify
+    results = []
+    for text in data:
+        r = gg_classify(text, model_name=model_name, logprobs=True)
+        results.append({
+            "spans": r["spans"],
+            "perplexity": r["perplexity"],
+        })
+    return results
+
+
+def _llama_slm_with_logprobs(data: Series, model_name: str) -> list:
+    """Run Llama SLM per-text with logprobs for perplexity."""
+    from detectors.slm.llama import classify_pii as llama_classify
+    return [
+        {"spans": r["spans"], "perplexity": r["perplexity"]}
+        for r in (
+            llama_classify(text, model_name=model_name, logprobs=True)
+            for text in data
+        )
     ]
 
 
@@ -377,7 +457,7 @@ def pii_detection_pipeline(
     checkpoint=None,
     sample_n: int | None = None,
 ):
-    from cli import (
+    from pipelines.cli import (
         Spinner,
         print_model_done,
         print_model_skip,
