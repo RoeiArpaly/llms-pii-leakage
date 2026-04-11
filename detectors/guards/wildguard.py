@@ -55,13 +55,55 @@ def _parse_result(text: str) -> bool:
 
 
 @torch.inference_mode()
-def classify_pii(text: str) -> bool:
+def classify_pii(text: str, logprobs: bool = False) -> bool | dict:
+    """Classify whether text contains PII using WildGuard.
+
+    When logprobs=True, returns dict with pii_detected, spans, and
+    perplexity (from the first generated token).
+    """
     tokenizer, model = _get_model()
     prompt = _PROMPT_TEMPLATE.format(prompt=text, response="")
-    input_ids = tokenizer([prompt], return_tensors="pt", add_special_tokens=False).input_ids.to(model.device)
+    input_ids = tokenizer(
+        [prompt], return_tensors="pt", add_special_tokens=False,
+    ).input_ids.to(model.device)
+
     torch.manual_seed(42)
-    output = model.generate(input_ids=input_ids, max_new_tokens=32, pad_token_id=0, do_sample=False)
-    result = tokenizer.decode(output[0][input_ids.shape[-1]:], skip_special_tokens=True)
+    output = model.generate(
+        input_ids=input_ids, max_new_tokens=32,
+        pad_token_id=0, do_sample=False,
+        output_scores=logprobs, return_dict_in_generate=logprobs,
+    )
+
+    if logprobs:
+        import math
+        import torch.nn.functional as F
+
+        gen_ids = output.sequences[0][input_ids.shape[-1]:]
+        result_text = tokenizer.decode(gen_ids, skip_special_tokens=True)
+        pii_detected = _parse_result(result_text)
+
+        # Perplexity from first generated token
+        perplexity = 1.0
+        if output.scores:
+            probs = F.softmax(output.scores[0], dim=-1)
+            token_id = gen_ids[0]
+            perplexity = math.exp(-torch.log(probs[0, token_id]).item())
+
+        spans = []
+        if pii_detected:
+            spans = [
+                {"value": None, "start": None, "end": None, "type": "pii"},
+            ]
+        del output
+        return {
+            "pii_detected": pii_detected,
+            "spans": spans,
+            "perplexity": perplexity,
+        }
+
+    result = tokenizer.decode(
+        output[0][input_ids.shape[-1]:], skip_special_tokens=True,
+    )
     return _parse_result(result)
 
 
