@@ -78,6 +78,8 @@ def styled_table(df: DataFrame,
     cmap = LinearSegmentedColormap.from_list(
         "tbl", ["#ffffff", "#d6e8f5", "#8cb8d8", "#3a7ebf", "#1a4e7e"]
     )
+    if pct_display:
+        display_df[pct_display] = display_df[pct_display].fillna(0)
     styler = display_df.style.set_table_styles(css).hide(axis="index")
     if pct_display:
         styler = styler.format("{:.1%}", subset=pct_display)

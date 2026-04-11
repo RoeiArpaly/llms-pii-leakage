@@ -4,20 +4,16 @@ Uses Qwen3Guard-Gen models to classify whether text contains PII.
 Based on the simple inference pattern from qwen_easy_guard.py.
 """
 import logging
-import warnings
 
 for _name in ("transformers", "huggingface_hub"):
     logging.getLogger(_name).setLevel(logging.ERROR)
 
-import torch
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-)
+import torch  # noqa: E402
 
 from detectors.guards.utils import (
     generate_and_decode,
     guard_pii_detector,
+    load_guard_model,
     pad_and_stack,
 )
 from logger import logger
@@ -33,13 +29,10 @@ _model_cache: dict = {}
 def _get_model(model_name: str):
     if model_name not in _model_cache:
         model_id = QWEN_GUARD_MODELS[model_name]
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore")
-            tokenizer = AutoTokenizer.from_pretrained(model_id)
-            model = AutoModelForCausalLM.from_pretrained(
-                model_id, torch_dtype="auto", device_map="auto",
-            )
-        _model_cache[model_name] = (tokenizer, model)
+        _model_cache[model_name] = load_guard_model(
+            model_name, model_id,
+            torch_dtype="auto", device_map="auto",
+        )
     return _model_cache[model_name]
 
 

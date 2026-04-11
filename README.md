@@ -12,70 +12,57 @@ In addition, the repository includes the implementation of PII Shield, a modular
 ## Project Structure
 ```
 llms-pii-leakage
-├── data_generation
+├── data_generation/           # LLM-based prompt generation + PII injection
 │   ├── llm_input_generator.py
 │   ├── pii_generator.py
 │   ├── pii_validators.py
-│   ├── prompts.yaml
 │   └── template_validators.py
 │
-├── data_manipulation
-│   ├── attacks
-│   │   ├── neural_prompt_to_prompt
-│   │   │   ├── adaptive_attacks
-│   │   │   │   ├── attacker.py
-│   │   │   │   ├── constants.py
-│   │   │   │   ├── loop.py
-│   │   │   │   └── run.py
-│   │   │   ├── llm.py
-│   │   │   └── prompts.yaml
-│   │   │
-│   │   ├── red_teaming
-│   │   │   ├── content
-│   │   │   │   ├── supportive_context.py
-│   │   │   │   └── utils.py
-│   │   │   └── pii
-│   │   │       ├── char_to_word.py
-│   │   │       ├── chunking.py
-│   │   │       ├── emojify.py
-│   │   │       ├── homoglyph.py
-│   │   │       ├── separators.py
-│   │   │       └── utils.py
-│   │   │
-│   │   ├── template_based
-│   │   │   ├── affix.py
-│   │   │   └── prompt_injection.py
-│   │   └── injection.py
-│   │
-│   ├── defenses
-│   │   └── preprocess.py
-│   └── constants.py
+├── data_manipulation/
+│   ├── attacks/
+│   │   ├── neural_prompt_to_prompt/  # LLM-based adaptive attacks
+│   │   ├── red_teaming/
+│   │   │   ├── content/              # Content-level attacks
+│   │   │   └── pii/                  # PII-level fuzzing (homoglyph, chunking, etc.)
+│   │   ├── template_based/           # Affix + prompt injection templates
+│   │   └── injection.py              # Attack dispatch
+│   └── defenses/
+│       └── preprocess.py             # Defensive preprocessing pipeline
 │
-├── datasets
+├── detectors/
+│   ├── gliner/                # GLiNER transformer NER detectors
+│   ├── guards/                # SLM guard models (Qwen, Llama, Granite, etc.)
+│   ├── llm/                   # LLM-based detectors (GPT-4o-mini, Llama 3.2)
+│   ├── presidio/              # Rule-based Presidio + fuzzy matching
+│   └── validators.py          # Post-detection PII span validators
 │
-├── detectors
-│   ├── fuzzy_match.py
-│   ├── gliner_detector.py
-│   ├── llm_detector.py
-│   ├── presidio_detector.py
-│   └── prompts.yaml
+├── evaluation/
+│   ├── report/                # HTML report generator + config + styling
+│   ├── visualizations/        # Heatmaps, radar, line charts, perplexity
+│   ├── partial_matching.py    # Span-level fuzzy matching
+│   ├── scoring.py             # Evaluation metrics
+│   ├── shield_eval.py         # Post-hoc PII Shield cascade evaluation
+│   └── spans.py               # Span scoring (precision/recall/F1)
 │
-├── evaluation
-│   ├── constants.py
-│   ├── partial_matching.py
-│   ├── prompts.yaml
-│   ├── reports.py
-│   ├── spans.py
-│   └── visualizations.py
+├── pipelines/
+│   ├── checkpoint.py          # Atomic JSON checkpoint manager
+│   ├── cli.py                 # CLI display helpers + spinner
+│   ├── detection.py           # PII detection pipeline + batching
+│   └── generation.py          # Dataset generation stages
 │
-├── tests
-├── config.py
-├── constants.py
-├── logger.py
-├── main.py
-├── pii_shield.py
-├── pipelines.py
-└── utils.py
+├── utils/
+│   ├── api.py                 # OpenAI API client + retry logic
+│   ├── data.py                # CSV/JSON serialization helpers
+│   ├── parallel.py            # Parallel execution for I/O-bound calls
+│   ├── perplexity.py          # Perplexity calculation + logprob extraction
+│   └── prompts.py             # YAML prompt loading
+│
+├── tests/
+├── config.py                  # Central configuration
+├── constants.py               # PII entities, attack techniques, dataset schema
+├── logger.py                  # Logging setup
+├── main.py                    # CLI entrypoint
+└── pii_shield.py              # Cascading PII defense framework
 ```
 
 ## Setup
@@ -93,8 +80,13 @@ llms-pii-leakage
     uv sync
     ```
 
-## Steps
-1. Generate LLM input templates with OpenAI
-2. Validate the generated templates
-3. Inject PII into the templates with Presidio Data Generator
-4. Validate the generated PII with Presidio
+## Running
+
+```bash
+uv run python main.py                          # run full pipeline
+uv run python main.py run --skip-gen            # skip baseline generation, reuse dataset
+uv run python main.py run --sample 1000         # cap negatives, keep all clean positives
+uv run python main.py run --models presidio gliner  # run subset of models
+uv run python main.py status                    # show checkpoint state
+uv run python main.py reset                     # clear all checkpoints
+```

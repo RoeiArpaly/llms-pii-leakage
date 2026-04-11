@@ -58,8 +58,15 @@ def _parse_result(text: str) -> bool:
 
 
 @torch.inference_mode()
-def classify_pii(text: str, model_name: str = "llama-guard-3-1b") -> bool:
-    """Classify whether text contains PII using Llama Guard 3."""
+def classify_pii(
+    text: str, model_name: str = "llama-guard-3-1b",
+    logprobs: bool = False,
+) -> bool | dict:
+    """Classify whether text contains PII using Llama Guard 3.
+
+    When logprobs=True, returns dict with pii_detected, spans, and
+    perplexity (from the safe/unsafe classification token).
+    """
     tokenizer, model = _get_model(model_name)
 
     conversation = [{"role": "user", "content": [{"type": "text", "text": text}]}]
@@ -76,7 +83,37 @@ def classify_pii(text: str, model_name: str = "llama-guard-3-1b") -> bool:
         max_new_tokens=20,
         pad_token_id=0,
         do_sample=False,
+        output_scores=logprobs,
+        return_dict_in_generate=logprobs,
     )
+
+    if logprobs:
+        import math
+        import torch.nn.functional as F
+
+        gen_ids = output.sequences[0][input_ids.shape[-1]:]
+        result_text = tokenizer.decode(gen_ids, skip_special_tokens=True).strip()
+        pii_detected = _parse_result(result_text)
+
+        # First generated token is "safe" or "unsafe"
+        perplexity = 1.0
+        if output.scores:
+            probs = F.softmax(output.scores[0], dim=-1)
+            token_id = gen_ids[0]
+            perplexity = math.exp(-torch.log(probs[0, token_id]).item())
+
+        spans = []
+        if pii_detected:
+            spans = [
+                {"value": None, "start": None, "end": None, "type": "pii"},
+            ]
+        del output
+        return {
+            "pii_detected": pii_detected,
+            "spans": spans,
+            "perplexity": perplexity,
+        }
+
     result = tokenizer.decode(
         output[0][input_ids.shape[-1]:],
         skip_special_tokens=True,

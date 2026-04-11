@@ -61,7 +61,7 @@ def generate_baseline_dataset(
     else:
         existing = DataFrame()
 
-    from cli import Spinner
+    from pipelines.cli import Spinner
     spinner = Spinner(f"Generating sample 0/{n_samples}")
     spinner.start()
     results = []

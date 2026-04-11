@@ -8,7 +8,7 @@ import threading
 import time
 from pathlib import Path
 
-from checkpoint import CheckpointManager
+from pipelines.checkpoint import CheckpointManager
 
 
 BANNER = """\

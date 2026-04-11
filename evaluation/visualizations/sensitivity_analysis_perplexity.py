@@ -20,6 +20,42 @@ from config import Config
 from utils import infer_json
 
 
+def find_optimal_threshold(
+    y_true, perplexity, thresholds, precision_target: float = 1.0,
+) -> float:
+    """Find the lowest threshold where baseline precision >= target.
+
+    Searches from highest threshold downward to find the lowest
+    threshold that still achieves the target precision (typically 100%).
+    Returns the threshold rounded to 2 significant figures past 1.0.
+    Falls back to Config.PERPLEXITY_THRESHOLD if precision never
+    reaches the target.
+    """
+    tprs, precisions = _sweep_metrics(
+        y_true, perplexity, thresholds, include_prec=True,
+    )
+    # Walk from highest threshold downward. Find the lowest threshold
+    # where precision >= target AND recall > 0 (non-trivial detection).
+    best_idx = None
+    for i in range(len(precisions) - 1, -1, -1):
+        if precisions[i] >= precision_target - 1e-9 and tprs[i] > 0:
+            best_idx = i
+        elif best_idx is not None:
+            break
+
+    if best_idx is None:
+        return Config.PERPLEXITY_THRESHOLD
+
+    raw = float(thresholds[best_idx])
+    offset = raw - 1.0
+    if offset <= 0:
+        return 1.0
+    # Round UP to ensure we stay at or above the 100%-precision point
+    digits = max(-math.floor(math.log10(abs(offset))) + 1, 2)
+    factor = 10 ** digits
+    return math.ceil(raw * factor) / factor
+
+
 def _sweep_metrics(y_true, perplexity, thresholds, include_prec=False):
     """Compute recall (and optionally precision) across thresholds."""
     tprs = []

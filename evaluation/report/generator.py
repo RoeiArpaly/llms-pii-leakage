@@ -31,10 +31,14 @@ from evaluation.report.html import (
 )
 from evaluation.scoring import SPANS_METRICS
 from evaluation.visualizations.sensitivity_analysis_perplexity import (
+    find_optimal_threshold,
     plot_threshold_sweep,
     plot_threshold_sweep_plotly,
 )
-from evaluation.visualizations.style import apply_style, fig_to_base64
+from evaluation.visualizations.style import (
+    apply_style,
+    fig_to_base64,
+)
 from utils import infer_json
 
 
@@ -898,7 +902,6 @@ def _build_perplexity_charts() -> dict[str, str] | None:
     if has_perp.empty:
         return None
 
-    chosen = Config.PERPLEXITY_THRESHOLD
     charts: dict[str, str] = {}
 
     for model in sorted(has_perp["model"].unique()):
@@ -938,6 +941,18 @@ def _build_perplexity_charts() -> dict[str, str] | None:
         merged["dataset"] = merged.apply(
             _dataset_label, axis=1,
         )
+
+        # Compute per-model optimal threshold: first point where
+        # baseline precision reaches 100%, rounded up slightly.
+        baseline = merged[merged["dataset"] == "baseline"]
+        if not baseline.empty and baseline["y_true"].any():
+            chosen = find_optimal_threshold(
+                baseline["y_true"].values,
+                baseline["perplexity"].values,
+                thresholds,
+            )
+        else:
+            chosen = Config.PERPLEXITY_THRESHOLD
 
         fig = plot_threshold_sweep(
             df=merged, thresholds=thresholds,
@@ -1087,7 +1102,7 @@ def _build_inspector() -> str | None:
             }
         model_preds[model] = preds
 
-    from pipelines import _SLM_MODELS
+    from pipelines.detection import _SLM_MODELS
 
     inspector_data = json.dumps({
         "s": samples,

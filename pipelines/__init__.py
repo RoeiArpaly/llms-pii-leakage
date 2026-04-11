@@ -1,7 +1,6 @@
-"""Pipeline package — re-exports for backward compatibility."""
+"""Pipeline package exports."""
 from pipelines.detection import (  # noqa: F401
     PREDICTIONS_PATH,
-    _SLM_MODELS,
     pii_detection_pipeline,
     process_predictions,
 )

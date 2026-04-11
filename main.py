@@ -20,8 +20,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from checkpoint import CheckpointManager
-from cli import (
+from pipelines.checkpoint import CheckpointManager
+from pipelines.cli import (
     print_banner,
     print_reset,
     print_stage_header,
