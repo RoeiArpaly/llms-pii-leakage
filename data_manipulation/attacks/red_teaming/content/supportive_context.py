@@ -1,11 +1,22 @@
 """Supportive context attack: replaces PII entity names (e.g. "credit card")
 with emoji, homoglyph, or slang equivalents to remove contextual cues that
 help detectors identify nearby PII values.
+
+Optionally also fuzzes detection-enhancing surrounding terms (financial
+vocabulary for CC PII, identity vocabulary for SSN, etc.) with character-
+level homoglyph or emojify — preserving human readability while splitting
+the tokenizer's topic signal.
 """
+import re
+
 from copy import deepcopy
 
+from data_manipulation.attacks.red_teaming.content.utils import replacer
+from data_manipulation.attacks.red_teaming.pii.emojify import emojify_pii
+from data_manipulation.attacks.red_teaming.pii.homoglyph import homoglyph
 from data_manipulation.constants import (
     CREDIT_CARD_VARIATIONS,
+    DETECTION_ENHANCING_TERMS,
     EMAIL_VARIATIONS,
     IBAN_VARIATIONS,
     PHONE_VARIATIONS,
@@ -14,8 +25,30 @@ from data_manipulation.constants import (
     PII_SLANG_MAP,
     SSN_VARIATIONS,
 )
-from data_manipulation.attacks.red_teaming.content.utils import replacer
 from logger import logger
+
+
+_FUZZERS = {
+    "homoglyph": homoglyph,
+    "emojify": emojify_pii,
+}
+
+
+def _fuzz_detection_terms(text: str, pii_types: list[str], fuzz_method: str) -> str:
+    """Apply the chosen fuzzer to whole-word matches of detection-enhancing
+    terms for each PII type present in the sample.
+    """
+    fuzz_fn = _FUZZERS[fuzz_method]
+    terms: set[str] = set()
+    for t in pii_types:
+        terms.update(DETECTION_ENHANCING_TERMS.get(t, []))
+    # Longest first to avoid sub-matches like "account" inside "accounts".
+    for term in sorted(terms, key=len, reverse=True):
+        pattern = re.compile(
+            r"\b" + re.escape(term) + r"\b", flags=re.IGNORECASE,
+        )
+        text = pattern.sub(lambda m: fuzz_fn(m.group(0)), text)
+    return text
 
 
 def supportive_context(
@@ -23,6 +56,8 @@ def supportive_context(
         spans: list[dict],
         replace_with: str = "emoji",
         update_spans: bool = True,
+        fuzz_surrounding: bool = True,
+        fuzz_method: str = "homoglyph",
 ) -> tuple:
 
     if replace_with == "emoji":
@@ -33,6 +68,9 @@ def supportive_context(
         replace_value_map = PII_SLANG_MAP
     else:
         raise ValueError(f"Unsupported replacement value: {replace_with}")
+
+    if fuzz_surrounding and fuzz_method not in _FUZZERS:
+        raise ValueError(f"Unsupported fuzz_method: {fuzz_method}")
 
     configs = [
         {
@@ -64,6 +102,10 @@ def supportive_context(
 
     new_spans = deepcopy(spans)
     result = replacer(text=text, configs=configs)
+
+    if fuzz_surrounding:
+        pii_types = list({s.get("type") for s in spans if s.get("type")})
+        result = _fuzz_detection_terms(result, pii_types, fuzz_method)
 
     if update_spans:  # Search the spans in the new text
         last_idx = 0
