@@ -74,7 +74,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run_p.add_argument(
         "--skip-gen", action="store_true",
-        help="Skip baseline generation (stage 0), reuse existing dataset",
+        help=(
+            "Reuse baseline dataset. Strips fuzzy/adversarial rows, "
+            "archives predictions+evaluations, clears the checkpoint, "
+            "and reruns stages 1-5 fresh."
+        ),
     )
     run_p.add_argument(
         "--sample", type=int, metavar="N", default=None,

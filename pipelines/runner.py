@@ -51,6 +51,48 @@ def archive_previous_run(checkpoint: CheckpointManager):
     logger.info(f"Archived previous run to {dest}")
 
 
+def _prepare_skip_gen_rerun(checkpoint: CheckpointManager):
+    """Reset downstream artifacts while preserving the baseline dataset.
+
+    For `--skip-gen` reruns: strip fuzzy/adversarial rows from dataset.csv
+    (keeping only baseline — negatives, hard_negatives, and positives where
+    uid == input_id), archive any predictions.csv and evaluations.csv to a
+    timestamped archive folder, clear the checkpoint, and mark stage 0
+    complete so the pipeline resumes at stage 1 with fresh generation.
+    """
+    from pandas import read_csv
+    from utils import cast_to_json, infer_json
+
+    # 1. Strip fuzzy/adversarial rows, keep only baseline.
+    df = read_csv(DATASET_PATH).apply(infer_json)
+    baseline_mask = (df["category"] != "positive") | (df["uid"] == df["input_id"])
+    stripped = df[baseline_mask].copy()
+    n_dropped = len(df) - len(stripped)
+    if n_dropped > 0:
+        stripped.apply(cast_to_json).to_csv(DATASET_PATH, index=False)
+        logger.info(
+            f"Stripped {n_dropped} fuzzy/adversarial rows; "
+            f"kept {len(stripped)} baseline rows in {DATASET_PATH.name}"
+        )
+
+    # 2. Archive predictions + evaluations (not the baseline dataset).
+    artifacts = [PREDICTIONS_PATH, EVALUATIONS_PATH]
+    existing = [p for p in artifacts if p.exists()]
+    if existing:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        dest = ARCHIVE_DIR / timestamp
+        dest.mkdir(parents=True, exist_ok=True)
+        for path in existing:
+            shutil.move(str(path), str(dest / path.name))
+        logger.info(
+            f"Archived {[p.name for p in existing]} to {dest}"
+        )
+
+    # 3. Clear checkpoint, mark stage 0 complete → pipeline resumes at stage 1.
+    checkpoint.clear()
+    checkpoint.complete_stage(0)
+
+
 def run_pipeline(
     models: list[str] | None = None,
     skip_gen: bool = False,
@@ -64,6 +106,15 @@ def run_pipeline(
 
     if force:
         archive_previous_run(checkpoint)
+
+    if skip_gen:
+        if not DATASET_PATH.exists():
+            print(
+                f"  \033[31mError:\033[0m --skip-gen requires "
+                f"{DATASET_PATH} to exist"
+            )
+            sys.exit(1)
+        _prepare_skip_gen_rerun(checkpoint)
 
     models = models if models else Config.MODELS
 
@@ -86,15 +137,6 @@ def run_pipeline(
     ]
 
     last_completed = checkpoint.stage
-
-    if skip_gen:
-        if not DATASET_PATH.exists():
-            print(
-                f"  \033[31mError:\033[0m --skip-gen requires "
-                f"{DATASET_PATH} to exist"
-            )
-            sys.exit(1)
-        last_completed = max(last_completed, 0)
 
     if stage is not None:
         run_range = range(stage, stage + 1)
