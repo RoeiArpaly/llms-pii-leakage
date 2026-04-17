@@ -89,8 +89,11 @@ def classify_pii(
     )
 
     if logprobs:
+        # Output format: '\n\n<safe|unsafe>\nS7…'. Token 0 is '\n\n'
+        # (deterministic → useless), token 1 is the safe/unsafe decision.
         return classify_with_logprobs(
             output, input_ids.shape[-1], tokenizer, _parse_result,
+            token_index=1,
         )
 
     result = tokenizer.decode(

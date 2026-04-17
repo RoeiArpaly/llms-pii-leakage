@@ -100,8 +100,12 @@ def classify_pii(text: str, logprobs: bool = False) -> bool | dict:
     )
 
     if logprobs:
+        # Output format: 'Prompt harm: <harmful|unharmful>'. Tokens 0-2
+        # are the 'Prompt harm:' prefix (deterministic → useless);
+        # token 3 is the harmful/unharmful decision.
         return classify_with_logprobs(
             output, input_ids.shape[-1], processor, _parse_result,
+            token_index=3,
         )
 
     result = processor.decode(

@@ -76,8 +76,12 @@ def classify_pii(text: str, logprobs: bool = False) -> bool | dict:
     )
 
     if logprobs:
+        # Output format: 'Harmful request: <yes|no>\nHarmful response:…'.
+        # Tokens 0-4 spell 'Harmful request:' deterministically; token 5
+        # is the yes/no decision.
         return classify_with_logprobs(
             output, input_ids.shape[-1], tokenizer, _parse_result,
+            token_index=5,
         )
 
     result = tokenizer.decode(
