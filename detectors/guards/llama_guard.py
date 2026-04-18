@@ -52,6 +52,7 @@ def _get_model(model_name: str):
 
 
 def _parse_result(text: str) -> bool:
+    text = text.lstrip()
     if text.startswith("unsafe"):
         categories = re.findall(r"S\d+", text)
         return PII_CATEGORY in categories
