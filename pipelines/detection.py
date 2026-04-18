@@ -205,14 +205,11 @@ def _granite_guardian_with_logprobs(data: Series, model_name: str) -> list:
 
 
 def _llama_slm_with_logprobs(data: Series, model_name: str) -> list:
-    """Run Llama SLM per-text with logprobs for perplexity."""
-    from detectors.slm.llama import classify_pii as llama_classify
+    """Run Llama SLM as a true batch (with logprobs for perplexity)."""
+    from detectors.slm.llama import classify_pii_batch_full
     return [
         {"spans": r["spans"], "perplexity": r["perplexity"]}
-        for r in (
-            llama_classify(text, model_name=model_name, logprobs=True)
-            for text in data
-        )
+        for r in classify_pii_batch_full(list(data), model_name=model_name)
     ]
 
 
