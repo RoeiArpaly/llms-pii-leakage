@@ -98,7 +98,7 @@ def run_pipeline(
     skip_gen: bool = False,
     stage: int | None = None,
     force: bool = False,
-    sample_n: int | None = None,
+    sample_quotas: dict | None = None,
 ):
     """Execute the full pipeline with checkpoint support."""
     print_banner()
@@ -131,7 +131,7 @@ def run_pipeline(
         generate_fuzzy_adv_dataset,
         lambda: pii_detection_pipeline(
             models=models, logprobs=Config.LOGPROBS,
-            checkpoint=checkpoint, sample_n=sample_n,
+            checkpoint=checkpoint, sample_quotas=sample_quotas,
         ),
         lambda: evaluate_and_save_datasets(
             models=models, match_level=Config.MATCH_LEVEL,

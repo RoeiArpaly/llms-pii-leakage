@@ -448,11 +448,112 @@ def _collect_batch_rows(
 
 # ── Main pipeline ───────────────────────────────────────────────────
 
+_BUCKET_NAMES = (
+    "positives",
+    "adv_positives_direct",
+    "adv_positives_direct_indirect",
+    "negatives",
+    "hard_negatives",
+)
+
+
+def _classify_bucket(row) -> str | None:
+    """Map a dataset row to one of the five sampling buckets, or None."""
+    cat = row["category"]
+    if cat == "negative":
+        return "negatives"
+    if cat == "hard_negative":
+        return "hard_negatives"
+    if cat != "positive":
+        return None
+    at = row["attack_target"]
+    if not isinstance(at, dict) or not at:
+        return "positives"
+    if not at.get("context"):
+        return "adv_positives_direct"
+    return "adv_positives_direct_indirect"
+
+
+def _cell_key(row):
+    """Stratification cell for a positive row.
+
+    For ``adv_positives_direct``: the fuzzy technique tuple.
+    For ``adv_positives_direct_indirect``: (fuzzy, adv) tuple.
+    """
+    at = row["attack_target"]
+    if not isinstance(at, dict):
+        return ()
+    pii = tuple(at.get("pii") or ())
+    ctx = tuple(at.get("context") or ())
+    return (pii, ctx)
+
+
+def _sample_bucket(bucket_df, quota, stratify: bool, random_state: int = 42):
+    """Apply quota to a bucket. If stratify, split evenly across cell keys."""
+    if quota is None or quota >= len(bucket_df):
+        return bucket_df
+    if quota <= 0:
+        return bucket_df.iloc[0:0]
+    if not stratify:
+        return bucket_df.sample(n=quota, random_state=random_state)
+
+    keys = bucket_df.apply(_cell_key, axis=1)
+    cells = list(bucket_df.groupby(keys))
+    n_cells = len(cells)
+    per_cell = max(1, quota // n_cells)
+    sampled = [
+        g.sample(n=min(len(g), per_cell), random_state=random_state)
+        for _, g in cells
+    ]
+    out = concat(sampled) if sampled else bucket_df.iloc[0:0]
+
+    leftover = quota - len(out)
+    if leftover > 0:
+        remaining = bucket_df[~bucket_df.index.isin(out.index)]
+        if len(remaining) > 0:
+            extra = remaining.sample(
+                n=min(leftover, len(remaining)), random_state=random_state,
+            )
+            out = concat([out, extra])
+    return out
+
+
+def _apply_sample_quotas(dataset, quotas: dict):
+    """Stratified sample by named buckets."""
+    bucket_col = dataset.apply(_classify_bucket, axis=1)
+    parts = []
+    log_lines = []
+    for name in _BUCKET_NAMES:
+        bucket_df = dataset[bucket_col == name]
+        if name not in quotas:
+            raise KeyError(
+                f"DETECTION_SAMPLE_N missing bucket {name!r}. "
+                f"Set to None (all), 0 (exclude), or an integer cap.",
+            )
+        quota = quotas[name]
+        stratify = name in (
+            "adv_positives_direct", "adv_positives_direct_indirect",
+        )
+        sampled = _sample_bucket(bucket_df, quota, stratify=stratify)
+        parts.append(sampled)
+        cap_str = "all" if quota is None else str(quota)
+        log_lines.append(
+            f"  {name:<32s} pool={len(bucket_df):>6d} cap={cap_str:>5s} -> {len(sampled):>5d}",
+        )
+    sampled_dataset = concat(parts, ignore_index=True)
+    logger.info(
+        "Sampled %d rows by bucket quota:\n%s",
+        len(sampled_dataset),
+        "\n".join(log_lines),
+    )
+    return sampled_dataset
+
+
 def pii_detection_pipeline(
     models: list[str],
     logprobs: bool = False,
     checkpoint=None,
-    sample_n: int | None = None,
+    sample_quotas: dict | None = None,
 ):
     from pipelines.cli import (
         Spinner,
@@ -464,36 +565,8 @@ def pii_detection_pipeline(
 
     dataset = read_csv(DATASET_PATH).apply(infer_json)
 
-    if sample_n is not None and sample_n < len(dataset):
-        # Always keep all clean positives (no attacks). Sample the rest
-        # (attacked positives, negatives, hard negatives) to fill up to
-        # sample_n, stratified proportionally by category.
-        is_clean_pos = (
-            (dataset["category"] == "positive")
-            & dataset["attack_target"].apply(
-                lambda t: not isinstance(t, dict) or not t,
-            )
-        )
-        clean_pos = dataset[is_clean_pos]
-        rest = dataset[~is_clean_pos]
-        rest_n = max(0, sample_n - len(clean_pos))
-        if rest_n < len(rest):
-            rest = (
-                rest
-                .groupby("category", group_keys=False)
-                .apply(
-                    lambda g: g.sample(
-                        n=min(len(g), max(1, round(
-                            rest_n * len(g) / len(rest),
-                        ))),
-                        random_state=42,
-                    ).index.to_series(),
-                    include_groups=False,
-                )
-            )
-            rest = dataset.loc[rest]
-        dataset = concat([clean_pos, rest], ignore_index=True)
-        logger.info(f"Sampled {len(dataset)} rows from dataset (--sample {sample_n})")
+    if sample_quotas is not None:
+        dataset = _apply_sample_quotas(dataset, sample_quotas)
 
     # Pre-compute defensive preprocessing (shared across all defend models)
     _precompute_defense_columns(dataset, models)

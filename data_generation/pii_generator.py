@@ -6,6 +6,7 @@ and span metadata.
 """
 import contextlib
 import os
+import re
 from functools import lru_cache
 
 from presidio_evaluator.data_generator import PresidioSentenceFaker
@@ -16,6 +17,9 @@ from data_generation.pii_validators import (
     is_valid_credit_card,
     is_valid_iban,
 )
+
+MIN_PHONE_DIGITS = 9
+MAX_INJECT_RETRIES = 8
 
 # Only the providers we actually need. PII templates use:
 # {{credit_card_number}}, {{iban}}, {{ssn}}, {{phone_number}}, {{email}}.
@@ -35,14 +39,12 @@ def get_faker():
         )
 
 
-def presidio_inject_pii(text: str):
-
+def _inject_once(text: str):
     faker = get_faker()
     faker._sentence_templates = [text]
     with contextlib.redirect_stdout(open(os.devnull, "w")), contextlib.redirect_stderr(open(os.devnull, "w")):
         samples = faker.generate_new_fake_sentences(num_samples=1)
     sample = samples[0]
-
     spans = sorted(
         [
             {
@@ -62,4 +64,31 @@ def presidio_inject_pii(text: str):
         if span["type"] == "iban":
             if not is_valid_iban(iban=span["value"]):
                 raise ValueError(f"Invalid IBAN: {span['value']}")
+        if span["type"] == "phone_number":
+            digits = re.sub(r"[^0-9]", "", span["value"])
+            if len(digits) < MIN_PHONE_DIGITS:
+                raise ValueError(
+                    f"Phone too short ({len(digits)} digits, "
+                    f"min {MIN_PHONE_DIGITS}): {span['value']!r}",
+                )
     return {"text": sample.full_text, "spans": spans}
+
+
+def presidio_inject_pii(text: str):
+    """Inject fake PII into the template, retrying on validation failure.
+
+    Faker draws phone numbers (and others) from a 3000-row pre-generated
+    fake-person CSV that includes some sub-9-digit international landline
+    formats. We reject those and resample to keep the ground truth in a
+    range that mainstream PII detectors can be expected to catch.
+    """
+    last_error: Exception | None = None
+    for _ in range(MAX_INJECT_RETRIES):
+        try:
+            return _inject_once(text=text)
+        except ValueError as e:
+            last_error = e
+    raise ValueError(
+        f"presidio_inject_pii failed after {MAX_INJECT_RETRIES} retries: "
+        f"{last_error}",
+    )

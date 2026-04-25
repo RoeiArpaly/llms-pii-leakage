@@ -50,6 +50,10 @@ def cmd_run(args):
     if not skipping_baseline:
         _apply_api_key(args)
 
+    # Detection sample quotas: pass --full to opt out (whole dataset),
+    # otherwise read from Config.DETECTION_SAMPLE_N.
+    sample_quotas = None if args.full else Config.DETECTION_SAMPLE_N
+
     from pipelines.runner import run_pipeline
     from utils.api import AuthenticationError
 
@@ -59,7 +63,7 @@ def cmd_run(args):
             skip_gen=args.skip_gen,
             stage=args.stage,
             force=args.force,
-            sample_n=args.sample,
+            sample_quotas=sample_quotas,
         )
     except AuthenticationError as e:
         sys.stderr.write(f"\nerror: {e}\n")
@@ -142,8 +146,11 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     run_p.add_argument(
-        "--sample", type=int, metavar="N", default=None,
-        help="Cap negatives at N rows, keep all clean positives",
+        "--full", action="store_true",
+        help=(
+            "Ignore Config.DETECTION_SAMPLE_N quotas and run detectors "
+            "on the full dataset (~107k rows after fuzzy + adversarial)."
+        ),
     )
     run_p.add_argument(
         "--api-key", type=str, default=None,

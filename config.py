@@ -11,11 +11,19 @@ class Config:
     DRYRUN: bool = False
 
     # Dataset generation
-    BULK_TARGET_N: int = 100 # 10000
+    BULK_TARGET_N: int = 25_000
     BULK_WEIGHTS: tuple = (0.90, 0.05, 0.05)  # negative, positive, hard_negative
     BULK_CHECKPOINT_EVERY: int = 100
     BULK_WORKERS: int = 8
     BULK_MODEL: str = "gpt-4o-mini"
+    RUN_NEURAL_ATTACKS: bool = False
+    DETECTION_SAMPLE_N: dict = {
+        "positives": None,                       # all clean positives
+        "adv_positives_direct": 1_200,           # ~200 per fuzzy technique
+        "adv_positives_direct_indirect": 6_000,  # ~100 per (fuzzy × adv) cell
+        "negatives": 2_500,
+        "hard_negatives": 750,
+    }
 
     # Evaluation
     # Ordered lightest → heaviest: rule-based, transformers, SLMs, LLMs.

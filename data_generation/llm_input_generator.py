@@ -143,9 +143,15 @@ def randomize_topics():
     return random.choice(a=TOPICS, size=n, replace=False).tolist()
 
 
-def randomize_lookalikes(min_n: int = 2, max_n: int = 4) -> list[str]:
-    """Pick a random subset of PII-lookalike value types to require in the output."""
-    n = random.randint(low=min_n, high=max_n + 1)
+_LOOKALIKE_COUNT_WEIGHTS = [0.50, 0.30, 0.15, 0.05]  # for n = 1, 2, 3, 4
+
+
+def randomize_lookalikes() -> list[str]:
+    """Pick a random subset of PII-lookalike value types to require in the
+    output. Skewed toward small N (50% single, 30% two, 15% three, 5% four)
+    so most hard negatives focus on a single value rather than enumerating a
+    list — this naturally avoids "Also...", "Lastly..." chains."""
+    n = choices(population=[1, 2, 3, 4], weights=_LOOKALIKE_COUNT_WEIGHTS, k=1)[0]
     return sorted(random.choice(a=LOOKALIKE_TYPES, size=n, replace=False).tolist())
 
 

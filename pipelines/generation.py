@@ -362,8 +362,10 @@ def generate_fuzzy_adv_dataset(max_workers: int = 8):
             })
 
     # Neural Prompt-to-Prompt (LLM-based — parallelized)
-    # Requires a real LLM; skip in DRYRUN.
-    if not Config.DRYRUN:
+    # Requires a real LLM AND opt-in via Config.RUN_NEURAL_ATTACKS, since
+    # the LLM-returned span offsets are unreliable on unicode/emoji
+    # rewrites (treated as a separate adaptive-attack experiment).
+    if not Config.DRYRUN and Config.RUN_NEURAL_ATTACKS:
         baseline_pii = dataset[
             (dataset["category"] == "positive")
             & (dataset["uid"] == dataset["input_id"])

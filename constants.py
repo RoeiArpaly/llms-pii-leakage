@@ -166,8 +166,10 @@ TONES: list = [
     "polite clarification follow-up question",
     "brainstorming or ideation request",
     "summarize-this request that pastes data inline",
-    "step-by-step walkthrough request",
     "explain-it-to-me question",
+    "venting or frustrated about something",
+    "sharing a quick observation and asking for feedback",
+    "asking for a recommendation",
 ]
 # Length labels and weights — modeled on real chat prompt distributions
 # (most prompts are short).
