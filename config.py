@@ -7,13 +7,15 @@ defined as class attributes on Config and referenced throughout the pipeline.
 
 class Config:
 
-    # Mock LLM API calls (set to True to use mock responses instead of real API calls)
-    MOCK_LLM: bool = True
+    # Smoke-test mode. When True, all LLM calls return mock responses
+    DRYRUN: bool = False
 
     # Dataset generation
-    SKIP_BASELINE: bool = True  # Skip baseline generation, reuse existing dataset
-    PII_PROBABILITY: float = 0.5
-    NUMBER_OF_SAMPLES: int = 20
+    BULK_TARGET_N: int = 100 # 10000
+    BULK_WEIGHTS: tuple = (0.90, 0.05, 0.05)  # negative, positive, hard_negative
+    BULK_CHECKPOINT_EVERY: int = 100
+    BULK_WORKERS: int = 8
+    BULK_MODEL: str = "gpt-4o-mini"
 
     # Evaluation
     # Ordered lightest → heaviest: rule-based, transformers, SLMs, LLMs.
@@ -28,43 +30,47 @@ class Config:
         "gliner-defend",
         "gliner-nvidia",
         "gliner-nvidia-defend",
-        # SLMs — by parameter count ascending
-        "qwen-guard-gen-0.6b",
-        "qwen-guard-gen-0.6b-defend",
-        "qwen-guard-stream-0.6b",
-        "qwen-guard-stream-0.6b-defend",
+        # Guard SLMs — by parameter count ascending
+        "qwen-guard-0.6b",
+        "qwen-guard-0.6b-defend",
         "llama-guard-3-1b",
         "llama-guard-3-1b-defend",
-        # "nemotron-content-safety-4b",
-        # "nemotron-content-safety-4b-defend",
-        # "qwen-guard-gen-4b",
-        # "qwen-guard-gen-4b-defend",
-        # "qwen-guard-stream-4b",
-        # "qwen-guard-stream-4b-defend",
-        # "wildguard",
-        # "wildguard-defend",
-        # "llama-guard-3-8b",
-        # "llama-guard-3-8b-defend",
-        # LLMs — largest / API-based
-        # "gpt-4o-mini",
-        # "gpt-4o-mini-defend",
-
-        # TODO: try SLM which is not guard, get perplexity and spans.
+        "qwen-guard-4b",
+        "qwen-guard-4b-defend",
+        "nemotron-content-safety-4b",
+        "nemotron-content-safety-4b-defend",
+        "wildguard-7b",
+        "wildguard-7b-defend",
+        "llama-guard-3-8b",
+        "llama-guard-3-8b-defend",
+        "granite-guardian-8b",
+        "granite-guardian-8b-defend",
+        # Instruct SLM
+        "llama-3.2-1b",
+        "llama-3.2-1b-defend",
+        # LLMs — API-based
+        "gpt-4o-mini",
+        "gpt-4o-mini-defend",
     ]
     ATTACKS: list = [
         "char_to_word",
         "chunking",
-        "homoglyph",
         "emojify",
+        "homoglyph",
+        "invisible_chars",
         "separators",
-        "neural_prompt_to_prompt",
     ]
     CONTENT_ATTACKS: list = [
         "supportive_context",
         "prompt_injection_1",
         "prompt_injection_2",
+        "prompt_injection_3",
+        "prompt_injection_4",
+        "prompt_injection_5",
+        "prompt_injection_6",
         "affix_1",
         "affix_2",
+        "affix_4",
     ]
 
     # PII evaluation level: "value", "type", or "both".
@@ -74,4 +80,5 @@ class Config:
     LOGPROBS: bool = True  # if to compute perplexity scores
 
     # Guard
-    PERPLEXITY_THRESHOLD: float = 1.000002  # Threshold for perplexity to consider PII detected
+    PERPLEXITY_THRESHOLD: float = 1.5  # Threshold for perplexity to consider PII detected
+    GLINER_THRESHOLD: float = 0.6  # GLiNER confidence threshold for PII Shield

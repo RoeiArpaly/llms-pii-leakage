@@ -105,7 +105,7 @@ def styled_table(df: DataFrame,
 
 # ── Section config ───────────────────────────────────────────────────────────
 
-_PERF_METRICS = ["F1", "Recall", "Precision"]
+_PERF_METRICS = ["Recall"]
 
 DATA_SECTIONS = [
     {"id": "fuzzy", "title": "PII-Level Attacks",
@@ -229,9 +229,14 @@ def _render_perf_section_body(
         )
 
     index_col = section["index_col"]
-    base_df = df[~df["Model"].str.endswith("-defend")]
+    # PII Shield is a cascade meta-detector — always present it separately,
+    # never lumped with Base or Shield.
+    is_cascade = df["Model"] == "pii-shield"
+    cascade_df = df[is_cascade]
+    remaining = df[~is_cascade]
+    base_df = remaining[~remaining["Model"].str.endswith("-defend")]
     shield_df = _strip_defend(
-        df[df["Model"].str.endswith("-defend")],
+        remaining[remaining["Model"].str.endswith("-defend")],
     )
 
     _BASE_LABEL = (
@@ -244,6 +249,14 @@ def _render_perf_section_body(
         'font-size:0.85rem;'
         'color:var(--text-muted)">Shield Models</h4>'
     )
+    _CASCADE_LABEL = (
+        '<h4 style="margin:0.8rem 0 0.4rem;'
+        'font-size:0.85rem;'
+        'color:var(--accent);'
+        'border-top:1px dashed var(--border);'
+        'padding-top:0.6rem">'
+        'PII Shield (Cascade)</h4>'
+    )
 
     panels = []
     for metric in _PERF_METRICS:
@@ -253,11 +266,16 @@ def _render_perf_section_body(
         shield_views = _build_views_for_split(
             shield_df, metric, index_col,
         )
+        cascade_views = (
+            _build_views_for_split(cascade_df, metric, index_col)
+            if not cascade_df.empty else {}
+        )
 
         available_types = set()
         for vtype in _VIEW_TYPES:
             if (base_views.get(vtype)
-                    or shield_views.get(vtype)):
+                    or shield_views.get(vtype)
+                    or cascade_views.get(vtype)):
                 available_types.add(vtype)
 
         for vtype in _VIEW_TYPES:
@@ -271,17 +289,21 @@ def _render_perf_section_body(
 
             bv = base_views.get(vtype)
             sv = shield_views.get(vtype)
+            cv = cascade_views.get(vtype)
 
             if vtype == "table":
-                # Tables stacked vertically
+                # Tables stacked vertically. Cascade pinned last.
                 parts = [desc_html]
                 if bv:
                     parts.append(_BASE_LABEL + bv)
                 if sv:
                     parts.append(_SHIELD_LABEL + sv)
+                if cv:
+                    parts.append(_CASCADE_LABEL + cv)
                 content = "".join(parts)
             else:
-                # Charts side by side
+                # Charts: Base + Shield side by side, Cascade on its own
+                # row below (full width) so it's unambiguously separate.
                 halves = []
                 if bv:
                     halves.append(
@@ -293,10 +315,16 @@ def _render_perf_section_body(
                         f'<div style="flex:1;min-width:0">'
                         f'{_SHIELD_LABEL}{sv}</div>'
                     )
+                cascade_block = (
+                    f'<div style="margin-top:1rem">'
+                    f'{_CASCADE_LABEL}{cv}</div>'
+                    if cv else ""
+                )
                 content = (
                     desc_html
                     + f'<div style="display:flex;gap:1.5rem;'
                     f'flex-wrap:wrap">{"".join(halves)}</div>'
+                    + cascade_block
                 )
 
             panels.append(
@@ -322,20 +350,23 @@ def render_performance_page(
         ' checked> Interactive charts</label>'
     )
 
-    # Metric toggle
-    metric_btns = []
-    for m in _PERF_METRICS:
-        active = " active" if m == _PERF_METRICS[0] else ""
-        metric_btns.append(
-            f'<button class="tab-btn perf-metric-btn'
-            f'{active}" data-perf-metric="{m}">'
-            f'{m}</button>'
+    # Metric toggle — hidden when there is only a single metric
+    if len(_PERF_METRICS) > 1:
+        metric_btns = []
+        for m in _PERF_METRICS:
+            active = " active" if m == _PERF_METRICS[0] else ""
+            metric_btns.append(
+                f'<button class="tab-btn perf-metric-btn'
+                f'{active}" data-perf-metric="{m}">'
+                f'{m}</button>'
+            )
+        metric_bar = (
+            f'<div class="view-bar" '
+            f'style="margin-bottom:0.8rem">'
+            f'{"".join(metric_btns)}</div>'
         )
-    metric_bar = (
-        f'<div class="view-bar" '
-        f'style="margin-bottom:0.8rem">'
-        f'{"".join(metric_btns)}</div>'
-    )
+    else:
+        metric_bar = ""
 
     # Shared view bar
     view_btns = []

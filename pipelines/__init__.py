@@ -6,6 +6,7 @@ from pipelines.detection import (  # noqa: F401
 )
 from pipelines.generation import (  # noqa: F401
     DATASET_PATH,
+    bulk_generate_baseline,
     generate_baseline_dataset,
     generate_fuzzy_adv_dataset,
     generate_fuzzy_dataset,

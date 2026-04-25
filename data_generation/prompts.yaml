@@ -1,24 +1,81 @@
 llm_input_generator: |
-  You are an LLM input generator.
-  You are tasked to generate a random LLM input.
-  If you are requested to generate input with PII,
-  You will generate content that contains PII template in the following format:
-  {{credit_card_number}}
-  {{iban}}
-  {{ssn}}
-  {{phone_number}}
-  {{email}}
+  Generate ONE chat message a real user would send to an LLM assistant.
+  Real chat is short, direct, and often informal.
 
-  For example, "Give me a summary of the activities for {{credit_card_number}}
-  Dinning $1,200, Travel $800, Utilities $200, Other $500."
-  - Please do not use this specific example in the generated content.
+  Hard rules:
+  - Begin the message with EXACTLY the opener provided in the user
+    instructions (preserve its case).
+  - When PII is required, the PII must be the SUBJECT of the message —
+    what the user is asking about. Not a tail clause, not "for
+    verification", not "for receiving updates".
+  - PII placeholders (only these, exactly as written):
+    {{credit_card_number}} {{iban}} {{ssn}} {{phone_number}} {{email}}
+  - Output the message text only (no labels, no quotes, no JSON).
 
-  Do not generate PII which is not listed above.
-  Never generate PII that is not in the template format.
-  The results should be in English.
+  Examples:
+  - Opener "i":  i keep getting password-reset emails to {{email}}
+    that I never asked for — how do I lock the account?
+  - Opener "fix:":  fix: I cant figure out why this card
+    {{credit_card_number}} keeps getting declined at checkout
+  - Opener "How do I":  How do I update my IBAN from {{iban}} to
+    {{iban}} on my employer's payroll portal?
 
 additional_instructions: |
-  The subjects of the generated content should be related to the following topics: {topics}
+  Opener (use exactly, preserve case): {opener}
+  Scenario: {scenario}
+  Topic(s): {topics}
+  Tone: {tone}
+  Length: {length}
 
   Generate input with PII: {contains_pii}
-  Make sure the following PIIs exist in the generated content at least once: {required_pii}
+  Required PII placeholders (use each at least once): {required_pii}
+  PII pattern: {pii_context}
+
+hard_negative_generator: |
+  Generate ONE chat message a real user would send to an LLM assistant.
+  Real chat is short, direct, and often informal. The message must
+  contain PII-LOOKALIKE values (values that look similar to PII but are
+  NOT real PII) and NO real PII.
+
+  Hard rules:
+  - Begin the message with EXACTLY the opener provided in the user
+    instructions (preserve its case).
+  - Each required lookalike value must be the SUBJECT of the sentence
+    it appears in — what the user is asking or talking about — not a
+    parenthetical example. Do NOT chain values with "Also...",
+    "Lastly...", "Additionally...", "Furthermore..." enumerations.
+  - Invent fresh values that fit the format. Do NOT reuse these
+    well-known canonical example values OR their close variants:
+      IPv6:  any address starting with 2001:0db8: (RFC 3849
+             documentation range — banned outright). Use a routable-
+             looking range instead, e.g. 2606:4700:..., 2a00:1450:...
+      MAC:   00:1A:2B:3C:4D:5E,  00:14:22:01:23:45
+      UUID:  123e4567-e89b-12d3-a456-426614174000,
+             550e8400-e29b-41d4-a716-446655440000
+      MD5:   d41d8cd98f00b204e9800998ecf8427e (MD5 of "")
+      SHA-1: da39a3ee5e6b4b0d3255bfef95601890afd80709 (SHA-1 of "")
+      shipping: 1Z999AA10123456784, 1Z9999W99999999984
+  - Hashes must be the correct length: SHA-256 = 64 hex chars,
+    SHA-1 = 40 hex chars, MD5 = 32 hex chars. ETags use the
+    W/"..." weak validator format (e.g. W/"5d8c72a-1d4f").
+  - No real PII: no emails, phone numbers, SSNs, valid IBANs.
+  - No personal names anywhere (no "Hi Alex", no "this is John").
+  - No credentials of any shape: API keys, JWTs, OAuth/bearer tokens,
+    AWS keys, secrets.
+  - If you mention any 16-digit credit-card-shaped number, it MUST fail
+    Luhn. Never use known Luhn-VALID test cards: 4111 1111 1111 1111,
+    4012 8888 8888 1881, 5555 5555 5555 4444, 4000 0000 0000 0001,
+    4222 2222 2222 2222, 5105 1051 0510 5100, 3782 822463 10005.
+  - No "Subject:" lines, "To:/From:" headers, "### Section" headings,
+    sign-offs ("Best,..."), or markdown formatting.
+  - Output the message text only.
+
+hard_negative_instructions: |
+  Opener (use exactly, preserve case): {opener}
+  Scenario: {scenario}
+  Topic(s): {topics}
+  Tone: {tone}
+  Length: {length}
+  Required PII-lookalike value types (use each at least once, with
+  realistic-looking but clearly fake values, each in its own sentence):
+  {required_lookalikes}

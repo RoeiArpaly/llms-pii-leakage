@@ -11,6 +11,7 @@ import numpy as np
 
 from pandas import (
     DataFrame,
+    concat,
     read_csv,
 )
 
@@ -29,7 +30,6 @@ from evaluation.report.html import (
     render_static_section,
     styled_table,
 )
-from evaluation.scoring import SPANS_METRICS
 from evaluation.visualizations.sensitivity_analysis_perplexity import (
     find_optimal_threshold,
     plot_threshold_sweep,
@@ -62,24 +62,28 @@ def _load_report_dataset() -> DataFrame:
     return dataset
 
 
+_BINARY_METRICS = ["true_positive", "false_negative"]
+
+
 def _compute_aggregated_scores(data: DataFrame, groupby_cols: list[str] = None) -> DataFrame:
     if groupby_cols:
-        data = data.groupby(groupby_cols)[SPANS_METRICS].sum().reset_index()
+        data = data.groupby(groupby_cols)[_BINARY_METRICS].sum().reset_index()
     else:
-        data = DataFrame([data[SPANS_METRICS].sum()])
-    data["Precision"] = data["true_positive"] / (data["true_positive"] + data["false_positive"])
+        data = DataFrame([data[_BINARY_METRICS].sum()])
     data["Recall"] = data["true_positive"] / (data["true_positive"] + data["false_negative"])
-    data["F1"] = 2 * data["Precision"] * data["Recall"] / (data["Precision"] + data["Recall"])
-    return data.drop(columns=SPANS_METRICS).fillna(0)
+    return data.drop(columns=_BINARY_METRICS).fillna(0)
 
 
 def _compute_report_data() -> dict[str, DataFrame]:
     """Compute performance data on-the-fly from predictions
-    + dataset (no evaluations.csv needed)."""
+    + dataset (no evaluations.csv needed).
+
+    Uses row-level binary scoring (matches leaderboard semantics): any
+    non-empty prediction on a PII row counts as TP; empty prediction
+    on a PII row counts as FN. No span-level matching.
+    """
     if not PREDICTIONS_PATH.exists() or not DATASET_PATH.exists():
         return {}
-
-    from evaluation import spans_scorer
 
     dataset = _load_report_dataset()
     predictions = read_csv(PREDICTIONS_PATH).apply(infer_json)
@@ -89,21 +93,16 @@ def _compute_report_data() -> dict[str, DataFrame]:
         on="uid", how="left",
     )
 
-    # Compute span scores on-the-fly
-    data["spans_score"] = data.apply(
-        lambda row: spans_scorer(
-            spans_true=row["pii_spans"],
-            spans_pred=row["prediction"],
-            match_level=Config.MATCH_LEVEL,
-            method=Config.METHOD,
-        ),
-        axis=1,
-    )
+    def _has_pii(s):
+        return isinstance(s, list) and len(s) > 0
 
-    for col in SPANS_METRICS:
-        data[col] = data["spans_score"].apply(
-            lambda x: x.get(col) if isinstance(x, dict) else 0,
-        )
+    def _flagged(p):
+        return isinstance(p, list) and len(p) > 0
+
+    has_pii = data["pii_spans"].apply(_has_pii)
+    flagged = data["prediction"].apply(_flagged)
+    data["true_positive"] = (has_pii & flagged).astype(int)
+    data["false_negative"] = (has_pii & ~flagged).astype(int)
 
     data["pii_techniques_str"] = data["attack_target"].apply(
         lambda x: (
@@ -151,6 +150,36 @@ def _compute_report_data() -> dict[str, DataFrame]:
         data, "content_techniques_str",
         "adv", "adv_content_techniques",
     )
+
+    clean = data[data["attack_target"].apply(
+        lambda t: (
+            not isinstance(t, dict)
+            or (not t.get("pii") and not t.get("context"))
+        ),
+    )]
+    clean = clean[clean["pii_spans"].apply(_has_pii)]
+    if not clean.empty:
+        baseline_rows = []
+        for model in clean["model"].unique():
+            agg = _compute_aggregated_scores(
+                clean[clean["model"] == model],
+            )
+            baseline_rows.append({
+                "Model": model,
+                "Recall": float(agg.iloc[0]["Recall"]),
+            })
+        for key, label_col in [
+            ("fuzzy", "fuzzy_techniques"),
+            ("adv", "adv_content_techniques"),
+        ]:
+            if key not in results:
+                continue
+            baseline_df = DataFrame([
+                {**r, label_col: "baseline"} for r in baseline_rows
+            ])
+            results[key] = concat(
+                [baseline_df, results[key]], ignore_index=True,
+            )
 
     return results
 
@@ -883,6 +912,216 @@ def _dataset_label(row):
     return "fuzzy_adv" if has_attack else "baseline"
 
 
+def _build_perplexity_uplift_chart() -> str | None:
+    """Stacked horizontal bar per model showing how much recall the
+    perplexity filter adds on top of binary detection, at the 100%-
+    precision threshold (max negative perplexity + ε).
+
+    Segments per bar:
+      - Binary-only recall (from the detector's yes/no prediction)
+      - Perplexity uplift (extra samples recovered via perplexity)
+      - Missed (still below both signals)
+
+    Rows sorted by uplift descending.
+    """
+    if not PREDICTIONS_PATH.exists() or not DATASET_PATH.exists():
+        return None
+
+    dataset = _load_report_dataset()
+    predictions = read_csv(PREDICTIONS_PATH).apply(infer_json)
+    if "perplexity" not in predictions.columns:
+        return None
+    has_perp = predictions.dropna(subset=["perplexity"])
+    if has_perp.empty:
+        return None
+
+    rows = []
+    for model in has_perp["model"].unique():
+        mp = has_perp[has_perp["model"] == model]
+        merged = mp.merge(
+            dataset[["uid", "pii_spans", "category", "attack_target"]],
+            on="uid", how="left",
+        ).dropna(subset=["perplexity"])
+        if merged.empty:
+            continue
+
+        merged["y_true"] = merged["pii_spans"].apply(
+            lambda x: len(x) > 0 if isinstance(x, list) else False,
+        )
+        merged["binary_pred"] = merged["prediction"].apply(
+            lambda x: len(x) > 0 if isinstance(x, list) else False,
+        )
+
+        neg_perp = merged[~merged["y_true"]]["perplexity"]
+        if neg_perp.empty:
+            threshold = Config.PERPLEXITY_THRESHOLD
+        else:
+            threshold = float(neg_perp.max()) + 1e-9
+        merged["perp_pred"] = merged["perplexity"] > threshold
+        merged["combined_pred"] = merged["binary_pred"] | merged["perp_pred"]
+
+        pos = merged[merged["y_true"]]
+        if pos.empty:
+            continue
+        n = len(pos)
+        binary_recall = float(pos["binary_pred"].sum()) / n
+        combined_recall = float(pos["combined_pred"].sum()) / n
+        uplift = max(0.0, combined_recall - binary_recall)
+        missed = max(0.0, 1.0 - combined_recall)
+
+        rows.append({
+            "Model": model,
+            "binary_recall": binary_recall,
+            "uplift": uplift,
+            "missed": missed,
+            "combined_recall": combined_recall,
+        })
+
+    if not rows:
+        return None
+
+    df = DataFrame.from_records(rows)
+    df = df.sort_values("uplift", ascending=True)  # ascending for horizontal bars (largest at top)
+
+    import json as json_mod
+
+    display_names = [display_name(m) for m in df["Model"]]
+
+    fig_data = [
+        {
+            "type": "bar", "orientation": "h",
+            "name": "Binary detection",
+            "y": display_names, "x": df["binary_recall"].tolist(),
+            "marker": {"color": "#4575b4"},
+            "hovertemplate": "Binary recall: %{x:.1%}<extra></extra>",
+        },
+        {
+            "type": "bar", "orientation": "h",
+            "name": "Perplexity uplift",
+            "y": display_names, "x": df["uplift"].tolist(),
+            "marker": {"color": "#f46d43"},
+            "hovertemplate": "Perplexity uplift: %{x:.1%}<extra></extra>",
+        },
+        {
+            "type": "bar", "orientation": "h",
+            "name": "Missed",
+            "y": display_names, "x": df["missed"].tolist(),
+            "marker": {"color": "#cccccc"},
+            "hovertemplate": "Missed: %{x:.1%}<extra></extra>",
+        },
+    ]
+    fig_layout = {
+        "barmode": "stack",
+        "xaxis": {"title": "Recall on positives", "range": [0, 1], "tickformat": ".0%"},
+        "yaxis": {"title": "", "automargin": True},
+        "legend": {"orientation": "h", "y": -0.12, "x": 0.5, "xanchor": "center"},
+        "margin": {"l": 10, "r": 20, "t": 10, "b": 60},
+        "height": max(260, 36 * len(df) + 120),
+        "plot_bgcolor": "rgba(0,0,0,0)",
+        "paper_bgcolor": "rgba(0,0,0,0)",
+    }
+    pj = json_mod.dumps({"data": fig_data, "layout": fig_layout})
+    pid = "plotly-perp-uplift"
+    return (
+        f'<div class="chart-wrap" data-plotly-id="{pid}">'
+        f'<div class="chart-interactive" id="{pid}" style="min-height:{fig_layout["height"]}px"></div>'
+        f'<script type="application/json" class="plotly-spec" '
+        f'data-target="{pid}">{pj}</script></div>'
+    )
+
+
+def _build_perplexity_standalone() -> DataFrame | None:
+    """Per-model performance if perplexity alone were the classifier.
+
+    For each model with perplexity data:
+      - threshold = max(negative-sample perplexity) + ε, which
+        guarantees precision = 100% by construction (no negative
+        sample crosses the threshold).
+      - at that threshold, compute F1, Precision, Recall, Baseline
+        Recall, and Adversarial Recall on the full positive set.
+    """
+    if not PREDICTIONS_PATH.exists() or not DATASET_PATH.exists():
+        return None
+
+    dataset = _load_report_dataset()
+    predictions = read_csv(PREDICTIONS_PATH).apply(infer_json)
+
+    if "perplexity" not in predictions.columns:
+        return None
+
+    has_perp = predictions.dropna(subset=["perplexity"])
+    if has_perp.empty:
+        return None
+
+    rows = []
+    for model in has_perp["model"].unique():
+        mp = has_perp[has_perp["model"] == model]
+        merged = mp.merge(
+            dataset[["uid", "pii_spans", "category", "attack_target"]],
+            on="uid", how="left",
+        ).dropna(subset=["perplexity"])
+        if merged.empty:
+            continue
+
+        merged["y_true"] = merged["pii_spans"].apply(
+            lambda x: len(x) > 0 if isinstance(x, list) else False,
+        ).astype(int)
+        merged["dataset"] = merged.apply(_dataset_label, axis=1)
+
+        # Threshold = max perplexity among negatives + tiny epsilon.
+        # By construction no negative crosses it → precision = 100%.
+        neg_perp = merged[merged["y_true"] == 0]["perplexity"]
+        if neg_perp.empty:
+            threshold = Config.PERPLEXITY_THRESHOLD
+        else:
+            threshold = float(neg_perp.max()) + 1e-9
+
+        merged["y_pred"] = (merged["perplexity"] > threshold).astype(int)
+
+        def _metrics(df):
+            tp = int(((df["y_true"] == 1) & (df["y_pred"] == 1)).sum())
+            fp = int(((df["y_true"] == 0) & (df["y_pred"] == 1)).sum())
+            fn = int(((df["y_true"] == 1) & (df["y_pred"] == 0)).sum())
+            return tp, fp, fn
+
+        tp, fp, fn = _metrics(merged)
+        recall = tp / (tp + fn) if (tp + fn) else 0.0
+        # Precision is undefined when no positive predictions are made.
+        # Use the 1.0 convention (no predictions ⇒ no false positives),
+        # which is honest under the 100%-precision threshold rule.
+        precision = tp / (tp + fp) if (tp + fp) else 1.0
+        f1 = (
+            2 * precision * recall / (precision + recall)
+            if (precision + recall) else 0.0
+        )
+        # Per-dataset recall splits
+        base_tp, _, base_fn = _metrics(merged[merged["dataset"] == "baseline"])
+        adv_tp, _, adv_fn = _metrics(merged[merged["dataset"] == "fuzzy_adv"])
+        base_recall = (
+            base_tp / (base_tp + base_fn) if (base_tp + base_fn) else 0.0
+        )
+        adv_recall = (
+            adv_tp / (adv_tp + adv_fn) if (adv_tp + adv_fn) else 0.0
+        )
+
+        rows.append({
+            "Model": model,
+            "Threshold": round(threshold, 4),
+            "F1": f1,
+            "Precision": precision,
+            "Recall": recall,
+            "Baseline Recall": base_recall,
+            "Adversarial Recall": adv_recall,
+        })
+
+    if not rows:
+        return None
+    df = DataFrame.from_records(rows)
+    from evaluation.report.config import model_sort_key
+    df["_ord"] = df["Model"].apply(model_sort_key)
+    return df.sort_values("_ord").drop(columns=["_ord"])
+
+
 def _build_perplexity_charts() -> dict[str, str] | None:
     """Build perplexity charts for every model that has data.
 
@@ -1120,82 +1359,79 @@ def _build_inspector() -> str | None:
 
 
 def _build_comparison_charts(report_data: dict) -> str | None:
-    """Build grouped bar charts with metric toggle (F1 / Recall / Precision)."""
+    """Build grouped bar charts of row-level binary Recall per attack."""
     from evaluation.visualizations.visualizations import grouped_bar_plotly
 
-    metrics = ["F1", "Recall", "Precision"]
+    metric = "Recall"
     sections_by_key = {
         "fuzzy": ("PII-Level Attacks", "fuzzy_techniques"),
         "adv": ("Content-Level Attacks", "adv_content_techniques"),
     }
 
-    # Build charts grouped by metric — base & shield side by side
-    metric_panels: dict[str, list[str]] = {m: [] for m in metrics}
+    blocks: list[str] = []
     chart_idx = 0
     for key, (title, group_col) in sections_by_key.items():
         df = report_data.get(key)
         if df is None or df.empty:
             continue
 
-        base_df = df[~df["Model"].str.endswith("-defend")]
-        shield_df = df[df["Model"].str.endswith("-defend")].copy()
+        is_cascade = df["Model"] == "pii-shield"
+        cascade_df = df[is_cascade]
+        rest = df[~is_cascade]
+        base_df = rest[~rest["Model"].str.endswith("-defend")]
+        shield_df = rest[rest["Model"].str.endswith("-defend")].copy()
         shield_df["Model"] = shield_df["Model"].str.removesuffix("-defend")
 
-        for metric in metrics:
-            halves = []
-            for split_label, split_df in [
-                ("Base Models", base_df),
-                ("Shield Models", shield_df),
-            ]:
-                if split_df.empty:
-                    continue
-                pid = f"plotly-comp-{chart_idx}"
-                chart_idx += 1
-                pj = grouped_bar_plotly(split_df, metric, group_col)
-                halves.append(
-                    f'<div style="flex:1;min-width:0">'
-                    f'<h4 style="margin:0 0 0.3rem;font-size:0.85rem;'
-                    f'color:var(--text-muted)">{split_label}</h4>'
-                    f'<div class="chart-wrap" data-plotly-id="{pid}">'
-                    f'<div class="chart-interactive" id="{pid}" '
-                    f'style="min-height:350px"></div>'
-                    f'<script type="application/json" class="plotly-spec" '
-                    f'data-target="{pid}">{pj}</script></div></div>'
-                )
-            if halves:
-                metric_panels[metric].append(
-                    f'<h3 style="margin:1.5rem 0 0.3rem;font-size:0.9rem">'
-                    f'{title}</h3>'
-                    f'<div style="display:flex;gap:1.5rem;flex-wrap:wrap">'
-                    f'{"".join(halves)}</div>'
-                )
+        halves = []
+        for split_label, split_df in [
+            ("Base Models", base_df),
+            ("Shield Models", shield_df),
+        ]:
+            if split_df.empty:
+                continue
+            pid = f"plotly-comp-{chart_idx}"
+            chart_idx += 1
+            pj = grouped_bar_plotly(split_df, metric, group_col)
+            halves.append(
+                f'<div style="flex:1;min-width:0">'
+                f'<h4 style="margin:0 0 0.3rem;font-size:0.85rem;'
+                f'color:var(--text-muted)">{split_label}</h4>'
+                f'<div class="chart-wrap" data-plotly-id="{pid}">'
+                f'<div class="chart-interactive" id="{pid}" '
+                f'style="min-height:350px"></div>'
+                f'<script type="application/json" class="plotly-spec" '
+                f'data-target="{pid}">{pj}</script></div></div>'
+            )
+        cascade_block = ""
+        if not cascade_df.empty:
+            pid = f"plotly-comp-{chart_idx}"
+            chart_idx += 1
+            pj = grouped_bar_plotly(cascade_df, metric, group_col)
+            cascade_block = (
+                f'<div style="margin-top:1rem;'
+                f'border-top:1px dashed var(--border);'
+                f'padding-top:0.6rem">'
+                f'<h4 style="margin:0 0 0.3rem;font-size:0.85rem;'
+                f'color:var(--accent)">PII Shield (Cascade)</h4>'
+                f'<div class="chart-wrap" data-plotly-id="{pid}">'
+                f'<div class="chart-interactive" id="{pid}" '
+                f'style="min-height:300px"></div>'
+                f'<script type="application/json" class="plotly-spec" '
+                f'data-target="{pid}">{pj}</script></div></div>'
+            )
+        if halves or cascade_block:
+            blocks.append(
+                f'<h3 style="margin:1.5rem 0 0.3rem;font-size:0.9rem">'
+                f'{title}</h3>'
+                f'<div style="display:flex;gap:1.5rem;flex-wrap:wrap">'
+                f'{"".join(halves)}</div>'
+                f'{cascade_block}'
+            )
 
-    if not any(metric_panels.values()):
+    if not blocks:
         return None
 
-    # Metric toggle buttons
-    btns = []
-    for m in metrics:
-        active = " active" if m == metrics[0] else ""
-        btns.append(
-            f'<button class="tab-btn comp-metric-btn{active}" '
-            f'data-comp-metric="{m}">{m}</button>'
-        )
-    bar = (
-        f'<div class="view-bar" style="margin-bottom:0.8rem">'
-        f'{"".join(btns)}</div>'
-    )
-
-    # Metric panels
-    panels = []
-    for m in metrics:
-        display = "block" if m == metrics[0] else "none"
-        panels.append(
-            f'<div class="comp-panel" data-comp-metric="{m}" '
-            f'style="display:{display}">{"".join(metric_panels[m])}</div>'
-        )
-
-    return bar + "".join(panels)
+    return "".join(blocks)
 
 
 def generate_report(output_path: Path = None, open_browser: bool = True) -> Path:
@@ -1380,9 +1616,58 @@ def generate_report(output_path: Path = None, open_browser: bool = True) -> Path
         ))
         nav_items.append('<a class="nav-pill" data-page="pii-type">PII Types</a>')
 
-    # 5. Perplexity — per-model charts with interactive toggle
+    # 5. Perplexity — standalone-detector summary + per-model threshold sweeps
     perplexity_charts = _build_perplexity_charts()
     if perplexity_charts:
+        # Uplift chart: for each model, how much extra recall does the
+        # perplexity filter contribute on top of the binary detector,
+        # at the 100%-precision threshold.
+        uplift_chart_html = _build_perplexity_uplift_chart() or ""
+        if uplift_chart_html:
+            uplift_chart_html = (
+                '<h4 style="margin:0 0 0.5rem;font-size:0.95rem">'
+                'Perplexity Uplift over Binary Detection</h4>'
+                '<p class="section-desc" style="margin-bottom:0.5rem">'
+                'For each detector, how much extra recall the perplexity '
+                'filter adds on top of the yes/no classification, at a '
+                'threshold chosen to keep precision at 100% (no false '
+                'positives). Orange segment = free recall gain.</p>'
+                + uplift_chart_html
+                + '<div style="margin-top:1.2rem;border-top:1px solid '
+                'var(--border);padding-top:1rem"></div>'
+            )
+
+        # Standalone summary: if perplexity alone were the classifier,
+        # per-model F1/Precision/Recall at the per-model optimal threshold.
+        standalone_df = _build_perplexity_standalone()
+        standalone_html = ""
+        if standalone_df is not None and not standalone_df.empty:
+            standalone_col_order = [
+                "Model", "Threshold",
+                "F1", "Precision", "Recall",
+                "Baseline Recall", "Adversarial Recall",
+            ]
+            standalone_pct = [
+                "F1", "Precision", "Recall",
+                "Baseline Recall", "Adversarial Recall",
+            ]
+            standalone_html = (
+                '<h4 style="margin:0 0 0.5rem;font-size:0.95rem">'
+                'Standalone Perplexity Detector</h4>'
+                '<p class="section-desc" style="margin-bottom:0.5rem">'
+                'Performance if the perplexity signal alone were used as '
+                'the classifier. Per-model threshold is the lowest value '
+                'that keeps baseline precision at 100%. Metrics computed '
+                'on the full positive set (baseline + adversarial).</p>'
+                + styled_table(
+                    standalone_df,
+                    col_order=standalone_col_order,
+                    pct_cols=standalone_pct,
+                )
+                + '<div style="margin-top:1.2rem;border-top:1px solid '
+                'var(--border);padding-top:1rem"></div>'
+            )
+
         perplexity_desc = (
             '<p class="section-desc">'
             'Sensitivity analysis of the perplexity '
@@ -1396,6 +1681,8 @@ def generate_report(output_path: Path = None, open_browser: bool = True) -> Path
         if len(perplexity_charts) == 1:
             model_name = next(iter(perplexity_charts))
             perp_body = (
+                f'{uplift_chart_html}'
+                f'{standalone_html}'
                 f'{perplexity_desc}'
                 f'{perplexity_charts[model_name]}'
             )
@@ -1423,6 +1710,8 @@ def generate_report(output_path: Path = None, open_browser: bool = True) -> Path
                     f'{chart}</div>'
                 )
             perp_body = (
+                f'{uplift_chart_html}'
+                f'{standalone_html}'
                 f'{perplexity_desc}'
                 f'<div class="sub-nav" '
                 f'style="margin-bottom:1rem">'

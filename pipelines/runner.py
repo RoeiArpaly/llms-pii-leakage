@@ -9,7 +9,7 @@ from logger import logger
 from pipelines import (
     DATASET_PATH,
     PREDICTIONS_PATH,
-    generate_baseline_dataset,
+    bulk_generate_baseline,
     generate_fuzzy_adv_dataset,
     generate_fuzzy_dataset,
     pii_detection_pipeline,
@@ -119,9 +119,13 @@ def run_pipeline(
     models = models if models else Config.MODELS
 
     stages = [
-        lambda: generate_baseline_dataset(
-            n_samples=Config.NUMBER_OF_SAMPLES,
-            pii_proba=Config.PII_PROBABILITY,
+        lambda: bulk_generate_baseline(
+            n=Config.BULK_TARGET_N,
+            out_path=DATASET_PATH,
+            weights=Config.BULK_WEIGHTS,
+            model=Config.BULK_MODEL,
+            workers=Config.BULK_WORKERS,
+            checkpoint_every=Config.BULK_CHECKPOINT_EVERY,
         ),
         generate_fuzzy_dataset,
         generate_fuzzy_adv_dataset,

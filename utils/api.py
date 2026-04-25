@@ -11,7 +11,25 @@ from logger import logger
 from utils.perplexity import calculate_perplexity
 
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+class AuthenticationError(RuntimeError):
+    """Raised on 401/403 from the LLM provider — never retried."""
+
+
+def _resolve_provider(model: str) -> tuple[str, str, str]:
+    """Pick provider from env at call time. Returns (url, token, model)."""
+    openrouter_key = os.getenv("OPENROUTER_API_KEY")
+    if openrouter_key:
+        resolved = model if "/" in model else f"openai/{model}"
+        return (
+            "https://openrouter.ai/api/v1/chat/completions",
+            openrouter_key,
+            resolved,
+        )
+    return (
+        "https://api.openai.com/v1/chat/completions",
+        os.getenv("OPENAI_API_KEY"),
+        model,
+    )
 
 
 def retry(
@@ -31,6 +49,8 @@ def retry(
             for attempt in range(times):
                 try:
                     return func(*args, **kwargs)
+                except AuthenticationError:
+                    raise
                 except Exception as e:
                     if attempt + 1 < times:
                         logger.warning(
@@ -57,16 +77,24 @@ def retry(
 def post_request_openai(
     data: dict, logprobs: bool = False, structured_output: bool = True,
 ) -> dict | str:
-    if Config.MOCK_LLM:
+    if Config.DRYRUN:
         from detectors.llm.mock import mock_openai_response
         return mock_openai_response(
             data=data, logprobs=logprobs, structured_output=structured_output,
         )
 
+    url, token, resolved_model = _resolve_provider(model=data.get("model", ""))
+    if not token:
+        raise AuthenticationError(
+            "no API key set. Export OPENROUTER_API_KEY or OPENAI_API_KEY "
+            "(or pass --api-key on the CLI). For smoke tests without a "
+            "real LLM, set Config.DRYRUN=True or use --dryrun.",
+        )
+    data = {**data, "model": resolved_model}
     response = requests.post(
-        url="https://api.openai.com/v1/chat/completions",
+        url=url,
         headers={
-            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
         },
         json=data,
@@ -89,4 +117,11 @@ def post_request_openai(
         except json.JSONDecodeError as e:
             logger.error(content)
             raise ValueError(f"Invalid JSON format.\nError: {e}")
-    raise ValueError(f"Invalid response from OpenAI API.\n{response.text}")
+    if response.status_code in (401, 403):
+        raise AuthenticationError(
+            f"API authentication failed ({response.status_code}) at {url}: "
+            f"{response.text.strip()[:300]}",
+        )
+    raise ValueError(
+        f"Invalid response from API ({response.status_code}).\n{response.text}",
+    )
