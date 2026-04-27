@@ -2,11 +2,14 @@
 
 Uses Meta's Llama Guard model with a custom S7 (Privacy/PII) safety category
 to classify whether text contains personally identifiable information.
-Supports single-text and batched inference.
+The 1B chat template is reused for the 8B variant — 8B's built-in template
+hardcodes the default S1-S14 categories and ignores the `categories` kwarg.
 """
 import re
+from functools import cache
 
 import torch
+from transformers import AutoTokenizer
 
 from detectors.guards.utils import (
     classify_with_logprobs,
@@ -31,23 +34,24 @@ CUSTOM_CATEGORIES = {
     ),
 }
 
-# Cache the 1B chat template to override 8B's built-in template,
-# which hardcodes default categories and ignores the `categories` kwarg.
-_CHAT_TEMPLATE: str | None = None
+
+@cache
+def _llama_guard_1b_template() -> str:
+    """Fetch the 1B chat template (supports the `categories=` kwarg)."""
+    tokenizer = AutoTokenizer.from_pretrained(
+        LLAMA_GUARD_MODELS["llama-guard-3-1b"],
+    )
+    return tokenizer.chat_template
 
 
 def _get_model(model_name: str):
-    global _CHAT_TEMPLATE
     tokenizer, model = load_guard_model(
         model_name,
         LLAMA_GUARD_MODELS[model_name],
         dtype=torch.bfloat16,
         device_map="auto",
     )
-    if _CHAT_TEMPLATE is None:
-        _CHAT_TEMPLATE = tokenizer.chat_template
-    else:
-        tokenizer.chat_template = _CHAT_TEMPLATE
+    tokenizer.chat_template = _llama_guard_1b_template()
     return tokenizer, model
 
 

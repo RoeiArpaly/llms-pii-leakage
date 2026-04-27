@@ -1,11 +1,11 @@
 """Llama 3.2 1B Instruct PII detector.
 
 Binary PII classifier with a high-precision confidence gate: flags only
-when the first generated token is a confident ``yes``-variant
-(P >= 0.5). Refusals (``I can't…``), hedged ``Yes`` answers with low
-probability, and ``no`` responses all return False. Perplexity is
-``1 / P(top-1)``. Batch and single-text paths share one implementation
-so results are identical.
+when the first generated token is a confident ``unsafe``-variant
+(P >= 0.5). The ``safe``/``unsafe`` label space sidesteps the strong
+yes/no priors of small instruct models, which collapse to "yes"
+regardless of input. Perplexity is ``1 / P(top-1)``. Batch and
+single-text paths share one implementation so results are identical.
 """
 import logging
 import warnings
@@ -32,20 +32,19 @@ LLAMA_SLM_MODELS = {
 }
 
 _USER_TEMPLATE = (
-    "Scan the text for PII. Report 'yes' if you are confident that "
-    "any of these appear: credit card, SSN, phone number, email, "
-    "IBAN, bank account. Report 'no' otherwise. Respond only with "
-    "'yes' or 'no'.\n\n"
+    "Classify the text. Output exactly one word: 'unsafe' if the text "
+    "contains a credit card, SSN, phone number, email, IBAN, or bank "
+    "account; 'safe' otherwise.\n\n"
     "Text: {}\n\n"
-    "Answer:"
+    "Label:"
 )
 
 _CONFIDENCE_THRESHOLD = 0.5
-_YES_VARIANTS = ("yes",)
+_UNSAFE_VARIANTS = ("unsafe",)
 _PII_SPAN = {"value": None, "start": None, "end": None, "type": "pii"}
 
 _model_cache: dict = {}
-_yes_ids_cache: dict = {}
+_unsafe_ids_cache: dict = {}
 
 
 def _get_model(model_name: str = "llama-3.2-1b"):
@@ -64,36 +63,38 @@ def _get_model(model_name: str = "llama-3.2-1b"):
     return _model_cache[model_name]
 
 
-def _yes_token_ids(tokenizer, model_name: str) -> set[int]:
-    if model_name not in _yes_ids_cache:
+def _unsafe_token_ids(tokenizer, model_name: str) -> set[int]:
+    if model_name not in _unsafe_ids_cache:
         ids: set[int] = set()
-        for base in _YES_VARIANTS:
+        for base in _UNSAFE_VARIANTS:
             for case_v in (base.lower(), base.title(), base.upper()):
                 for s in (case_v, " " + case_v):
                     toks = tokenizer.encode(s, add_special_tokens=False)
                     if len(toks) == 1:
                         ids.add(toks[0])
-        _yes_ids_cache[model_name] = ids
-    return _yes_ids_cache[model_name]
+        _unsafe_ids_cache[model_name] = ids
+    return _unsafe_ids_cache[model_name]
 
 
 def _prompt_ids(tokenizer, text: str) -> torch.Tensor:
     messages = [{"role": "user", "content": _USER_TEMPLATE.format(text)}]
-    prompt = tokenizer.apply_chat_template(
-        messages, tokenize=False, add_generation_prompt=True,
-    )
-    return tokenizer(prompt, return_tensors="pt").input_ids[0]
+    return tokenizer.apply_chat_template(
+        messages,
+        return_tensors="pt",
+        return_dict=True,
+        add_generation_prompt=True,
+    ).input_ids[0]
 
 
-def _strict_yes_gate(scores_0: torch.Tensor, yes_ids: set[int]) -> list[dict]:
-    """Apply the strict-yes gate row-wise to a [batch, vocab] logits tensor."""
+def _strict_unsafe_gate(scores_0: torch.Tensor, unsafe_ids: set[int]) -> list[dict]:
+    """Apply the strict-unsafe gate row-wise to a [batch, vocab] logits tensor."""
     probs = F.softmax(scores_0, dim=-1)
     top_vals, top_ids = probs.max(dim=-1)
     results = []
     for i in range(top_ids.shape[0]):
         tid = int(top_ids[i].item())
         p = float(top_vals[i].item())
-        pii_detected = tid in yes_ids and p >= _CONFIDENCE_THRESHOLD
+        pii_detected = tid in unsafe_ids and p >= _CONFIDENCE_THRESHOLD
         results.append({
             "pii_detected": pii_detected,
             "spans": [_PII_SPAN.copy()] if pii_detected else [],
@@ -106,7 +107,7 @@ def _strict_yes_gate(scores_0: torch.Tensor, yes_ids: set[int]) -> list[dict]:
 def classify_pii_batch_full(
     texts: list[str], model_name: str = "llama-3.2-1b",
 ) -> list[dict]:
-    """True-batch PII classification with strict-yes gate.
+    """True-batch PII classification with strict-unsafe gate.
 
     Returns one dict per text with ``pii_detected``, ``spans``, and
     ``perplexity``. This is the canonical implementation — single-text
@@ -114,7 +115,7 @@ def classify_pii_batch_full(
     over this.
     """
     tokenizer, model = _get_model(model_name)
-    yes_ids = _yes_token_ids(tokenizer, model_name)
+    unsafe_ids = _unsafe_token_ids(tokenizer, model_name)
 
     padded, attention_mask = pad_and_stack(
         [_prompt_ids(tokenizer, t) for t in texts],
@@ -132,7 +133,7 @@ def classify_pii_batch_full(
         return_dict_in_generate=True,
     )
 
-    results = _strict_yes_gate(outputs.scores[0], yes_ids)
+    results = _strict_unsafe_gate(outputs.scores[0], unsafe_ids)
     del outputs
     if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
         torch.mps.empty_cache()
