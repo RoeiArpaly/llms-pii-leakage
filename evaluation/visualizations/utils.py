@@ -1,4 +1,31 @@
+"""Shared visualization utilities: data extraction for charts and academic-style
+HTML table rendering for DataFrames.
+"""
+from typing import Union
+
 from pandas import DataFrame
+
+from evaluation.report.config import MODEL_ORDER
+
+
+def extract_series(
+    df: DataFrame, metric: str, group_col: str,
+) -> tuple[list[str], list[str], dict[str, list[float]]]:
+    """Extract ordered model series from a DataFrame for charting.
+
+    Returns (models, categories, series) where series maps each model name
+    to a list of metric values aligned with categories.
+    """
+    models = [m for m in MODEL_ORDER if m in df["Model"].unique()]
+    categories = list(df[group_col].unique())
+    series = {}
+    for model in models:
+        series[model] = [
+            (df[(df[group_col] == cat) & (df["Model"] == model)].iloc[0][metric]
+             if not df[(df[group_col] == cat) & (df["Model"] == model)].empty else 0)
+            for cat in categories
+        ]
+    return models, categories, series
 
 
 def dataframe_to_astar_html(
@@ -6,8 +33,8 @@ def dataframe_to_astar_html(
         title: str = "",
         caption: str = "",
         index: bool = False,
-        highlight_cols: list[str] or str or bool = False,
-        highlight_axis: int = 0,  # 1 or 0
+        highlight_cols: Union[list[str], str, bool] = False,
+        highlight_axis: int = 0,
         show_index_name: bool = True
 ) -> str:
     """
@@ -93,9 +120,10 @@ def dataframe_to_astar_html(
             """
         )
 
+    numeric_cols = data.select_dtypes("number").columns.tolist()
     styler = (
         data.style
-        .format("{:.2%}")
+        .format("{:.2%}", subset=numeric_cols)
         .set_table_attributes('class="astar"')
         .set_table_styles(css)
     )

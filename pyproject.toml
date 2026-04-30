@@ -1,0 +1,51 @@
+[project]
+name = "llms-pii-leakage"
+version = "0.1.0"
+description = "Research framework for evaluating PII detection systems under adversarial attacks"
+requires-python = ">=3.11"
+dependencies = [
+    "accelerate>=1.6.0",
+    "emoji>=2.15.0",
+    "gliner>=0.2.26",
+    "matplotlib>=3.10.8",
+    "pandas>=2.3.3",
+    "presidio-analyzer>=2.2.359",
+    "spacy==3.8.13",
+    "presidio-evaluator>=0.2.5",
+    "PyYAML>=6.0.3",
+    "RapidFuzz>=3.14.3",
+    "requests>=2.33.1",
+    "scikit-learn>=1.8.0",
+    "torch>=2.11.0",
+    "transformers>=5.6.0",
+]
+
+[tool.uv]
+# gliner==0.2.26 (latest) caps transformers<5.2, but openai/privacy-filter
+# requires transformers>=5.6.0. The override forces 5.6+; existing GLiNER
+# experiments already completed under the older pin.
+override-dependencies = [
+    "transformers>=5.6.0",
+]
+
+[dependency-groups]
+dev = [
+    "flake8>=7.3.0",
+    "pre-commit>=4.5.1",
+    "pytest>=9.0.2",
+    "pytest-mock>=3.15.1",
+]
+
+[tool.flake8]
+max-line-length = 100
+exclude = [".venv/"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore:`torch.jit.script` is not supported:DeprecationWarning",
+    "ignore:builtin type Swig:DeprecationWarning",
+    "ignore:builtin type swigvarlink:DeprecationWarning",
+    "ignore:The sentencepiece tokenizer:UserWarning",
+    "ignore:The `resume_download` argument is deprecated:UserWarning",
+]

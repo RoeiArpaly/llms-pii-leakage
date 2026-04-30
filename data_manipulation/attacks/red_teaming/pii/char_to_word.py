@@ -1,3 +1,6 @@
+"""Char-to-word attack: converts digits and symbols in PII to their word
+representations (e.g. "4" -> "(four)"), optionally in different languages.
+"""
 import random
 
 from data_manipulation.constants import (

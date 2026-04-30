@@ -1,8 +1,15 @@
+"""Defensive preprocessing pipeline for normalizing adversarial PII inputs.
+
+Applies a chain of reversals: homoglyph-to-ASCII, emoji demojization, separator
+cleanup, textual-number-to-digit conversion, symbol-word-to-symbol conversion,
+placeholder removal, and sandwich-defense prompt wrapping.
+"""
 import random
-import regex as re
 import string
+import unicodedata as _unicodedata
 
 import emoji
+import regex as re
 
 from data_manipulation.constants import (
     ALPHABET_EMOJI_MAP,
@@ -66,10 +73,21 @@ mappings = {  # Check hex of letter by using: hex(ord("Ⓐ"))
     "emoji_clock_faces": mapping_helper(0x1F550, 12, [str(i + 1) for i in range(12)]),  # 🕐-🕟
     "emoji_enclosed_alphabet": {v: k for k, v in ALPHABET_EMOJI_MAP.items()},
     "emoji_symbols": {v: k for k, v in SYMBOL_EMOJI_MAP.items()},
+
+    # Additional @ variants not in the attack homoglyph map
+    "at_sign_variants": {
+        "\uFF20": "@",  # ＠ fullwidth commercial at
+        "\uFE6B": "@",  # ﹫ small form variant
+    },
 }
 
 # Emojis that can't be mapped to a single character
 replace_mapping = {"emoji_keycap_number": {v: k for k, v in NUMBER_EMOJI_MAP.items()}}
+
+
+_merged_mapping = {}
+for _mapping in mappings.values():
+    _merged_mapping.update(_mapping)
 
 
 def transform_homoglyphs_to_alphabets(text: str, delimiter=":") -> dict:
@@ -77,16 +95,7 @@ def transform_homoglyphs_to_alphabets(text: str, delimiter=":") -> dict:
     Converts homoglyphs in the text to their respective alphabets.
     Includes emojis and special characters.
     """
-    new_text = []
-    for letter in text:
-        for key, mapping in mappings.items():
-            if letter in mapping:
-                new_text.append(mapping[letter])
-                break
-        else:
-            new_text.append(letter)
-
-    new_text = "".join(new_text)
+    new_text = "".join(_merged_mapping.get(ch, ch) for ch in text)
     for key, mapping in replace_mapping.items():
         for emoji_ in mapping:
             new_text = new_text.replace(emoji_, mapping[emoji_])
@@ -95,18 +104,74 @@ def transform_homoglyphs_to_alphabets(text: str, delimiter=":") -> dict:
     return {"text": new_text, "homoglyph_detected": text != new_text}
 
 
-def remove_separators(text: str) -> str:
+def is_suspicious(text: str, threshold: int = 2) -> bool:
+    """Check if text contains anomalous Unicode characters suggesting an attack.
+
+    Scores non-ASCII characters by category:
+    - Combining marks (M): +3 (almost never in normal text)
+    - Control/format chars (C): +3 (zero-width, BOM, etc.)
+    - Symbols (S): +2 (emoji, fullwidth symbols)
+    - Other non-ASCII: +1 (fullwidth letters, Cyrillic homoglyphs)
+
+    Returns True if total score exceeds threshold.
+    At threshold=2: 0% FP on clean text, 73% detection of PII-level attacks.
     """
-    Replace unsupported separators with '-'.
-    Collapse repeated allowed separators.
-    Remove quotes and clean whitespace.
+    if not text:
+        return False
+    score = 0
+    for ch in text:
+        if ord(ch) < 128:
+            continue
+        cat = _unicodedata.category(ch)
+        if cat[0] in ("M", "C"):
+            score += 3
+        elif cat[0] == "S":
+            score += 2
+        else:
+            score += 1
+        if score > threshold:
+            return True
+    return False
+
+
+def _strip_injected_separators(text: str) -> str:
+    """Strip characters likely injected between PII characters to fragment them.
+
+    Removes any non-alphanumeric, non-PII-structural character that sits
+    between two non-space characters. Preserved characters:
+    - PII structural: - @ . ( ) + [ ] { }
+    - Letters (incl. accented), digits, whitespace
+    Brackets/braces are kept because textual_symbol_to_symbol needs them
+    for patterns like [at] → @ and (dot) → .
+    """
+    _KEEP = r"\p{L}0-9\s\-@.()+\[\]{}"
+    text = re.sub(rf"(?<=\S)[^{_KEEP}](?=\S)", "", text)
+    return text
+
+
+def remove_separators(text: str) -> str:
+    """Normalize separators for PII detection.
+
+    - Commas, colons, semicolons → spaces (preserves NER token boundaries
+      around PII values like "name, 803-54-1242, and contact")
+    - Quotes removed
+    - Other unsupported chars → dashes (reverses attack separators)
+    - Plus sign preserved (appears in phone numbers like +1-293-926-6036)
+    - Collapse repeated separators and whitespace
     """
     # Remove quotes
     text = text.replace('"', "")
-    # Replace unsupported characters with '-'
-    allowed_separators = r"\-@.() "  # space is included
+    # Commas, colons, semicolons → spaces (not dashes) to preserve
+    # NER token boundaries around PII (e.g. "name, 803-54-1242, and")
+    text = re.sub(pattern=r"[,;:]", repl=" ", string=text)
+    # Other unsupported characters → dashes (except + at word start
+    # which appears in phone numbers like +1-293-926-6036)
+    allowed_separators = r"\-@.()+ "
     text = re.sub(pattern=rf"[^\w{allowed_separators}]", repl="-", string=text)
-    # Collapse multiple occurrences of allowed separators
+    # " + " between spaces is a concatenation operator → dash
+    # (preserves +1 in phone numbers since there's no space before +)
+    text = re.sub(pattern=r" \+ ", repl="-", string=text)
+    # Collapse repeated allowed separators
     text = re.sub(pattern=r"([\-@.() ])\1+", repl=r"\1", string=text)
     # Replace multiple spaces with single space
     text = re.sub(pattern=r"\s+", repl=" ", string=text)
@@ -116,17 +181,36 @@ def remove_separators(text: str) -> str:
     return text.strip(" -")
 
 
+_NUMBER_REVERSE_MAP = {
+    word: digit
+    for lang_map in NUMBER_WORD_MAP.values()
+    for digit, word in lang_map.items()
+}
+
+
 def textual_number_to_numeric(text: str) -> str:
     """
     Convert textual numbers to numeric representation.
+    Handles both standalone words and words enclosed in delimiters.
     Example: "Hello one-two-three" -> "Hello 1-2-3"
+    Example: "(cero)(cinco)" -> "05"
     """
-    # Define mapping of textual numbers to numeric representation
-    for language in NUMBER_WORD_MAP:
-        mapping = {v: k for k, v in NUMBER_WORD_MAP[language].items()}
-        # Replace textual numbers with numeric representation
-        for word, number in mapping.items():
-            text = re.sub(pattern=r"\b" + word + r"\b", repl=number, string=text)
+    sorted_words = sorted(
+        _NUMBER_REVERSE_MAP.keys(), key=len, reverse=True,
+    )
+    for word in sorted_words:
+        number = _NUMBER_REVERSE_MAP[word]
+        # Match word in delimiters: (cero) [cinco] {uno} -> digit
+        pattern_delimited = rf"[\(\[\{{]\s*{re.escape(word)}\s*[\)\]\}}]"
+        text = re.sub(
+            pattern=pattern_delimited, repl=number,
+            string=text, flags=re.IGNORECASE,
+        )
+        # Match standalone word
+        text = re.sub(
+            pattern=r"\b" + re.escape(word) + r"\b",
+            repl=number, string=text,
+        )
     return text
 
 
@@ -144,11 +228,16 @@ def textual_symbol_to_symbol(text: str) -> str:
 
     for symbol in sorted_words:
         word = WORD_SYMBOLS_MAP[symbol]
+        # Build a flexible pattern for multi-word names (e.g. "left parenthesis")
+        # that tolerates non-alpha junk between the words (e.g. "left: :parenthesis")
+        word_parts = word.split()
+        if len(word_parts) > 1:
+            flexible = r"[^a-zA-Z]*".join(re.escape(w) for w in word_parts)
+        else:
+            flexible = re.escape(word)
         # Pattern 1: Match and replace the word when it's enclosed in
         # parentheses, square brackets, or curly braces.
-        # This pattern replaces the entire enclosed structure with just the symbol.
-        # Examples: "(dash)" -> "-", "[dash]" -> "-", "{dash}" -> "-"
-        pattern_delimited = rf"[\(\[\{{]\s*{re.escape(word)}\s*[\)\]\}}]"
+        pattern_delimited = rf"[\(\[\{{]\s*{flexible}\s*[\)\]\}}]"
         text = re.sub(pattern=pattern_delimited, repl=symbol, string=text, flags=re.IGNORECASE)
         # Pattern 2: Match and replace the word when it appears standalone,
         # but NOT if it's part of a longer *alphabetic* word.
@@ -235,9 +324,48 @@ def sandwich_defense(text: str) -> str:
     return f"{upper_bun}{text}{lower_bun}"
 
 
+def _rejoin_chunks(text: str) -> str:
+    """Reverse chunking attacks: "abc" + "def" + "ghi" -> abcdefghi.
+
+    Only triggers on sequences of 3+ short quoted chunks joined by +.
+    This avoids stripping legitimate quoted text in prose.
+    """
+    # Match 3+ short chunks: "xx" + "yy" + "zz" (each chunk ≤10 chars)
+    chunk = r'"([^"]{1,10})"'
+    joiner = r'\s*\+\s*'
+    pattern = rf'{chunk}(?:{joiner}{chunk}){{2,}}'
+
+    def _merge(m):
+        # Extract all quoted groups from the full match
+        return re.sub(r'"\s*\+\s*"', "", m.group(0)).strip('"')
+
+    return re.sub(pattern, _merge, text)
+
+
+def light_defensive_preprocess(text: str) -> str:
+    """Light defense for SLM safety classifiers.
+
+    Only applies homoglyph reversal and chunk rejoining. Skips both
+    aggressive text normalization AND sandwich wrapping because:
+    - SLMs are fine-tuned safety classifiers that ignore prompt injections,
+      so the sandwich provides zero benefit.
+    - The sandwich's "user-provided content" framing makes SLMs more
+      suspicious, increasing false positives (measured: 14% → 34% on
+      hard negatives for Llama Guard).
+    """
+    result = transform_homoglyphs_to_alphabets(text=text, delimiter="|" * 15)
+    new_text = re.sub(r"\|{15}([\w_]+)\|{15}", lambda m: m[1].replace("_", " ").title(), result["text"])
+    new_text = "".join(new_text.split("|" * 15))
+    new_text = _rejoin_chunks(new_text)
+    return new_text
+
+
 def defensive_preprocess(text: str, include_sandwich: bool = True) -> str:
     """
-    Defensive preprocessing by applying Standardization, Sanitization, and Prompt Injection Defense.
+    Full defense for pattern-based detectors (Presidio, GLiNER).
+
+    Applies aggressive normalization: homoglyph reversal, separator stripping,
+    number/symbol word reversal, placeholder removal, and sandwich wrapping.
     """
     rand_n = random.randint(10, 20)  # Random delimiter length to avoid delimiter attacks
     delimiter = "|" * rand_n
@@ -253,7 +381,8 @@ def defensive_preprocess(text: str, include_sandwich: bool = True) -> str:
     )
     new_text = "".join(formatted_text.split(delimiter))
     new_text = re.sub(pattern=r"\s+", repl=" ", string=new_text)  # Collapse whitespace
-    new_text = re.sub(pattern=r"(.)\1{3,}", repl=r"\1", string=new_text)  # Remove char repetition
+    new_text = _strip_injected_separators(new_text)
+    new_text = _rejoin_chunks(new_text)
     new_text = textual_number_to_numeric(new_text)
     new_text = textual_symbol_to_symbol(new_text)
     new_text = remove_placeholders(new_text)

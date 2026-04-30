@@ -1,42 +1,94 @@
-import json
+"""Synthetic PII injection using Presidio's sentence faker.
 
-from presidio_evaluator.data_generator import PresidioDataGenerator
+Takes a text template with PII placeholders and replaces them with realistic
+fake PII values (credit cards, IBANs, SSNs, etc.), returning the filled text
+and span metadata.
+"""
+import contextlib
+import os
+import re
+from functools import lru_cache
 
+from presidio_evaluator.data_generator import PresidioSentenceFaker
+from presidio_evaluator.data_generator.faker_extensions import PhoneNumberProviderNew
+
+from constants import PII_ENTITIES
 from data_generation.pii_validators import (
     is_valid_credit_card,
     is_valid_iban,
 )
 
+MIN_PHONE_DIGITS = 9
+MAX_INJECT_RETRIES = 8
 
-_data_generator = None
+# Only the providers we actually need. PII templates use:
+# {{credit_card_number}}, {{iban}}, {{ssn}}, {{phone_number}}, {{email}}.
+# credit_card / iban / ssn / email are built into Faker for locale en_US, so
+# the only custom provider we need is PhoneNumberProviderNew (multi-locale
+# phone formats).
+_ENTITY_PROVIDERS = [PhoneNumberProviderNew]
 
 
-def get_data_generator():
-    global _data_generator
-    if not _data_generator:
-        return PresidioDataGenerator()
-    return _data_generator
+@lru_cache(maxsize=1)
+def get_faker():
+    with contextlib.redirect_stdout(open(os.devnull, "w")), contextlib.redirect_stderr(open(os.devnull, "w")):
+        return PresidioSentenceFaker(
+            locale="en_US",
+            lower_case_ratio=0.05,
+            entity_providers=_ENTITY_PROVIDERS,
+        )
+
+
+def _inject_once(text: str):
+    faker = get_faker()
+    faker._sentence_templates = [text]
+    with contextlib.redirect_stdout(open(os.devnull, "w")), contextlib.redirect_stderr(open(os.devnull, "w")):
+        samples = faker.generate_new_fake_sentences(num_samples=1)
+    sample = samples[0]
+    spans = sorted(
+        [
+            {
+                "value": span.entity_value,
+                "start": span.start_position,
+                "end": span.end_position,
+                "type": PII_ENTITIES.get(span.entity_type, span.entity_type),
+            }
+            for span in sample.spans if span.entity_type in PII_ENTITIES
+        ],
+        key=lambda x: x["start"],
+    )
+    for span in spans:
+        if span["type"] == "credit_card_number":
+            if not is_valid_credit_card(card_number=span["value"]):
+                raise ValueError(f"Invalid Luhn checksum. Credit Card: {span['value']}")
+        if span["type"] == "iban":
+            if not is_valid_iban(iban=span["value"]):
+                raise ValueError(f"Invalid IBAN: {span['value']}")
+        if span["type"] == "phone_number":
+            digits = re.sub(r"[^0-9]", "", span["value"])
+            if len(digits) < MIN_PHONE_DIGITS:
+                raise ValueError(
+                    f"Phone too short ({len(digits)} digits, "
+                    f"min {MIN_PHONE_DIGITS}): {span['value']!r}",
+                )
+    return {"text": sample.full_text, "spans": spans}
 
 
 def presidio_inject_pii(text: str):
+    """Inject fake PII into the template, retrying on validation failure.
 
-    data_generator = get_data_generator()
-    fake_records = data_generator.generate_fake_data(
-        templates=[text],
-        n_samples=1,
+    Faker draws phone numbers (and others) from a 3000-row pre-generated
+    fake-person CSV that includes some sub-9-digit international landline
+    formats. We reject those and resample to keep the ground truth in a
+    range that mainstream PII detectors can be expected to catch.
+    """
+    last_error: Exception | None = None
+    for _ in range(MAX_INJECT_RETRIES):
+        try:
+            return _inject_once(text=text)
+        except ValueError as e:
+            last_error = e
+    raise ValueError(
+        f"presidio_inject_pii failed after {MAX_INJECT_RETRIES} retries: "
+        f"{last_error}",
     )
-
-    fake_records = list(fake_records)
-    fake_records = json.loads(fake_records[0].toJSON())
-    spans = json.loads(fake_records["spans"])
-    spans = sorted(spans, key=lambda x: x["start"])  # Align with Presidio Analyzer
-    for span in spans:
-        if span["type"] == "credit_card_number":
-            luhn_verify = is_valid_credit_card(card_number=span["value"])
-            if not luhn_verify:
-                raise ValueError(f"Invalid Luhn checksum. Credit Card: {span['value']}")
-        if span["type"] == "iban":
-            iban_verify = is_valid_iban(iban=span["value"])
-            if not iban_verify:
-                raise ValueError(f"Invalid IBAN: {span['value']}")
-    return {"text": fake_records["fake"], "spans": spans}

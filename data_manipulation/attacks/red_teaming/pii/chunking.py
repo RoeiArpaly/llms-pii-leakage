@@ -1,3 +1,6 @@
+"""Chunking attack: splits PII values into quoted segments joined by ' + ' to
+break contiguous pattern matching (e.g. "4111" + "1111" + "1111" + "1111").
+"""
 import re
 
 

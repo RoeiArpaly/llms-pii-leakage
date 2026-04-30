@@ -1,3 +1,7 @@
+"""Homoglyph substitution attack: replaces ASCII characters with visually
+similar Unicode characters (Cyrillic, Greek, fullwidth) to evade regex-based
+PII detectors.
+"""
 from data_manipulation.constants import HOMOGLYPH_MAP
 
 

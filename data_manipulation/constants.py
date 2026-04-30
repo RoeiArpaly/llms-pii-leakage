@@ -1,3 +1,7 @@
+"""Lookup tables for attacks and defenses: PII entity name variations, character
+mapping tables (emoji, homoglyph, word-based, slang), separator lists, and
+placeholder patterns for removal during defensive preprocessing.
+"""
 CREDIT_CARD_VARIATIONS = [
     "credit card",
     "credit card number",
@@ -308,3 +312,107 @@ HOMOGLYPH_MAP = {
 SEPARATORS = ["＿", ":", ";"]
 PARENTHESES = ["(", ")", "[", "]", "{", "}"]
 PLACEHOLDERS_FOR_REMOVAL = ["REDACTED", "NULL", "UNDEFINED", "N/A"]
+
+
+# ── Detection-enhancing surrounding terms ─────────────────────────────
+# Words whose presence near a PII value raises the guard's detection
+# likelihood by anchoring the paragraph's topic (financial, identity,
+# communication). Fuzzing these at the character level (homoglyph /
+# emojify) preserves human readability while splitting the tokenizer's
+# topic signal.
+# Whole-word, case-insensitive match intended.
+_DET_UNIVERSAL = [
+    "PII", "privacy", "private", "confidential", "sensitive",
+    "personal", "personally", "identifiable", "identification",
+    "identity", "GDPR", "CCPA", "HIPAA", "compliance", "regulation",
+    "regulatory", "security", "secure", "leak", "breach",
+]
+
+_DET_CREDIT_CARD = [
+    # transactions
+    "transaction", "transactions", "transact", "transacted", "transacting",
+    "charge", "charges", "charged", "charging", "chargeback",
+    "payment", "payments", "pay", "paid", "paying", "payer", "payee",
+    "purchase", "purchases", "purchased", "purchasing",
+    "refund", "refunds", "refunded",
+    # accounts
+    "account", "accounts", "accounting",
+    "balance", "balances", "statement", "statements", "ledger",
+    # billing
+    "bill", "bills", "billing", "billed",
+    "invoice", "invoices", "invoicing",
+    "receipt", "receipts",
+    # financial
+    "financial", "finance", "finances", "financially", "fiscal", "monetary",
+    "money", "fund", "funds", "funding", "funded",
+    "budget", "budgets", "budgeting", "budgeted",
+    "expense", "expenses", "expenditure", "expenditures",
+    "cost", "costs", "costing",
+    "spend", "spending", "spent",
+    # banking
+    "bank", "banking", "banker", "banks", "banked",
+    # card-specific
+    "credit", "debit", "card", "cards", "cardholder",
+    "CVV", "PIN", "PAN", "PCI", "Visa", "Mastercard", "Amex",
+    # commerce
+    "merchant", "merchants", "retailer", "retailers",
+    "vendor", "vendors", "checkout",
+    # revenue
+    "revenue", "revenues", "income", "earnings", "profit", "profits",
+]
+
+_DET_SSN = [
+    "SSN", "SSA", "IRS",
+    "social", "security", "government", "federal", "state",
+    "tax", "taxes", "taxation", "taxable",
+    "employment", "employer", "employee", "employed", "payroll",
+    "W-2", "W2", "1099",
+    "loan", "loans", "mortgage", "credit",
+    "application", "applicant", "apply", "applying", "applied",
+    "background", "verification",
+]
+
+_DET_IBAN = [
+    "IBAN", "BIC", "SWIFT", "SEPA", "ACH",
+    "bank", "banks", "banking", "banker",
+    "transfer", "transfers", "transferring", "transferred",
+    "wire", "wires", "wired", "wiring",
+    "international", "cross-border", "overseas", "foreign",
+    "account", "accounts",
+    "beneficiary", "beneficiaries", "payee", "payer", "recipient",
+    "remittance", "remittances",
+    "transaction", "transactions",
+    "payment", "payments",
+    "routing",
+]
+
+_DET_EMAIL = [
+    "email", "emails", "emailing", "emailed", "e-mail",
+    "mail", "mails", "mailing", "mailed",
+    "sender", "recipient", "recipients", "addressee",
+    "contact", "contacts", "contacting", "reach",
+    "correspondence", "correspond", "correspondent",
+    "address", "addresses",
+    "communicate", "communication", "communications",
+    "message", "messages", "messaging", "msg",
+    "inbox", "outbox",
+    "SMTP", "MX", "domain",
+]
+
+_DET_PHONE = [
+    "phone", "phones", "telephone", "telephones",
+    "mobile", "cell", "cellular", "landline",
+    "call", "calls", "calling", "called", "caller",
+    "dial", "dialed", "dialing",
+    "ring", "rings", "rang", "voicemail",
+    "SMS", "text", "texting", "texted",
+]
+
+
+DETECTION_ENHANCING_TERMS: dict[str, list[str]] = {
+    "credit_card_number": _DET_CREDIT_CARD + _DET_UNIVERSAL,
+    "ssn": _DET_SSN + _DET_UNIVERSAL,
+    "iban": _DET_IBAN + _DET_UNIVERSAL,
+    "email": _DET_EMAIL + _DET_UNIVERSAL,
+    "phone_number": _DET_PHONE + _DET_UNIVERSAL,
+}

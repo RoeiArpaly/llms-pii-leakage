@@ -1,3 +1,8 @@
+"""Presidio-based text replacer for content-level attacks.
+
+Builds pattern recognizers from PII entity name variations and uses Presidio's
+anonymizer to replace matched terms with configured substitute values.
+"""
 from presidio_analyzer import (
     AnalyzerEngine,
     Pattern,
@@ -7,7 +12,7 @@ from presidio_anonymizer import AnonymizerEngine
 from presidio_anonymizer.entities import OperatorConfig
 
 
-_engine = None
+_engine_cache = {}
 
 
 def _build_engines(configs: list[dict]) -> tuple:
@@ -51,10 +56,10 @@ def replacer(text: str, configs: list[dict]) -> str:
     -------
     str
     """
-    global _engine
-    if not _engine:
-        _engine = _build_engines(configs=configs)
-    _analyzer, _anonymizer, _operators = _engine
+    cache_key = tuple((c["pii_entity"], c["replace_value"]) for c in configs)
+    if cache_key not in _engine_cache:
+        _engine_cache[cache_key] = _build_engines(configs=configs)
+    _analyzer, _anonymizer, _operators = _engine_cache[cache_key]
 
     entities = [config["pii_entity"] for config in configs]
     results = _analyzer.analyze(text=text, entities=entities, language="en")

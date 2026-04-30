@@ -1,3 +1,8 @@
+"""Validators for generated PII values (Luhn checksum for credit cards,
+Mod-97 for IBANs) to ensure synthetic data is structurally valid.
+"""
+
+
 def is_valid_credit_card(card_number: str) -> bool:
     """
     Compute the Luhn checksum for the provided string of digits. Note this

@@ -1,8 +1,8 @@
 import pandas as pd
 import pytest
 
+from detectors.llm.detector import filter_pii_logprobs
 from utils import (
-    filter_pii_logprobs,
     parallel_apply,
     post_request_openai,
 )
@@ -47,13 +47,12 @@ def test_parallel_apply(mocker, max_workers):
         __name__ + ".post_request_openai", side_effect=mock_post_request_openai
     )
     data = sample_data.copy()
-    data["response"] = parallel_apply(
+    responses = parallel_apply(
         func=fetch_openai_response,
         series=data["llm_input"],
         max_workers=max_workers,
     )
-    for i, response in enumerate(data["response"]):
-        llm_input = data["llm_input"].iloc[i]
+    for response, llm_input in zip(responses, data["llm_input"]):
         assert response == f"{llm_input} joke."
     # Verify that our patched post_request_openai was called once per row.
     assert mock_post.call_count == len(data)

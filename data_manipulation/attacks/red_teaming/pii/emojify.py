@@ -1,3 +1,6 @@
+"""Emojify attack: replaces alphanumeric characters and symbols in PII values
+with their emoji equivalents (keycap digits, squared letters, etc.).
+"""
 import random
 
 from data_manipulation.constants import (

@@ -134,6 +134,13 @@ def test_remove_placeholders(input_text, expected_output):
         """,
         "My Credit Card is 413-771-193-548-2232"
     ),
+    # Commas/colons before PII must become spaces, not dashes,
+    # to preserve NER token boundaries.
+    ("Your full name, 803-54-1242, and contact", "Your full name 803-54-1242 and contact"),
+    ("Contact number: 310.580.2368.", "Contact number 310.580.2368."),
+    ("Expenditures: 4533148643409967912.", "Expenditures 4533148643409967912."),
+    # Plus sign in phone numbers must be preserved.
+    ("Call me at +1-293-926-6036.", "Call me at +1-293-926-6036."),
 ])
 def test_remove_separators(input_text, expected_output):
     result = remove_separators(input_text)
@@ -166,3 +173,32 @@ def test_text_to_numeric(input_text, expected_output):
 def test_textual_symbol_to_symbol(input_text, expected_output):
     result = textual_symbol_to_symbol(input_text)
     assert result == expected_output
+
+
+# ── @ variant recovery through full pipeline ────────────────────────
+
+@pytest.mark.parametrize("at_char, label", [
+    ("@", "standard"),
+    ("\uFF20", "fullwidth"),
+    ("\uAA5C", "homoglyph"),
+    ("\U0001F300", "emoji"),
+    ("\uFE6B", "small form"),
+])
+def test_at_sign_variants_recovered(at_char, label):
+    """All known @ substitutions must recover to user@domain.com."""
+    text = f"Send to user{at_char}domain.com please."
+    defended = defensive_preprocess(text, include_sandwich=False)
+    assert "user@domain.com" in defended, (
+        f"@ variant '{label}' (U+{ord(at_char):04X}) not recovered: "
+        f"{defended!r}"
+    )
+
+
+@pytest.mark.parametrize("wrapper", ["(at)", "[at]", "{at}"])
+def test_at_word_forms_recovered(wrapper):
+    """Word forms of @ in all delimiter styles must recover."""
+    text = f"Send to user{wrapper}domain.com please."
+    defended = defensive_preprocess(text, include_sandwich=False)
+    assert "user@domain.com" in defended, (
+        f"'{wrapper}' not recovered: {defended!r}"
+    )

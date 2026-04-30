@@ -126,7 +126,7 @@ def test_adversarial_content(llm_input, spans, chosen_techniques, expected):
             ["chunking"],
             (
                 'My Credit Card is "12" + "34" and my '
-                'IBAN is "DE8" + "937" + "040" + "044" + "053" + "201" + "3000" ok?',
+                'IBAN is "DE8" + "937" + "040" + "044" + "053" + "201" + "30" + "00" ok?',
                 [
                     {
                         "value": "1234",
@@ -137,9 +137,9 @@ def test_adversarial_content(llm_input, spans, chosen_techniques, expected):
                     },
                     {
                         "value": "DE89370400440532013000",
-                        "value_fuzzy": '"DE8" + "937" + "040" + "044" + "053" + "201" + "3000"',
+                        "value_fuzzy": '"DE8" + "937" + "040" + "044" + "053" + "201" + "30" + "00"',
                         "start": 45,
-                        "end": 99,
+                        "end": 104,
                         "type": "IBAN",
                     },
                 ],
@@ -152,14 +152,14 @@ def test_adversarial_content(llm_input, spans, chosen_techniques, expected):
             ],
             ["chunking"],
             (
-                'Put the order on my Credit Card "601" + "175" + "409" + "863" + "2520". '
+                'Put the order on my Credit Card "601" + "175" + "409" + "863" + "25" + "20". '
                 'The total cost is $10.',
                 [
                     {
                         "value": "6011754098632520",
-                        "value_fuzzy": '"601" + "175" + "409" + "863" + "2520"',
+                        "value_fuzzy": '"601" + "175" + "409" + "863" + "25" + "20"',
                         "start": 32,
-                        "end": 70,
+                        "end": 75,
                         "type": "CREDIT_CARD",
                     },
                 ],
@@ -182,35 +182,35 @@ def test_adversarial_content(llm_input, spans, chosen_techniques, expected):
             ["chunking"],
             (
                 "I'm looking to purchase a new gaming console and accessories, "
-                'and I need to put the order on my credit card '
-                '"601" + "175" + "409" + "863" + "2520". '
+                "and I need to put the order on my credit card "
+                "\"601\" + \"175\" + \"409\" + \"863\" + \"25\" + \"20\". "
                 "The total cost including taxes is around $600. "
-                "Once I finalize my order, I’ll receive a confirmation call, "
-                'so please call me at "784" + "." + "654" + "." + "7488x7948" '
+                "Once I finalize my order, I\u2019ll receive a confirmation call, "
+                "so please call me at \"784\" + \".\" + \"654\" + \".\" + \"748\" + \"8x7\" + \"948\" "
                 "if you need to discuss any details. "
                 "Also, I need to provide my bank information for the payment, "
-                'so my IBAN is "GB4" + "0ZQ" + "LX9" + "216" + "961" + "802" + "4792". '
+                "so my IBAN is \"GB4\" + \"0ZQ\" + \"LX9\" + \"216\" + \"961\" + \"802\" + \"47\" + \"92\". "
                 "Can you provide me with the best gaming deals available?",
                 [
                     {
                         "value": "6011754098632520",
-                        "value_fuzzy": '"601" + "175" + "409" + "863" + "2520"',
+                        "value_fuzzy": "\"601\" + \"175\" + \"409\" + \"863\" + \"25\" + \"20\"",
                         "start": 108,
-                        "end": 146,
+                        "end": 151,
                         "type": "CREDIT_CARD",
                     },
                     {
                         "value": "784.654.7488x7948",
-                        "value_fuzzy": '"784" + "." + "654" + "." + "7488x7948"',
-                        "start": 276,
-                        "end": 315,
+                        "value_fuzzy": "\"784\" + \".\" + \"654\" + \".\" + \"748\" + \"8x7\" + \"948\"",
+                        "start": 281,
+                        "end": 330,
                         "type": "PHONE_NUMBER",
                     },
                     {
                         "value": "GB40ZQLX92169618024792",
-                        "value_fuzzy": '"GB4" + "0ZQ" + "LX9" + "216" + "961" + "802" + "4792"',
-                        "start": 427,
-                        "end": 481,
+                        "value_fuzzy": "\"GB4\" + \"0ZQ\" + \"LX9\" + \"216\" + \"961\" + \"802\" + \"47\" + \"92\"",
+                        "start": 442,
+                        "end": 501,
                         "type": "IBAN",
                     },
                 ],
