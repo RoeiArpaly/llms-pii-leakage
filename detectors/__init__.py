@@ -10,6 +10,7 @@ def unload_models():
     from detectors.guards import granite_guardian
     from detectors.guards import nemotron_guard
     from detectors.guards import qwen_guard
+    from detectors.privacy_filter import detector as privacy_filter_det
     from detectors.slm import llama as llama_slm
 
     for cache in [
@@ -18,6 +19,7 @@ def unload_models():
         qwen_guard._model_cache,
         nemotron_guard._cache,
         gliner_det._model_cache,
+        privacy_filter_det._model_cache,
         llama_slm._model_cache,
     ]:
         cache.clear()
