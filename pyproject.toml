@@ -17,7 +17,15 @@ dependencies = [
     "requests>=2.33.1",
     "scikit-learn>=1.8.0",
     "torch>=2.11.0",
-    "transformers>=5.1.0",
+    "transformers>=5.6.0",
+]
+
+[tool.uv]
+# gliner==0.2.26 (latest) caps transformers<5.2, but openai/privacy-filter
+# requires transformers>=5.6.0. The override forces 5.6+; existing GLiNER
+# experiments already completed under the older pin.
+override-dependencies = [
+    "transformers>=5.6.0",
 ]
 
 [dependency-groups]

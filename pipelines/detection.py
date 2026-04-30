@@ -32,6 +32,10 @@ from detectors.guards import (
     wildguard_classify_pii_batch,
 )
 from detectors.llm import llm_pii_detector
+from detectors.privacy_filter import (
+    PRIVACY_FILTER_MODELS,
+    privacy_filter_pii_detector_batch,
+)
 from detectors.slm import (
     LLAMA_SLM_MODELS,
     classify_pii_batch as llama_slm_classify_pii_batch,
@@ -65,6 +69,13 @@ _DETECTOR_DISPATCH = {
             index=data.index,
         ))
         for name in GLINER_MODELS
+    },
+    **{
+        name: (lambda data, _name=name, **_: Series(
+            privacy_filter_pii_detector_batch(data.tolist(), model_name=_name),
+            index=data.index,
+        ))
+        for name in PRIVACY_FILTER_MODELS
     },
     "gpt-4o-mini": lambda data, logprobs=False: parallel_apply(
         func=llm_pii_detector, series=data, logprobs=logprobs,
@@ -145,7 +156,9 @@ _SLM_MODELS = {
 
 # Models that use conditional is_suspicious() gating (Strategy B).
 # Presidio uses unconditional full preprocessing (Strategy A).
-_CONDITIONAL_DEFEND_MODELS = _SLM_MODELS | set(GLINER_MODELS)
+_CONDITIONAL_DEFEND_MODELS = (
+    _SLM_MODELS | set(GLINER_MODELS) | set(PRIVACY_FILTER_MODELS)
+)
 
 
 def _qwen_guard_with_logprobs(data: Series, model_name: str) -> list:

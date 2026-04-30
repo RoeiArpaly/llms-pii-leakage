@@ -33,11 +33,13 @@ class Config:
         "presidio-defend",
         "presidio-fuzzy",
         "presidio-fuzzy-defend",
-        # Transformer NER (GLiNER) — small models, ONNX
+        # Transformer NER (GLiNER, OpenAI Privacy Filter)
         "gliner",
         "gliner-defend",
         "gliner-nvidia",
         "gliner-nvidia-defend",
+        "openai-privacy-filter",
+        "openai-privacy-filter-defend",
         # Guard SLMs — by parameter count ascending
         "qwen-guard-0.6b",
         "qwen-guard-0.6b-defend",

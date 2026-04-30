@@ -35,6 +35,8 @@ llms-pii-leakage
 │   ├── llm/                   # LLM-based detectors (GPT-4o-mini via API)
 │   ├── slm/                   # Instruction-tuned SLM detectors (Llama 3.2 1B)
 │   ├── presidio/              # Rule-based Presidio + fuzzy matching
+│   ├── privacy_filter/        # OpenAI privacy-filter (HF token-classification model)
+│   ├── hard_negatives.py      # Lookalike-format suppression (UUID, MAC, hashes, etc.)
 │   └── validators.py          # Post-detection PII span validators
 │
 ├── evaluation/
@@ -80,6 +82,7 @@ llms-pii-leakage
 3. Install dependencies
     ```bash
     uv sync
+   .venv/bin/activate
     ```
 
 ## Running
