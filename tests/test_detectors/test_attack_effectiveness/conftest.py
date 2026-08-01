@@ -49,8 +49,16 @@ def flush():
         torch.mps.empty_cache()
 
 
-def detect(model: str, text: str) -> bool | None:
-    """Run one model on one text. True=detected, False=missed, None=error."""
+def detect(model: str, text: str, target: str | None = None) -> bool | None:
+    """Run one model on one text. True=detected, False=missed, None=error.
+
+    Without `target` this is the document-level rule: any span counts. Pass
+    `target` to require that a returned span actually carries that value.
+    Several attacks inject decoy identifiers, and a detector that returns only
+    the decoy has been bypassed — scoring that as a detection hides the
+    bypass. Guard models emit a verdict rather than values, so they leave
+    `target` unset.
+    """
     df = DataFrame({"llm_input": [text]})
     try:
         result = process_predictions(df, model, logprobs=False)
@@ -58,24 +66,28 @@ def detect(model: str, text: str) -> bool | None:
         return None
 
     spans = result.iloc[0] if isinstance(result, Series) else []
-    return len(spans) > 0 if isinstance(spans, list) else False
+    if not isinstance(spans, list):
+        return False
+    if target is None:
+        return len(spans) > 0
+    return any(target in str(s.get("value", "")) for s in spans if isinstance(s, dict))
 
 
-def run_model(model: str) -> dict[str, bool | None]:
+def run_model(model: str, target: str | None = None) -> dict[str, bool | None]:
     """Load model, run baseline + all attacks, unload.
 
     Returns None for all keys if baseline fails (model degraded).
     """
     flush()
 
-    baseline = detect(model, PII_TEXT)
+    baseline = detect(model, PII_TEXT, target)
     if baseline is not True:
         flush()
         return {k: None for k in ["baseline", *ATTACK_CASES]}
 
     results = {"baseline": baseline}
     for name, text in ATTACK_CASES.items():
-        results[name] = detect(model, text)
+        results[name] = detect(model, text, target)
 
     flush()
     return results
