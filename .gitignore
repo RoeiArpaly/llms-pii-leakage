@@ -177,8 +177,7 @@ cython_debug/
 /datasets/.run_status
 /datasets/.checkpoint.json
 
-# Generated report / figure output
-/evaluation/report/*.html
+# Generated figure output
 /figures/
 
 .idea/

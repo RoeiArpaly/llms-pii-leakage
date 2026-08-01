@@ -130,8 +130,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run only these models (overrides Config.MODELS)",
     )
     run_p.add_argument(
-        "--stage", type=int, choices=range(6), metavar="N",
-        help="Run only stage N (0-5)",
+        "--stage", type=int, choices=range(5), metavar="N",
+        help="Run only stage N (0-4)",
     )
     run_p.add_argument(
         "--force", action="store_true",
@@ -142,7 +142,7 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Reuse baseline dataset. Strips fuzzy/adversarial rows, "
             "archives predictions+evaluations, clears the checkpoint, "
-            "and reruns stages 1-5 fresh."
+            "and reruns stages 1-4 fresh."
         ),
     )
     run_p.add_argument(

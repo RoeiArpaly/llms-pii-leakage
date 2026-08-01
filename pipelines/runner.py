@@ -19,7 +19,6 @@ from pipelines.cli import (
     print_banner,
     print_stage_header,
 )
-from evaluation.report import generate_report
 from evaluation.scoring import (
     EVALUATIONS_PATH,
     evaluate_and_save_datasets,
@@ -32,7 +31,6 @@ STAGE_NAMES = [
     "Adversarial generation",
     "PII detection",
     "Evaluation",
-    "Report",
 ]
 
 
@@ -137,7 +135,6 @@ def run_pipeline(
             models=models, match_level=Config.MATCH_LEVEL,
             method=Config.METHOD,
         ),
-        generate_report,
     ]
 
     last_completed = checkpoint.stage

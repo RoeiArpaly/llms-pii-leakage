@@ -9,9 +9,18 @@ Asserts recall on positives, TNR on clean inputs, and a minimum gap
 between mean ``P(unsafe)`` on positives vs negatives — guards against
 regression to the prior yes/no prompt that produced near-zero
 separation.
+
+Off by default: it loads the real (gated) ``meta-llama`` checkpoint, and
+its verdicts are not reproducible across runs. Llama 3.2's chat template
+injects ``Today Date: <today>`` into the system block, and the first-token
+distribution here sits near the decision boundary (P(top) ~ 0.35-0.75), so
+the date alone moves argmax-unsafe on the 7 PII fixtures between 3/7 and
+6/7. Treat it as a diagnostic probe, not a pass/fail gate; the verdict
+table printed by ``test_print_verdict_table`` is the useful output.
 """
 import gc
 import math
+import os
 
 import pytest
 import torch
@@ -22,6 +31,14 @@ from detectors.slm.llama import (
     _get_model,
     _prompt_ids,
     _unsafe_token_ids,
+)
+
+# Loads the real gated Llama checkpoint and is date-sensitive (see module
+# docstring). Enable with:
+#   RUN_HF_TESTS=1 uv run pytest tests/test_detectors/test_llama_slm.py
+pytestmark = pytest.mark.skipif(
+    os.environ.get("RUN_HF_TESTS") != "1",
+    reason="set RUN_HF_TESTS=1 to run real-model integration tests",
 )
 
 CASES: list[tuple[str, bool, str]] = [

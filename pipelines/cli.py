@@ -159,7 +159,6 @@ def _print_files():
         ("Dataset", Path("datasets/dataset.csv")),
         ("Predictions", Path("datasets/predictions.csv")),
         ("Evaluations", Path("datasets/evaluations.csv")),
-        ("Report", Path("/evaluation/report/report.html")),
     ]:
         if path.exists():
             size = path.stat().st_size
