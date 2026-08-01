@@ -7,7 +7,7 @@ import pytest
 
 from .conftest import ATTACK_IDS, fmt, run_model
 
-MODELS = ["wildguard-7b", "wildguard-7b-defend"]
+MODELS = ["wildguard-7b"]
 
 _CACHE: dict[str, dict] = {}
 

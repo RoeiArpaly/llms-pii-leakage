@@ -319,7 +319,7 @@ def main():
     predictions = read_csv(predictions_path).apply(infer_json)
     dataset = read_csv(dataset_path).apply(infer_json)
 
-    model = "gpt-4o-mini-defend"
+    model = "gpt-4o-mini"
     preds = predictions[predictions["model"] == model]
     if preds.empty:
         print(f"No predictions found for {model}")

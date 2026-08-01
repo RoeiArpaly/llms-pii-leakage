@@ -1,6 +1,5 @@
-"""Lookup tables for attacks and defenses: PII entity name variations, character
-mapping tables (emoji, homoglyph, word-based, slang), separator lists, and
-placeholder patterns for removal during defensive preprocessing.
+"""Lookup tables for attacks: PII entity name variations, character
+mapping tables (emoji, homoglyph, word-based, slang), and separator lists.
 """
 CREDIT_CARD_VARIATIONS = [
     "credit card",
@@ -311,7 +310,6 @@ HOMOGLYPH_MAP = {
 }
 SEPARATORS = ["＿", ":", ";"]
 PARENTHESES = ["(", ")", "[", "]", "{", "}"]
-PLACEHOLDERS_FOR_REMOVAL = ["REDACTED", "NULL", "UNDEFINED", "N/A"]
 
 
 # ── Detection-enhancing surrounding terms ─────────────────────────────

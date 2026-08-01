@@ -30,37 +30,23 @@ class Config:
     MODELS: list = [
         # Rule-based (Presidio) — no model loading
         "presidio",
-        "presidio-defend",
         "presidio-fuzzy",
-        "presidio-fuzzy-defend",
         # Transformer NER (GLiNER, OpenAI Privacy Filter)
         "gliner",
-        "gliner-defend",
         "gliner-nvidia",
-        "gliner-nvidia-defend",
         "openai-privacy-filter",
-        "openai-privacy-filter-defend",
         # Guard SLMs — by parameter count ascending
         "qwen-guard-0.6b",
-        "qwen-guard-0.6b-defend",
         "llama-guard-3-1b",
-        "llama-guard-3-1b-defend",
         "qwen-guard-4b",
-        "qwen-guard-4b-defend",
         "nemotron-content-safety-4b",
-        "nemotron-content-safety-4b-defend",
         "wildguard-7b",
-        "wildguard-7b-defend",
         "llama-guard-3-8b",
-        "llama-guard-3-8b-defend",
         "granite-guardian-8b",
-        "granite-guardian-8b-defend",
         # Instruct SLM
         "llama-3.2-1b",
-        "llama-3.2-1b-defend",
         # LLMs — API-based
         "gpt-4o-mini",
-        "gpt-4o-mini-defend",
     ]
     ATTACKS: list = [
         "char_to_word",
@@ -72,15 +58,14 @@ class Config:
     ]
     CONTENT_ATTACKS: list = [
         "supportive_context",
-        "prompt_injection_1",
-        "prompt_injection_2",
-        "prompt_injection_3",
-        "prompt_injection_4",
-        "prompt_injection_5",
-        "prompt_injection_6",
-        "affix_1",
-        "affix_2",
-        "affix_4",
+        "pi_ceo_instruct",
+        "pi_few_shot_safe",
+        "pi_hypothetical",
+        "pi_educational_framing",
+        "pi_category_prime",
+        "affix_redacted",
+        "affix_ignore_pii",
+        "affix_category_prime",
     ]
 
     # PII evaluation level: "value", "type", or "both".
@@ -89,6 +74,5 @@ class Config:
     METHOD: str = "subsequence"
     LOGPROBS: bool = True  # if to compute perplexity scores
 
-    # Guard
-    PERPLEXITY_THRESHOLD: float = 1.5  # Threshold for perplexity to consider PII detected
-    GLINER_THRESHOLD: float = 0.6  # GLiNER confidence threshold for PII Shield
+    # Perplexity threshold for the standalone perplexity analysis.
+    PERPLEXITY_THRESHOLD: float = 1.5

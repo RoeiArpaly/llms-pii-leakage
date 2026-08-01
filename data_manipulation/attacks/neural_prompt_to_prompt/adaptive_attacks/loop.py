@@ -1,21 +1,18 @@
-"""Attack loop: runs the adaptive attacker against multiple detectors (naive
-Presidio and PII Shield) for a given PII value, tracking per-iteration results
-and stopping when all detectors are evaded.
+"""Attack loop: runs the adaptive attacker against the base Presidio detector
+for a given PII value, tracking per-iteration results and stopping when the
+detector is evaded.
 """
 import yaml
 
 from importlib.resources import files
 
-from config import Config
 from detectors.presidio import presidio_pii_analyzer
-from pii_shield import guard
 
 from data_manipulation.attacks.neural_prompt_to_prompt.adaptive_attacks.attacker import (
     AdaptiveAttacker,
 )
 from data_manipulation.attacks.neural_prompt_to_prompt.adaptive_attacks.const import (
     ADVERSARIAL_ATTACK_README_PATHS,
-    ADVERSARIAL_DEFENSE_README_PATHS,
 )
 
 
@@ -32,15 +29,8 @@ def _init_attacker(pii: str, pii_type: str, attacker_awareness: str) -> Adaptive
         system_prompt=PROMPTS["iterative_rewrite"],
     )
 
-    if attacker_awareness in {"attacks", "attacks_and_defenses"}:
+    if attacker_awareness == "attacks":
         attacker.append_readme_content_as_context(ADVERSARIAL_ATTACK_README_PATHS)
-
-    if attacker_awareness in {"defenses", "attacks_and_defenses"}:
-        attacker.append_readme_content_as_context(ADVERSARIAL_DEFENSE_README_PATHS)
-        attacker.system_prompt += (
-            "\n\nThe detector applies a cascade of rule-based, ML-based (NER), "
-            "LLM-based, and perplexity-based detection mechanisms."
-        )
 
     return attacker
 
@@ -49,18 +39,8 @@ def _naive_detector(text: str) -> dict:
     return {"detected": int(len(presidio_pii_analyzer(text=text)) > 0)}
 
 
-def _pii_shield_detector(text: str) -> dict:
-    result = guard(text=text, perplexity_threshold=Config.PERPLEXITY_THRESHOLD)
-    return {
-        "detected": int(result["detected"]),
-        "pii_shield_detector": result.get("detector", None),
-        "pii_shield_perplexity": result.get("perplexity", None),
-    }
-
-
 DETECTORS = {
     "naive": _naive_detector,
-    "pii_shield": _pii_shield_detector,
 }
 
 
@@ -101,8 +81,6 @@ def run_attack(
                 "attacker_awareness": attacker_awareness,
                 "detector": detector_name,
                 "detected": detected,
-                "pii_shield_detector": result.get("pii_shield_detector", None),
-                "pii_shield_perplexity": result.get("pii_shield_perplexity", None),
             })
 
             if detected == 0:

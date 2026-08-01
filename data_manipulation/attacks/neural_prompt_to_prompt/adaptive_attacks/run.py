@@ -18,7 +18,7 @@ from data_manipulation.attacks.neural_prompt_to_prompt.adaptive_attacks.loop imp
 class Config:
     NUMBER_OF_ATTACKS: int = 100
     MAX_ITERS_PER_ATTACK: int = 20
-    ATTACKER_AWARENESS: list = ["none", "attacks", "defenses", "attacks_and_defenses"]
+    ATTACKER_AWARENESS: list = ["none", "attacks"]
     FILENAME: str = "adaptive_attack_results_01.csv"
 
 

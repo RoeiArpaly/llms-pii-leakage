@@ -11,14 +11,14 @@ from data_generation.pii_validators import is_valid_iban
 
 _models = {
     "presidio": None,
-    "presidio-defend": None,
+    "presidio-custom": None,
 }
 
 
 def get_presidio_model(recognizers: list = None, use_cache: bool = True) -> AnalyzerEngine:
     model = "presidio"
     if recognizers:
-        model = "presidio-defend"
+        model = "presidio-custom"
     if _models[model] is not None and use_cache:
         return _models[model]
     engine = AnalyzerEngine(supported_languages=["en"])

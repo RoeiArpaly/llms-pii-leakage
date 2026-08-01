@@ -242,19 +242,19 @@ FUZZY_TECHNIQUES: list[list] = [
 ]
 ADV_CONTENT_TECHNIQUES: list[list] = [
     ["supportive_context"],
-    # ["supportive_context", "affix_1"],
-    ["supportive_context", "affix_2"],
-    ["supportive_context", "affix_4"],
-    # ["supportive_context", "prompt_injection_1"],
-    # ["supportive_context", "prompt_injection_2"],
-    ["supportive_context", "prompt_injection_6"],
-    ["supportive_context", "affix_1", "prompt_injection_2"],
-    ["supportive_context", "affix_2", "prompt_injection_3"],
-    # ["supportive_context", "affix_2", "prompt_injection_5"],
-    ["supportive_context", "affix_4", "prompt_injection_6"],
-    ["supportive_context", "prompt_injection_3"],
-    ["supportive_context", "prompt_injection_4"],
-    ["supportive_context", "prompt_injection_5"],
+    # ["supportive_context", "affix_redacted"],
+    ["supportive_context", "affix_ignore_pii"],
+    ["supportive_context", "affix_category_prime"],
+    # ["supportive_context", "pi_critical_text"],  # CriticalDetection, unsampled
+    # ["supportive_context", "pi_ceo_instruct"],
+    ["supportive_context", "pi_category_prime"],
+    ["supportive_context", "affix_redacted", "pi_ceo_instruct"],
+    ["supportive_context", "affix_ignore_pii", "pi_few_shot_safe"],
+    # ["supportive_context", "affix_ignore_pii", "pi_educational_framing"],
+    ["supportive_context", "affix_category_prime", "pi_category_prime"],
+    ["supportive_context", "pi_few_shot_safe"],
+    ["supportive_context", "pi_hypothetical"],
+    ["supportive_context", "pi_educational_framing"],
 ]
 DATASET_COLS: list = [
     "uid",

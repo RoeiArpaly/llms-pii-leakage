@@ -7,7 +7,7 @@ import pytest
 
 from .conftest import ATTACK_IDS, fmt, run_model
 
-MODELS = ["llama-guard-3-8b", "llama-guard-3-8b-defend"]
+MODELS = ["llama-guard-3-8b"]
 
 _CACHE: dict[str, dict] = {}
 

@@ -40,8 +40,7 @@ def radar_chart(df: DataFrame, metric: str, group_col: str) -> plt.Figure:
     ax.spines["polar"].set_color("#cccccc")
     ax.grid(color="#cccccc", linewidth=0.5)
 
-    is_shield = all(m.endswith("-defend") for m in models)
-    title = f"{display_name(metric)} — {'Shield' if is_shield else 'Base'} Models"
+    title = f"{display_name(metric)} — Models"
     ax.set_title(title, fontsize=9, fontweight="bold", pad=18)
 
     ax.legend(
@@ -56,8 +55,7 @@ def radar_plotly(df: DataFrame, metric: str, group_col: str) -> str:
     models, categories, series = extract_series(df, metric, group_col)
     d_cats = [display_name(c) for c in categories]
 
-    is_shield = all(m.endswith("-defend") for m in models)
-    title = f"{display_name(metric)} — {'Shield' if is_shield else 'Base'} Models"
+    title = f"{display_name(metric)} — Models"
 
     def _rgba(hex_color, alpha):
         h = hex_color.lstrip("#")

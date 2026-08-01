@@ -1,9 +1,9 @@
 """Hard-negatives detector: recognise known non-PII formats.
 
-Final precision-tightening tier in the PII Shield cascade. Suppresses
-detections whose flagged span (or, for tiers without a span, whose
-input text) matches a known non-PII format (UUID, MAC, IPv6, hashes,
-ETags, hex colors, serial numbers, dashed invoice IDs).
+Precision-tightening helper that suppresses detections whose flagged
+span (or, for tiers without a span, whose input text) matches a known
+non-PII format (UUID, MAC, IPv6, hashes, ETags, hex colors, serial
+numbers, dashed invoice IDs).
 
 Real PII formats are mutually exclusive with these shapes by
 construction: a Luhn-valid credit-card number cannot also be a UUID;

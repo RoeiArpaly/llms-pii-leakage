@@ -6,7 +6,6 @@ from data_manipulation.attacks.neural_prompt_to_prompt.adaptive_attacks.attacker
 )
 from data_manipulation.attacks.neural_prompt_to_prompt.adaptive_attacks.const import (
     ADVERSARIAL_ATTACK_README_PATHS,
-    ADVERSARIAL_DEFENSE_README_PATHS,
 )
 from data_manipulation.attacks.neural_prompt_to_prompt.adaptive_attacks.loop import (
     _init_attacker,
@@ -85,7 +84,7 @@ def test_adaptive_attacker_validate_pii_exists(mocker):
 
 
 def test_readme_paths_exist():
-    for path in ADVERSARIAL_ATTACK_README_PATHS + ADVERSARIAL_DEFENSE_README_PATHS:
+    for path in ADVERSARIAL_ATTACK_README_PATHS:
         assert Path(path).exists(), f"README not found: {path}"
 
 
@@ -97,11 +96,6 @@ def test_init_attacker_awareness_none(mocker):
 def test_init_attacker_awareness_attacks(mocker):
     attacker = _init_attacker(pii="test", pii_type="ssn", attacker_awareness="attacks")
     assert "rule-based" not in attacker.system_prompt
-
-
-def test_init_attacker_awareness_defenses(mocker):
-    attacker = _init_attacker(pii="test", pii_type="ssn", attacker_awareness="defenses")
-    assert "cascade" in attacker.system_prompt
 
 
 def test_run_attack_mocked(mocker):
@@ -119,11 +113,6 @@ def test_run_attack_mocked(mocker):
         "data_manipulation.attacks.neural_prompt_to_prompt.adaptive_attacks"
         ".loop.presidio_pii_analyzer",
         return_value=[{"type": "ssn", "value": "123-45-6789"}],
-    )
-    mocker.patch(
-        "data_manipulation.attacks.neural_prompt_to_prompt.adaptive_attacks"
-        ".loop.guard",
-        return_value={"detected": True, "detector": "presidio"},
     )
     trace = run_attack(
         attack_id=1, pii="123-45-6789", pii_type="ssn",

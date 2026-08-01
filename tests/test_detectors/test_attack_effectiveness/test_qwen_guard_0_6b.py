@@ -7,7 +7,7 @@ import pytest
 
 from .conftest import ATTACK_IDS, fmt, run_model
 
-MODELS = ["qwen-guard-0.6b", "qwen-guard-0.6b-defend"]
+MODELS = ["qwen-guard-0.6b"]
 
 _CACHE: dict[str, dict] = {}
 

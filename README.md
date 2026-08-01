@@ -1,13 +1,27 @@
-# PII Under Attack: Adversarial Threats and Detector Resilience in the Era of LLMs
+# AdvPIIBench: An Adversarial Benchmark for PII Detection in the Era of LLMs
 
 ## Description
-This repository contains the source code and datasets accompanying the paper, which studies adversarial threats against Personally Identifiable Information (PII) detection systems in the era of Large Language Models (LLMs).
+AdvPIIBench is a benchmark for evaluating Personally Identifiable Information (PII) detectors under adversarial conditions. It accompanies the paper studying how adaptive adversarial techniques degrade the recall of PII detection systems in the era of Large Language Models (LLMs).
 
-The codebase implements an experimental framework for evaluating PII detectors under adversarial conditions. It includes tools for generating synthetic yet realistic user prompts containing high-risk PII types (e.g., IBANs, SSNs, and credit card numbers) using an LLM-guided pipeline, as well as implementations and wrappers for multiple classes of PII detectors.
+The framework generates synthetic yet realistic user prompts containing high-risk PII types (IBANs, SSNs, credit card numbers, phone numbers, and email addresses) via an LLM-guided pipeline, injects them with Microsoft Presidio, and then applies a taxonomy of adversarial attacks. It ships wrappers for a broad set of PII detectors spanning rule-based, transformer-NER, small-language-model (SLM) safety guards, and LLM-based approaches, and reproduces the paper's finding that detection recall can degrade severely — in some cases collapsing to zero — under adaptive attacks.
 
-Specifically, the repository supports the evaluation of rule-based, transformer-based, and LLM-based PII detection approaches, and reproduces the paper’s findings showing that detection recall can degrade severely, and in some cases collapse to zero, when subjected to adaptive adversarial attacks.
+## Detectors
 
-In addition, the repository includes the implementation of PII Shield, a modular defense framework that combines prevention and detection components to improve robustness against targeted adversarial inputs. The code enables systematic experimentation, benchmarking, and analysis of PII detection robustness across benign and adversarial settings.
+AdvPIIBench evaluates the following base detectors (configured in `Config.MODELS`):
+
+- **Rule-based** — Presidio, Presidio-Fuzzy (fuzzy-matching recognizers)
+- **Transformer NER** — GLiNER, GLiNER-NV, OpenAI Privacy Filter
+- **SLM safety guards** — Qwen Guard (0.6B / 4B), Llama Guard 3 (1B / 8B), Nemotron Content Safety 4B, WildGuard 7B, Granite Guardian 8B
+- **Instruction-tuned SLM** — Llama 3.2 1B
+- **LLM** — GPT-4o-mini (via API)
+
+## Attack Taxonomy
+
+Attacks are applied in two layers:
+
+- **PII-level fuzzing** (`data_manipulation/attacks/red_teaming/pii/`) — homoglyph substitution, chunking, emojify, char-to-word, invisible characters, and separators, applied directly to the PII value.
+- **Content-level attacks** (`data_manipulation/attacks/red_teaming/content/` + `template_based/`) — supportive context, prompt injection variants, and adversarial affixes wrapped around the PII-carrying text.
+- **Neural prompt-to-prompt** (`data_manipulation/attacks/neural_prompt_to_prompt/`) — an LLM-driven adaptive attacker that iteratively rewrites inputs to evade a target detector.
 
 ## Project Structure
 ```
@@ -26,8 +40,7 @@ llms-pii-leakage
 │   │   │   └── pii/                  # PII-level fuzzing (homoglyph, chunking, etc.)
 │   │   ├── template_based/           # Affix + prompt injection templates
 │   │   └── injection.py              # Attack dispatch
-│   └── defenses/
-│       └── preprocess.py             # Defensive preprocessing pipeline
+│   └── constants.py                  # Attack lookup tables (homoglyph, emoji, etc.)
 │
 ├── detectors/
 │   ├── gliner/                # GLiNER transformer NER detectors
@@ -44,7 +57,6 @@ llms-pii-leakage
 │   ├── visualizations/        # Heatmaps, radar, line charts, perplexity
 │   ├── partial_matching.py    # Span-level fuzzy matching
 │   ├── scoring.py             # Evaluation metrics
-│   ├── shield_eval.py         # Post-hoc PII Shield cascade evaluation
 │   └── spans.py               # Span scoring (precision/recall/F1)
 │
 ├── pipelines/
@@ -65,9 +77,19 @@ llms-pii-leakage
 ├── config.py                  # Central configuration
 ├── constants.py               # PII entities, attack techniques, dataset schema
 ├── logger.py                  # Logging setup
-├── main.py                    # CLI entrypoint
-└── pii_shield.py              # Cascading PII defense framework
+└── main.py                    # CLI entrypoint
 ```
+
+## Pipeline
+
+The pipeline (`main.py` → `pipelines/`) runs sequentially:
+
+1. **Baseline dataset generation** — LLM generates realistic user prompts; Presidio injects synthetic PII.
+2. **Fuzzy dataset generation** — applies PII-level adversarial transformations.
+3. **Fuzzy + adversarial dataset generation** — adds content-level attacks and (optionally) neural prompt-to-prompt attacks.
+4. **PII detection** — runs every configured detector over the dataset in batches.
+5. **Evaluation** — computes span-level and binary metrics.
+6. **Report** — generates an interactive HTML dashboard.
 
 ## Setup
 
@@ -75,14 +97,13 @@ llms-pii-leakage
 
 2. Clone the project
     ```bash
-    git clone https://github.com/{author}/llms-pii-leakage.git
+    git clone https://github.com/RoeiArpaly/llms-pii-leakage.git
     cd llms-pii-leakage
     ```
 
 3. Install dependencies
     ```bash
     uv sync
-   .venv/bin/activate
     ```
 
 ## Running
@@ -94,4 +115,11 @@ uv run python main.py run --sample 1000         # cap negatives, keep all clean 
 uv run python main.py run --models presidio gliner  # run subset of models
 uv run python main.py status                    # show checkpoint state
 uv run python main.py reset                     # clear all checkpoints
+```
+
+## Testing
+
+```bash
+uv run pytest        # run the test suite
+uv run flake8        # lint
 ```

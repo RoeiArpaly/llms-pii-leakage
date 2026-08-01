@@ -84,16 +84,15 @@ def adversarial_content(
             result, new_spans = supportive_context(
                 text=result, spans=new_spans,
             )
-        elif "affix" in technique:
-            n = int(technique.split("_")[-1])
-            adv_affix = list(AdversarialAffix)[n - 1]
+        elif technique.startswith("affix_"):
+            adv_affix = AdversarialAffix.by_key(technique)
             result, new_spans = adversarial_affix(
                 llm_input=result,
                 spans=new_spans,
                 adv_affix=adv_affix.text,
                 prefix=adv_affix.prefix,
             )
-        elif "prompt_injection" in technique:
+        elif technique.startswith("pi_"):
             result, new_spans = prompt_injection(
                 llm_input=result, spans=new_spans, technique=technique,
             )

@@ -19,7 +19,7 @@ def baseline_df():
             1.000004, 1.000003, 1.000001,
             1.0, 1.0, 1.000004,
         ],
-        "model": "gpt-4o-mini-defend",
+        "model": "gpt-4o-mini",
         "dataset": "baseline",
     })
 
@@ -29,7 +29,7 @@ def adversarial_df():
     return DataFrame({
         "y_true": [True, True, True],
         "perplexity": [1.000002, 1.0, 1.000003],
-        "model": "gpt-4o-mini-defend",
+        "model": "gpt-4o-mini",
         "dataset": "fuzzy_adv",
     })
 

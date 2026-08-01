@@ -7,7 +7,7 @@ import pytest
 
 from .conftest import ATTACK_IDS, fmt, run_model
 
-MODELS = ["nemotron-content-safety-4b", "nemotron-content-safety-4b-defend"]
+MODELS = ["nemotron-content-safety-4b"]
 
 _CACHE: dict[str, dict] = {}
 

@@ -1,4 +1,4 @@
-"""Tests for all prompt injection variants (prompt_injection_1 through _5).
+"""Tests for all prompt injection variants (pi_ceo_instruct through _6).
 
 All variants share the same mechanism:
     1. Build a prefix string (static or dynamic)
@@ -9,21 +9,20 @@ The original text is always preserved verbatim at the end.
 
 Variants (PromptInjection enum, referenced as "prompt_injection_N")
 -------------------------------------------------------------------
-PI1 — CriticalDetection:
-    Wraps a fake CC in XML tags, tells model to only check that.
-    Backfires on SLMs — actually boosts detection.
+Numbering is positional over the enum, so sampled variants occupy 1-5 and the
+unsampled one is parked at the end.
 
-PI2 — CEOInstruct:
+PI1 — CEOInstruct:
     Authority claim + "return empty list". Effective against Qwen Guard.
 
-PI3 — FewShotSafe:
+PI2 — FewShotSafe:
     Few-shot examples labeling PII as "Safe".
     Bypasses Qwen Guard on all PII types.
 
-PI4 — Hypothetically:
+PI3 — Hypothetically:
     Frames text as a hypothetical question.
 
-PI5 — EducationalFraming (dynamic):
+PI4 — EducationalFraming (dynamic):
     Builds a PII-type-specific educational sentence WITHOUT the actual
     PII value (to avoid Presidio matching it in the frame). E.g.:
         "The SSN format checker validates values matching the
@@ -31,6 +30,13 @@ PI5 — EducationalFraming (dynamic):
     Bypasses all tested SLMs because safety classifiers treat
     educational content as safe. Different from static variants:
     the prefix varies by PII type and random seed.
+
+PI5 — CategoryPrime:
+    Frames the disclosure as the speaker's own data, outside category scope.
+
+PI6 — CriticalDetection (not sampled):
+    Wraps a fake CC in XML tags, tells model to only check that.
+    Backfires on SLMs — actually boosts detection.
 """
 import random
 
@@ -99,14 +105,14 @@ class TestPromptInjectionFunction:
 
     def test_prepends_instructions(self):
         result, _ = prompt_injection(
-            SAMPLE_TEXT, SAMPLE_SPANS, "prompt_injection_2",
+            SAMPLE_TEXT, SAMPLE_SPANS, "pi_few_shot_safe",
         )
         assert result.endswith(SAMPLE_TEXT)
         assert len(result) > len(SAMPLE_TEXT)
 
     def test_shifts_span_offsets(self):
         result, new_spans = prompt_injection(
-            SAMPLE_TEXT, SAMPLE_SPANS, "prompt_injection_2",
+            SAMPLE_TEXT, SAMPLE_SPANS, "pi_few_shot_safe",
         )
         # All offsets shifted forward by the prefix length
         for orig, new in zip(SAMPLE_SPANS, new_spans):
@@ -115,20 +121,20 @@ class TestPromptInjectionFunction:
 
     def test_shifted_spans_point_to_correct_values(self):
         result, new_spans = prompt_injection(
-            SAMPLE_TEXT, SAMPLE_SPANS, "prompt_injection_2",
+            SAMPLE_TEXT, SAMPLE_SPANS, "pi_few_shot_safe",
         )
         for s in new_spans:
             assert result[s["start"]:s["end"]] == s["value"]
 
     def test_original_text_preserved(self):
         result, _ = prompt_injection(
-            SAMPLE_TEXT, SAMPLE_SPANS, "prompt_injection_1",
+            SAMPLE_TEXT, SAMPLE_SPANS, "pi_ceo_instruct",
         )
         assert SAMPLE_TEXT in result
 
     def test_none_input_returns_none(self):
         result, spans = prompt_injection(
-            None, SAMPLE_SPANS, "prompt_injection_1",
+            None, SAMPLE_SPANS, "pi_ceo_instruct",
         )
         assert result is None
 
@@ -160,9 +166,8 @@ class TestPromptInjectionEnum:
     ])
     def test_static_variant_produces_valid_output(self, variant):
         """Every static variant preserves original text and shifts spans."""
-        idx = list(PromptInjection).index(variant) + 1
         result, new_spans = prompt_injection(
-            SAMPLE_TEXT, SAMPLE_SPANS, f"prompt_injection_{idx}",
+            SAMPLE_TEXT, SAMPLE_SPANS, variant.key,
         )
         assert result.endswith(SAMPLE_TEXT)
         for s in new_spans:
@@ -285,7 +290,7 @@ class TestEducationalFramingEndToEnd:
     def test_original_text_verbatim_at_end(self, pii_id):
         text, spans = PII_CASES[pii_id]
         result, _ = adversarial_content(
-            text, spans, ["prompt_injection_5"],
+            text, spans, ["pi_educational_framing"],
         )
         assert result.endswith(text)
 
@@ -294,7 +299,7 @@ class TestEducationalFramingEndToEnd:
         """The frame adds content before the original text."""
         text, spans = PII_CASES[pii_id]
         result, _ = adversarial_content(
-            text, spans, ["prompt_injection_5"],
+            text, spans, ["pi_educational_framing"],
         )
         assert len(result) > len(text)
 
@@ -303,7 +308,7 @@ class TestEducationalFramingEndToEnd:
         """PII value is in the original text only, not duplicated in frame."""
         text, spans = PII_CASES[pii_id]
         result, _ = adversarial_content(
-            text, spans, ["prompt_injection_5"],
+            text, spans, ["pi_educational_framing"],
         )
         value = spans[0]["value"]
         assert result.count(value) == text.count(value), (
@@ -315,7 +320,7 @@ class TestEducationalFramingEndToEnd:
     def test_span_offsets_correct(self, pii_id):
         text, spans = PII_CASES[pii_id]
         result, new_spans = adversarial_content(
-            text, spans, ["prompt_injection_5"],
+            text, spans, ["pi_educational_framing"],
         )
         for s in new_spans:
             assert result[s["start"]:s["end"]] == s["value"], (
@@ -330,7 +335,7 @@ class TestEducationalFramingEndToEnd:
         domain-specific terms for the PII type."""
         text, spans = PII_CASES[pii_id]
         result, _ = adversarial_content(
-            text, spans, ["prompt_injection_5"],
+            text, spans, ["pi_educational_framing"],
         )
         prefix = result[:result.index(text)]
         keywords = _FRAME_KEYWORDS[spans[0]["type"]]
@@ -339,12 +344,12 @@ class TestEducationalFramingEndToEnd:
         )
 
     def test_empty_text_unchanged(self):
-        result, _ = adversarial_content("", [], ["prompt_injection_5"])
+        result, _ = adversarial_content("", [], ["pi_educational_framing"])
         assert result == ""
 
     def test_empty_spans_unchanged(self):
         result, _ = adversarial_content(
-            "Hello.", [], ["prompt_injection_5"],
+            "Hello.", [], ["pi_educational_framing"],
         )
         assert result == "Hello."
 
@@ -356,7 +361,7 @@ class TestEducationalFramingEndToEnd:
              "type": "email"},
         ]
         result, new_spans = adversarial_content(
-            text, spans, ["prompt_injection_5"],
+            text, spans, ["pi_educational_framing"],
         )
         for s in new_spans:
             assert result[s["start"]:s["end"]] == s["value"]
@@ -379,18 +384,18 @@ class TestCombinedAttacks:
         text, spans = PII_CASES["ssn"]
         result, new_spans = adversarial_content(
             text, spans,
-            ["supportive_context", "prompt_injection_5"],
+            ["supportive_context", "pi_educational_framing"],
         )
         assert "219-09-9999" in result
         for s in new_spans:
             assert result[s["start"]:s["end"]] == s["value"]
 
     def test_context_plus_affix_plus_few_shot(self):
-        """supportive_context + affix_2 + PI3 (FewShotSafe)."""
+        """supportive_context + affix_ignore_pii + PI2 (FewShotSafe)."""
         text, spans = PII_CASES["ssn"]
         result, new_spans = adversarial_content(
             text, spans,
-            ["supportive_context", "affix_2", "prompt_injection_3"],
+            ["supportive_context", "affix_ignore_pii", "pi_few_shot_safe"],
         )
         assert "219-09-9999" in result
         assert "SAFE" in result
@@ -402,6 +407,6 @@ class TestCombinedAttacks:
         text, spans = PII_CASES["email"]
         result, _ = adversarial_content(
             text, spans,
-            ["supportive_context", "prompt_injection_5"],
+            ["supportive_context", "pi_educational_framing"],
         )
         assert result.count("john@test.com") == 1

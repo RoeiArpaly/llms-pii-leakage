@@ -15,7 +15,7 @@ from data_manipulation.attacks.injection import (
                 {"value": "1234", "start": 18, "end": 22, "type": "CREDIT_CARD"},
                 {"value": "DE89370400440532013000", "start": 38, "end": 60, "type": "IBAN"},
             ],
-            ["supportive_context", "affix_1"],
+            ["supportive_context", "affix_redacted"],
             (
                 "My 💳 is REDACTED. 1234 and my 🏦 is REDACTED. DE89370400440532013000 ok?",
                 [
@@ -39,7 +39,7 @@ from data_manipulation.attacks.injection import (
             [
                 {"value": "3533434814041068", "start": 35, "end": 51, "type": "CREDIT_CARD"},
             ],
-            ["supportive_context", "affix_1"],
+            ["supportive_context", "affix_redacted"],
             (
                 "While making a purchase, I used my REDACTED. 3533434814041068. Costing $499.99",
                 [
@@ -57,7 +57,7 @@ from data_manipulation.attacks.injection import (
             [
                 {"value": "6011754098632520", "start": 32, "end": 48, "type": "CREDIT_CARD"},
             ],
-            ["supportive_context", "affix_1"],
+            ["supportive_context", "affix_redacted"],
             (
                 "Put the order on my 💳 REDACTED. 6011754098632520. The total cost is $10.",
                 [
@@ -85,7 +85,7 @@ from data_manipulation.attacks.injection import (
                     "type": "EMAIL",
                 },
             ],
-            ["supportive_context", "affix_1"],
+            ["supportive_context", "affix_redacted"],
             (
                 "Please provide an overview of the new employee onboarding process "
                 "for the engineering department. "

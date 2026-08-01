@@ -156,15 +156,6 @@ def _chart_panel(static_img_b64: str, plotly_json: str) -> str:
 
 # ── Render consolidated performance section ──────────────────────────────────
 
-def _strip_defend(df: DataFrame) -> DataFrame:
-    """Remove '-defend' suffix from Model column."""
-    out = df.copy()
-    out["Model"] = out["Model"].str.removesuffix(
-        "-defend",
-    )
-    return out
-
-
 def _build_views_for_split(
     df: DataFrame, metric: str, index_col: str | None,
 ) -> dict[str, str]:
@@ -206,7 +197,7 @@ def _build_views_for_split(
 def _render_perf_section_body(
     section: dict, df: DataFrame | None,
 ) -> str:
-    """Build per-view content for each metric, split into Base/Shield."""
+    """Build per-view content for each metric."""
     desc = section.get("desc", "")
     desc_html = (
         f'<p class="section-desc">{desc}</p>'
@@ -229,54 +220,11 @@ def _render_perf_section_body(
         )
 
     index_col = section["index_col"]
-    # PII Shield is a cascade meta-detector — always present it separately,
-    # never lumped with Base or Shield.
-    is_cascade = df["Model"] == "pii-shield"
-    cascade_df = df[is_cascade]
-    remaining = df[~is_cascade]
-    base_df = remaining[~remaining["Model"].str.endswith("-defend")]
-    shield_df = _strip_defend(
-        remaining[remaining["Model"].str.endswith("-defend")],
-    )
-
-    _BASE_LABEL = (
-        '<h4 style="margin:0.5rem 0 0.4rem;'
-        'font-size:0.85rem;'
-        'color:var(--text-muted)">Base Models</h4>'
-    )
-    _SHIELD_LABEL = (
-        '<h4 style="margin:0.5rem 0 0.4rem;'
-        'font-size:0.85rem;'
-        'color:var(--text-muted)">Shield Models</h4>'
-    )
-    _CASCADE_LABEL = (
-        '<h4 style="margin:0.8rem 0 0.4rem;'
-        'font-size:0.85rem;'
-        'color:var(--accent);'
-        'border-top:1px dashed var(--border);'
-        'padding-top:0.6rem">'
-        'PII Shield (Cascade)</h4>'
-    )
 
     panels = []
     for metric in _PERF_METRICS:
-        base_views = _build_views_for_split(
-            base_df, metric, index_col,
-        )
-        shield_views = _build_views_for_split(
-            shield_df, metric, index_col,
-        )
-        cascade_views = (
-            _build_views_for_split(cascade_df, metric, index_col)
-            if not cascade_df.empty else {}
-        )
-
-        available_types = set()
-        for vtype in _VIEW_TYPES:
-            if (base_views.get(vtype)
-                    or shield_views.get(vtype)
-                    or cascade_views.get(vtype)):
-                available_types.add(vtype)
+        views = _build_views_for_split(df, metric, index_col)
+        available_types = {v for v in _VIEW_TYPES if views.get(v)}
 
         for vtype in _VIEW_TYPES:
             if vtype not in available_types:
@@ -286,46 +234,7 @@ def _render_perf_section_body(
                 and metric == _PERF_METRICS[0]
             )
             display = "block" if is_default else "none"
-
-            bv = base_views.get(vtype)
-            sv = shield_views.get(vtype)
-            cv = cascade_views.get(vtype)
-
-            if vtype == "table":
-                # Tables stacked vertically. Cascade pinned last.
-                parts = [desc_html]
-                if bv:
-                    parts.append(_BASE_LABEL + bv)
-                if sv:
-                    parts.append(_SHIELD_LABEL + sv)
-                if cv:
-                    parts.append(_CASCADE_LABEL + cv)
-                content = "".join(parts)
-            else:
-                # Charts: Base + Shield side by side, Cascade on its own
-                # row below (full width) so it's unambiguously separate.
-                halves = []
-                if bv:
-                    halves.append(
-                        f'<div style="flex:1;min-width:0">'
-                        f'{_BASE_LABEL}{bv}</div>'
-                    )
-                if sv:
-                    halves.append(
-                        f'<div style="flex:1;min-width:0">'
-                        f'{_SHIELD_LABEL}{sv}</div>'
-                    )
-                cascade_block = (
-                    f'<div style="margin-top:1rem">'
-                    f'{_CASCADE_LABEL}{cv}</div>'
-                    if cv else ""
-                )
-                content = (
-                    desc_html
-                    + f'<div style="display:flex;gap:1.5rem;'
-                    f'flex-wrap:wrap">{"".join(halves)}</div>'
-                    + cascade_block
-                )
+            content = desc_html + views.get(vtype, "")
 
             panels.append(
                 f'<div class="perf-view" '
@@ -724,26 +633,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     if (pills.length > 0) showPage(pills[0].getAttribute('data-page'));
 
-    /* ── Shield toggle (overview leaderboard) ── */
-    var shieldBtn = document.getElementById('shield-toggle');
-    if (shieldBtn) {
-        var shieldOn = false;
-        shieldBtn.addEventListener('click', function() {
-            shieldOn = !shieldOn;
-            var base = document.getElementById('leaderboard-base');
-            var shield = document.getElementById('leaderboard-shield');
-            var icon = document.getElementById('shield-path');
-            var txt = document.getElementById('shield-text-top');
-            var hint = document.getElementById('shield-hint');
-            if (base) base.style.display = shieldOn ? 'none' : 'block';
-            if (shield) shield.style.display = shieldOn ? 'block' : 'none';
-            if (icon) { icon.setAttribute('fill', shieldOn ? 'var(--accent)' : 'none'); icon.setAttribute('stroke', shieldOn ? 'var(--accent)' : 'var(--border)'); }
-            if (txt) txt.setAttribute('fill', shieldOn ? 'white' : 'var(--text-muted)');
-            if (hint) { hint.textContent = shieldOn ? 'Prevention Applied' : 'Click to Apply'; hint.style.color = shieldOn ? 'var(--accent)' : 'var(--text-muted)'; }
-            shieldBtn.style.transform = shieldOn ? 'scale(1.1)' : 'scale(1)';
-        });
-    }
-
     /* ── Sub-tabs (performance page) ── */
     var subTabs = document.querySelectorAll('.sub-tab');
     for (var i = 0; i < subTabs.length; i++) {
@@ -967,19 +856,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         function renderSample(uid, sample, pred) {
             var vc = pred.r.toLowerCase();
-            var isDefend = curModel.indexOf('-defend') >= 0;
-            var isLight = models[curModel] && models[curModel].light;
-            var text, gt;
-            if (!isDefend) {
-                text = sample.x;
-                gt = sample.g;
-            } else if (isLight) {
-                text = sample.dl || sample.d || sample.x;
-                gt = sample.dlg || sample.dg || sample.g;
-            } else {
-                text = sample.d || sample.x;
-                gt = sample.dg || sample.g;
-            }
+            var text = sample.x;
+            var gt = sample.g;
             var h = '<div class="insp-sample">';
             h += '<div class="insp-header">';
             h += '<span style="font-size:0.73rem;color:var(--text-muted)">Sample #' + uid + '</span>';
