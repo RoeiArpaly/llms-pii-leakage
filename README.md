@@ -53,8 +53,7 @@ llms-pii-leakage
 │   └── validators.py          # Post-detection PII span validators
 │
 ├── evaluation/
-│   ├── report/                # HTML report generator + config + styling
-│   ├── visualizations/        # Heatmaps, radar, line charts, perplexity
+│   ├── visualizations/        # Paper figure generator (orthogonality heatmap)
 │   ├── partial_matching.py    # Span-level fuzzy matching
 │   ├── scoring.py             # Evaluation metrics
 │   └── spans.py               # Span scoring (precision/recall/F1)
@@ -87,9 +86,13 @@ The pipeline (`main.py` → `pipelines/`) runs sequentially:
 1. **Baseline dataset generation** — LLM generates realistic user prompts; Presidio injects synthetic PII.
 2. **Fuzzy dataset generation** — applies PII-level adversarial transformations.
 3. **Fuzzy + adversarial dataset generation** — adds content-level attacks and (optionally) neural prompt-to-prompt attacks.
-4. **PII detection** — runs every configured detector over the dataset in batches.
-5. **Evaluation** — computes span-level and binary metrics.
-6. **Report** — generates an interactive HTML dashboard.
+4. **PII detection** — runs every configured detector over the dataset in batches, writing `datasets/predictions.csv`.
+5. **Evaluation** — computes document-level and span-level metrics into `datasets/evaluations.csv`.
+
+Detection is evaluated at the **document level**: a sample counts as blocked whenever a
+detector emits any non-empty prediction. That is the unit the paper reports, and the only
+one that compares span-emitting detectors against SLM guards (which return just safe/unsafe)
+on equal terms.
 
 ## Setup
 
@@ -117,9 +120,31 @@ uv run python main.py status                    # show checkpoint state
 uv run python main.py reset                     # clear all checkpoints
 ```
 
+## Reproducing the paper figure
+
+The orthogonality heatmap (each detector's five worst attack configurations and their
+document-level block rate) is regenerated from a completed pipeline run:
+
+```bash
+uv run python main.py                                              # produces datasets/
+uv run python -m evaluation.visualizations.orthogonality_heatmap   # then the figure
+```
+
+It reads `datasets/dataset.csv` and `datasets/evaluations.csv` and writes
+`figures/orthogonality_heatmap.{pdf,png}`. Those inputs are **not** distributed — the
+published dataset is the corpus, not the per-detector predictions — so run the pipeline
+first to generate them. The script asserts its worst-case numbers against the published
+table, so it fails loudly if the results drift.
+
 ## Testing
 
 ```bash
-uv run pytest        # run the test suite
+# Fast suite — everything except the model-downloading tests
+uv run pytest --ignore=tests/test_detectors/test_integration.py \
+              --ignore=tests/test_detectors/test_attack_effectiveness
+
+# Full suite — downloads and runs every guard/SLM model (slow, GPU/RAM heavy)
+uv run pytest
+
 uv run flake8        # lint
 ```
