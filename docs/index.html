@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AdvPIIBench — The Adversarial Collapse of PII Detection in LLM Interactions</title>
-<meta name="description" content="AdvPIIBench: a benchmark showing that PII detectors — from regex to SLM safety guards to GPT-4o — collapse toward zero recall under adversarial, human-readable input. USENIX Security '26 (poster).">
+<meta name="description" content="AdvPIIBench: a benchmark showing that PII detectors — from regex to SLM safety guards to GPT-4o — collapse toward zero recall under adversarial, human-readable input. SECAI 2026 (oral, Springer LNCS) and USENIX Security '26 (poster).">
 <meta property="og:type" content="website">
 <meta property="og:title" content="AdvPIIBench — The Adversarial Collapse of PII Detection">
 <meta property="og:description" content="Value-level sculpting breaks pattern detectors; semantic detectors still catch it. Add a content-level layer and every family collapses. A benchmark of 13 detectors across four families.">
@@ -84,7 +84,9 @@
   .dek b{color:var(--ink); font-weight:600}
   .byline{font-family:var(--mono); font-size:13px; color:var(--ink-soft); margin:0 0 16px}
   .byline .sep{color:var(--ink-faint); margin:0 8px}
-  .venues{display:flex; flex-wrap:wrap; gap:12px}
+  .venues{display:grid; grid-template-columns:repeat(3,1fr); gap:12px}
+  .venues > *{min-width:0}
+  @media (max-width:560px){ .venues{grid-template-columns:1fr} }
   .venue{display:flex; flex-direction:column; gap:2px; padding:11px 15px; border:1px solid var(--line-strong); border-radius:9px; background:var(--surface)}
   .venue .v-name{font-family:var(--mono); font-size:13px; font-weight:600}
   .venue .v-meta{font-family:var(--mono); font-size:11px; letter-spacing:.04em; color:var(--ink-faint)}
@@ -218,6 +220,7 @@
   .res .arrow{color:var(--ink-faint); transition:transform .15s}
   .res a:hover .arrow{transform:translateX(3px); color:var(--accent)}
   .soon{color:var(--ink-faint); cursor:default}
+  .res .soon .tag-soon{margin-left:12px}
   .soon .r-name{font-weight:600; color:var(--ink-soft)}
   .tag-soon{font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; padding:3px 8px; border:1px solid var(--line-strong); border-radius:999px; color:var(--ink-faint); margin-left:auto}
 
@@ -260,6 +263,7 @@
     <p class="dek">Rewrite a card number so a person still reads it: the pattern matchers go blind, but the language models still catch it. Add one plausible sentence around it and they fail too. <b>Different layers, different victims</b> — and no family survives both.</p>
     <p class="byline">Roei Arpaly<span class="sep">·</span>Yoni Birman<span class="sep">—</span>Reichman University, Herzliya</p>
     <div class="venues">
+      <div class="venue"><span class="v-name"><span class="dot"></span>SECAI 2026 @ ESORICS</span><span class="v-meta">Oral · Springer LNCS · Rome, Sep 2026</span></div>
       <a class="venue venue-link" href="advpiibench-poster-usenix26.pdf"><span class="v-name"><span class="dot"></span>USENIX Security '26</span><span class="v-meta">Poster · Baltimore, Aug 2026</span></a>
       <a class="venue venue-link" href="https://github.com/OWASP/www-project-ai-testing-guide/blob/main/Document/content/tests/AITG-APP-04_Testing_for_Input_Leakage.md#adversarial-attacks-for-input-leakage"><span class="v-name"><span class="dot"></span>OWASP AI Testing Guide</span><span class="v-meta">AITG-APP-04 § Adversarial Attacks for Input Leakage</span></a>
     </div>
@@ -375,10 +379,11 @@
   <section id="resources">
     <h2>Resources</h2>
     <div class="res">
-      <a href="https://github.com/RoeiArpaly/llms-pii-leakage"><span class="r-name">Code &amp; pipeline</span><span class="r-desc">github.com/RoeiArpaly/llms-pii-leakage</span><span class="arrow">→</span></a>
+      <div class="soon"><span class="r-name">Paper (SECAI 2026 @ ESORICS)</span><span class="r-desc">Springer LNCS · link on publication</span><span class="tag-soon">To appear</span></div>
       <a href="advpiibench-poster-usenix26.pdf"><span class="r-name">Poster (USENIX Security '26)</span><span class="r-desc">poster session, 12 Aug 2026 · PDF</span><span class="arrow">→</span></a>
-      <a href="https://huggingface.co/datasets/roei-ar/AdvPIIBench"><span class="r-name">AdvPIIBench dataset · Hugging Face</span><span class="r-desc">huggingface.co/datasets/roei-ar/AdvPIIBench</span><span class="arrow">→</span></a>
       <a href="https://github.com/OWASP/www-project-ai-testing-guide/blob/main/Document/content/tests/AITG-APP-04_Testing_for_Input_Leakage.md#adversarial-attacks-for-input-leakage"><span class="r-name">OWASP AI Testing Guide</span><span class="r-desc">AITG-APP-04 § Adversarial Attacks for Input Leakage</span><span class="arrow">→</span></a>
+      <a href="https://huggingface.co/datasets/roei-ar/AdvPIIBench"><span class="r-name">AdvPIIBench dataset · Hugging Face</span><span class="r-desc">huggingface.co/datasets/roei-ar/AdvPIIBench</span><span class="arrow">→</span></a>
+      <a href="https://github.com/RoeiArpaly/llms-pii-leakage"><span class="r-name">Code &amp; pipeline</span><span class="r-desc">github.com/RoeiArpaly/llms-pii-leakage</span><span class="arrow">→</span></a>
     </div>
   </section>
 
@@ -386,13 +391,17 @@
     <h2>Cite</h2>
     <div class="cite">
       <button class="copy" id="copyBtn" type="button">Copy</button>
-      <pre id="bib"><span class="k">@misc</span>{arpaly2026advpiibench,
-  title  = {{AdvPIIBench}: The Adversarial Collapse of
-            {PII} Detection in {LLM} Interactions},
-  author = {Arpaly, Roei and Birman, Yoni},
-  year   = {2026},
-  note   = {Poster, 35th USENIX Security Symposium},
-  url    = {https://github.com/RoeiArpaly/llms-pii-leakage}
+      <pre id="bib"><span class="k">@inproceedings</span>{arpaly2026advpiibench,
+  title     = {{AdvPIIBench}: The Adversarial Collapse of
+               {PII} Detection in {LLM} Interactions},
+  author    = {Arpaly, Roei and Birman, Yoni},
+  booktitle = {Computer Security. ESORICS 2026 International
+               Workshops (SECAI)},
+  series    = {Lecture Notes in Computer Science},
+  publisher = {Springer},
+  address   = {Cham},
+  year      = {2026},
+  note      = {To appear}
 }</pre>
     </div>
   </section>
