@@ -1,5 +1,10 @@
 # AdvPIIBench: An Adversarial Benchmark for PII Detection in the Era of LLMs
 
+[![Paper](https://img.shields.io/badge/Paper-SECAI%202026%20%40%20ESORICS-b31b1b)](https://roeiarpaly.github.io/llms-pii-leakage/advpiibench-secai26-accepted-manuscript.pdf)
+[![Dataset](https://img.shields.io/badge/%F0%9F%A4%97%20Dataset-AdvPIIBench-yellow)](https://huggingface.co/datasets/roei-ar/AdvPIIBench)
+[![Project page](https://img.shields.io/badge/Project%20page-roeiarpaly.github.io-blue)](https://roeiarpaly.github.io/llms-pii-leakage/)
+[![Code licence: MIT](https://img.shields.io/badge/Code%20licence-MIT-green)](LICENSE)
+
 ## Description
 AdvPIIBench is a benchmark for evaluating Personally Identifiable Information (PII) detectors under adversarial conditions. It accompanies the paper studying how adaptive adversarial techniques degrade the recall of PII detection systems in the era of Large Language Models (LLMs).
 
